@@ -1,0 +1,11 @@
+const fs = require('fs');
+const path = require('path');
+const dir = __dirname;
+let html = fs.readFileSync(path.join(dir, 'v2.html'), 'utf8');
+let js = fs.readFileSync(path.join(dir, 'game.v2.js'), 'utf8');
+js = js.replace(/\n    if\(location\.search\.includes\('debug=1'\)\)\{[\s\S]*?\n    \}/, '');
+const avatar = fs.readFileSync(path.join(dir, 'avatar.jpg')).toString('base64');
+html = html.replace('<img src="avatar.jpg" alt="奶龙学长头像">', () => `<img src="data:image/jpeg;base64,${avatar}" alt="奶龙学长头像">`);
+html = html.replace('<script src="game.v2.js"></script>', () => `<script>\n${js}\n</script>`);
+fs.writeFileSync(path.join(dir, '..', 'wechat-qq', 'index.html'), html, 'utf8');
+console.log('built', html.length, 'bytes, inline js', js.length);

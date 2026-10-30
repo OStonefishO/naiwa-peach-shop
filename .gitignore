@@ -1,0 +1,12 @@
+# local test artifacts
+_*.mjs
+*.tmp
+*.log
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# secrets
+.github_token
+.env

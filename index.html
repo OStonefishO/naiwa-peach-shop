@@ -1,0 +1,2472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#F8E8BE">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>奶蛙黄桃罐头店 · Demo</title>
+<style>
+  :root{
+    --cream:#FFF8E7;
+    --paper:#FFFDF7;
+    --ink:#4A321E;
+    --muted:#8E6D49;
+    --line:#E8D5B4;
+    --yellow:#FFD23F;
+    --yellow-deep:#E7AC14;
+    --peach:#FF9B42;
+    --peach-deep:#ED772B;
+    --green:#2F7D52;
+    --green-deep:#1F5B3B;
+    --mint:#B9D9A8;
+    --coral:#EF6758;
+    --shadow:0 8px 22px rgba(105,70,30,.14);
+    --safe-top:env(safe-area-inset-top,0px);
+    --safe-bottom:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0;overscroll-behavior:none}
+  body{
+    font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei","Hiragino Sans GB",system-ui,sans-serif;
+    color:var(--ink);
+    background:
+      radial-gradient(circle at 18% 16%, rgba(255,255,255,.10) 0 2px, transparent 3px) 0 0/28px 28px,
+      radial-gradient(circle at 78% 72%, rgba(255,255,255,.06) 0 2px, transparent 3px) 0 0/28px 28px,
+      #244B3A;
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+    user-select:none;
+    -webkit-user-select:none;
+    touch-action:manipulation;
+  }
+  button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer;touch-action:manipulation}
+  svg{display:block}
+  .icon{width:1em;height:1em;display:inline-block;vertical-align:-.12em;fill:currentColor}
+  .svg-sprite{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
+
+  .game{
+    position:relative;
+    width:min(100vw,460px);
+    height:100dvh;
+    max-height:940px;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    background:var(--cream);
+    border-radius:0;
+    box-shadow:0 30px 80px rgba(0,0,0,.35);
+    isolation:isolate;
+  }
+  @media (min-width:520px) and (min-height:700px){
+    .game{height:min(94dvh,900px);border-radius:32px;border:1px solid rgba(255,255,255,.3)}
+  }
+
+  /* ---------- 顶栏 ---------- */
+  .topbar{
+    position:relative;z-index:40;
+    flex:0 0 auto;
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    padding:calc(7px + var(--safe-top)) 12px 7px;
+    background:linear-gradient(180deg,#FFFBEF 0%,#FDF2D4 100%);
+    border-bottom:2px solid #E8D0A0;
+  }
+  .brand{display:flex;align-items:center;gap:8px;min-width:0}
+  .brand-badge{
+    width:36px;height:36px;flex:0 0 auto;border-radius:12px;
+    background:linear-gradient(145deg,#FFE36F,#FFC82E);
+    border:2px solid #6B4A1B;
+    box-shadow:0 3px 0 #D59C10;
+    display:grid;place-items:center;overflow:hidden;
+  }
+  .brand-badge svg{width:29px;height:29px}
+  .brand-copy{min-width:0}
+  .brand-title{
+    font-size:14px;font-weight:900;letter-spacing:.2px;line-height:1.1;
+    white-space:nowrap;color:#4C3318;
+  }
+  .brand-sub{
+    margin-top:3px;font-size:8px;font-weight:800;letter-spacing:.8px;
+    color:#9C7446;white-space:nowrap;
+  }
+  .hud{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+  .coin-chip{
+    display:flex;align-items:center;gap:4px;
+    padding:5px 9px 4px;border-radius:999px;
+    background:#FFF3C9;border:1.5px solid #E3BF6E;
+    box-shadow:inset 0 -2px 0 #EFD99B;
+    font-size:13px;font-weight:900;color:#6A470D;
+    min-width:58px;justify-content:center;
+    font-variant-numeric:tabular-nums;
+  }
+  .coin-chip .icon{width:16px;height:16px;color:#D99A15}
+  .icon-btn{
+    width:35px;height:35px;border-radius:50%;
+    display:grid;place-items:center;
+    background:#FFF9EB;border:1.5px solid #DCC39A;
+    color:#7A5833;box-shadow:0 2px 0 #EAD9BD;
+  }
+  .icon-btn:active{transform:translateY(1px);box-shadow:none}
+  .icon-btn .icon{width:17px;height:17px}
+
+  /* ---------- 场景 ---------- */
+  .scene{
+    position:relative;
+    flex:0 0 clamp(232px,31.5vh,284px);
+    overflow:hidden;
+    background:
+      radial-gradient(circle at 18% 30%, rgba(255,255,255,.38) 0 2px, transparent 2.6px) 0 0/26px 26px,
+      linear-gradient(180deg,#FAEBCB 0%,#F4DDB4 100%);
+    border-bottom:4px solid #BE8245;
+    z-index:1;
+  }
+  .awning{
+    position:absolute;left:0;right:0;top:0;height:21px;z-index:4;
+    background:repeating-linear-gradient(90deg,var(--coral) 0 28px,#FFF2D6 28px 56px);
+    filter:drop-shadow(0 3px 2px rgba(93,51,25,.12));
+  }
+  .awning::after{
+    content:"";position:absolute;left:0;right:0;top:21px;height:11px;
+    background:
+      radial-gradient(circle at 14px -1px,var(--coral) 0 14px,transparent 14.6px) 0 0/28px 12px repeat-x,
+      radial-gradient(circle at 14px -1px,#FFF2D6 0 14px,transparent 14.6px) 28px 0/28px 12px repeat-x;
+  }
+  .window{
+    position:absolute;right:22px;top:31px;width:136px;height:114px;
+    border:6px solid #FFF7E5;border-radius:17px;
+    background:linear-gradient(180deg,#9BD9E9 0%,#D7F0EF 74%);
+    box-shadow:0 6px 0 rgba(120,80,35,.10),inset 0 0 0 2px #E4C89C;
+    overflow:hidden;z-index:1;
+  }
+  .window::before{
+    content:"";position:absolute;width:38px;height:38px;border-radius:50%;
+    right:17px;top:13px;background:#FFE37B;box-shadow:0 0 0 8px rgba(255,227,123,.22);
+  }
+  .window::after{
+    content:"";position:absolute;left:13px;bottom:23px;width:52px;height:18px;border-radius:99px;
+    background:rgba(255,255,255,.76);box-shadow:38px 17px 0 -4px rgba(255,255,255,.66),22px -15px 0 -7px rgba(255,255,255,.5);
+  }
+  .window .hill{
+    position:absolute;left:-15px;right:-15px;bottom:-16px;height:42px;border-radius:50% 50% 0 0;
+    background:#8FC894;
+  }
+  .window .hill.two{left:42px;bottom:-23px;background:#6FB37C;height:48px}
+  .shelf{
+    position:absolute;left:16px;top:24px;width:146px;height:7px;border-radius:99px;
+    background:#C78E4C;box-shadow:0 4px 0 #A46B34;z-index:1;
+  }
+  .shelf .jar{
+    position:absolute;bottom:7px;width:17px;height:25px;border-radius:5px 5px 4px 4px;
+    background:linear-gradient(90deg,#E7B15C,#FFD88C 55%,#D39443);
+    border:1px solid rgba(115,71,30,.3);
+  }
+  .shelf .jar::after{
+    content:"";position:absolute;left:2px;right:2px;top:6px;height:7px;border-radius:2px;background:#2F7D52;
+  }
+  .shelf .jar.j1{left:8px}
+  .shelf .jar.j2{left:32px;width:21px;height:20px;background:linear-gradient(90deg,#F0A36C,#FFC991)}
+  .shelf .jar.j3{left:62px;height:28px;background:linear-gradient(90deg,#D6A654,#F6D081)}
+  .wall-note{
+    position:absolute;left:18px;top:74px;z-index:2;
+    font-size:7px;font-weight:900;letter-spacing:1.5px;color:#9A754A;
+    padding:3px 8px;border:1px dashed #CDAF84;border-radius:3px;background:#FFF7E6;
+    transform:rotate(-2deg);opacity:.8;
+  }
+
+  /* 订单票 */
+  .order-ticket{
+    position:absolute;left:10px;top:28px;width:154px;z-index:16;
+    background:#FFFDF6;
+    border:1.5px solid #D9BD8B;border-radius:8px 8px 12px 12px;
+    box-shadow:3px 5px 0 rgba(132,93,45,.12),0 10px 18px rgba(132,93,45,.12);
+    padding:5px 8px 4px;
+    transform:rotate(-1.8deg);
+    transform-origin:top center;
+  }
+  .order-ticket::before{
+    content:"";position:absolute;left:50%;top:-8px;width:48px;height:15px;
+    transform:translateX(-50%) rotate(2deg);
+    background:rgba(255,236,166,.78);
+    border-left:1px dashed rgba(157,120,64,.16);
+    border-right:1px dashed rgba(157,120,64,.16);
+    box-shadow:0 1px 2px rgba(0,0,0,.04);
+  }
+  .ticket-in{animation:ticketIn .42s cubic-bezier(.2,.9,.25,1.2)}
+  @keyframes ticketIn{
+    0%{transform:rotate(-5deg) translateY(-16px) scale(.94);opacity:0}
+    100%{transform:rotate(-1.8deg) translateY(0) scale(1);opacity:1}
+  }
+  .ticket-head{display:flex;align-items:baseline;justify-content:space-between;gap:6px;padding-bottom:2px}
+  .ticket-kicker{font-size:7px;font-weight:900;letter-spacing:1.1px;color:#A78151}
+  .ticket-name{font-size:10px;font-weight:900;color:#5A3B20;white-space:nowrap}
+  .ticket-rule{border-top:1px dashed #DCC5A1;margin:0 0 4px}
+  .ticket-row{display:flex;align-items:center;gap:5px;min-height:14.5px;font-size:9.5px;font-weight:800;color:#6E4C2A;line-height:1.2}
+  .ticket-row .icon{width:12px;height:12px;flex:0 0 auto}
+  .ticket-row .row-label{color:#96734E;font-weight:700}
+  .ticket-row b{margin-left:auto;font-size:9.5px;color:#4D331B;text-align:right;white-space:nowrap}
+  .ticket-row.size .icon{color:#7D7467}
+  .ticket-row.peach .icon{color:#F1842F}
+  .ticket-row.sweet .icon{color:#E4A719}
+  .ticket-row.temp .icon{color:#5C9FB2}
+  .ticket-row.topping .icon{color:#4E9064}
+
+  /* 客人 */
+  .guest-wrap{
+    position:absolute;right:8px;bottom:46px;width:118px;height:166px;z-index:9;
+  }
+  .guest-name{
+    position:absolute;top:0;right:7px;z-index:3;
+    background:#FFF8E8;border:1.5px solid #D8B985;border-radius:999px;
+    font-size:8.5px;font-weight:900;color:#67441F;padding:2px 7px;
+    box-shadow:0 2px 0 rgba(122,85,36,.12);
+    transform:rotate(2deg);
+  }
+  .guest-svg{position:absolute;bottom:0;left:0;width:118px;height:158px;overflow:visible;filter:drop-shadow(0 7px 3px rgba(80,52,20,.12))}
+  .dog-bob{animation:dogBob 2.8s ease-in-out infinite;transform-origin:80px 190px}
+  @keyframes dogBob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-2px) rotate(.6deg)}}
+  .dog-tail{transform-origin:113px 140px;animation:tailWag 1.1s ease-in-out infinite}
+  @keyframes tailWag{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(7deg)}}
+  .guest-leave{animation:guestLeave .6s ease forwards}
+  @keyframes guestLeave{to{transform:translateX(45px);opacity:0}}
+  .guest-enter{animation:guestEnter .55s cubic-bezier(.2,.9,.25,1.15)}
+  @keyframes guestEnter{0%{transform:translateX(34px) scale(.94);opacity:0}100%{transform:none;opacity:1}}
+  .mouth-sad{display:none}
+  .guest-wrap.sad .mouth-happy{display:none}
+  .guest-wrap.sad .mouth-sad{display:block}
+  .brow-sad{display:none}
+  .guest-wrap.sad .brow-sad{display:block}
+  .guest-wrap.sad .dog-bob{animation:none}
+  .guest-wrap.sad .dog-tail{animation:none}
+  .guest-wrap.happy .cheek{opacity:.9}
+
+  .speech{
+    position:absolute;right:11px;top:23px;max-width:112px;z-index:18;
+    background:#FFFDF6;border:1.5px solid #6C4A26;border-radius:10px 10px 3px 10px;
+    padding:5px 7px;font-size:9px;font-weight:800;line-height:1.45;color:#5B3D1F;
+    box-shadow:2px 3px 0 rgba(108,74,38,.14);
+    opacity:0;transform:translateY(5px) scale(.96);pointer-events:none;
+    transition:opacity .2s ease,transform .2s ease;
+  }
+  .speech::after{
+    content:"";position:absolute;right:4px;bottom:-10px;
+    border-left:5px solid transparent;border-right:5px solid transparent;border-top:10px solid #FFFDF6;
+    filter:drop-shadow(0 1.5px 0 #6C4A26);
+  }
+  .speech.show{opacity:1;transform:none}
+
+  /* 奶蛙厨师 */
+  .frog{
+    position:absolute;left:2px;bottom:30px;width:78px;height:88px;z-index:12;
+    filter:drop-shadow(0 5px 3px rgba(90,55,20,.14));
+    pointer-events:none;
+  }
+  .frog svg{width:100%;height:100%;overflow:visible}
+  .frog-idle{animation:frogBob 2.4s ease-in-out infinite;transform-origin:center bottom}
+  @keyframes frogBob{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-2px) rotate(1deg)}}
+
+  /* 吧台 */
+  .counter{position:absolute;left:0;right:0;bottom:0;height:65px;z-index:20}
+  .counter-top{
+    height:15px;background:linear-gradient(180deg,#F2CC93 0%,#D9A263 55%,#C18848 100%);
+    border-top:3px solid #FFE3B5;box-shadow:0 3px 5px rgba(73,42,15,.22);
+  }
+  .counter-front{
+    position:relative;height:50px;overflow:hidden;
+    background:
+      repeating-linear-gradient(90deg,transparent 0 63px,rgba(84,44,17,.16) 63px 65px),
+      linear-gradient(180deg,#BE8045 0%,#A96632 100%);
+    border-top:1px solid #8F5226;
+    border-bottom:4px solid #7A451E;
+  }
+  .counter-front::before{
+    content:"";position:absolute;inset:9px 0 auto;height:2px;background:rgba(255,215,159,.14);
+  }
+  .counter-sign{
+    position:absolute;left:50%;top:8px;transform:translateX(-50%) rotate(-1deg);
+    background:#FFF3CD;border:2px solid #7A4A21;border-radius:6px;
+    padding:3px 9px;font-size:7px;font-weight:900;letter-spacing:1.1px;color:#6C421D;
+    box-shadow:2px 2px 0 rgba(64,35,10,.18);white-space:nowrap;z-index:2;
+  }
+  .counter-plant{
+    position:absolute;left:13px;bottom:44px;width:28px;height:34px;z-index:14;
+  }
+  .counter-plant .pot{
+    position:absolute;left:5px;bottom:0;width:19px;height:16px;border-radius:3px 3px 8px 8px;
+    background:linear-gradient(90deg,#D88752,#F1AC72);border:1px solid #9B5C33;
+  }
+  .counter-plant .leaf{
+    position:absolute;bottom:13px;left:12px;width:6px;height:19px;border-radius:99px;
+    background:#4C8D5E;transform-origin:bottom;transform:rotate(-26deg);
+  }
+  .counter-plant .leaf.l2{transform:rotate(25deg);height:16px;left:14px;background:#5FA06F}
+  .counter-plant .leaf.l3{transform:rotate(-2deg);height:23px;left:13px;background:#3D7950}
+
+  /* 罐头展示台 */
+  .can-stage{
+    position:absolute;left:52%;bottom:45px;transform:translateX(-50%);
+    width:104px;height:154px;z-index:24;
+    display:flex;align-items:flex-end;justify-content:center;
+  }
+  .doily{
+    position:absolute;left:50%;bottom:-4px;width:92px;height:19px;transform:translateX(-50%);
+    border-radius:50%;
+    background:radial-gradient(circle at 6px 8px,#FFFDF4 0 6px,transparent 6.8px) 0 0/13px 13px;
+    filter:drop-shadow(0 3px 2px rgba(90,55,20,.12));
+    opacity:.95;
+  }
+  .can-wrap{
+    position:relative;width:98px;height:148px;
+    transform-origin:center bottom;
+    transition:transform .28s cubic-bezier(.2,.9,.3,1.2),opacity .25s;
+    filter:drop-shadow(0 7px 5px rgba(75,46,18,.18));
+  }
+  .can-wrap.size-small{transform:scale(.84)}
+  .can-wrap.size-medium{transform:scale(.95)}
+  .can-wrap.size-large{transform:scale(1.05)}
+  .can-wrap.empty{opacity:.9}
+  .can-wrap.serving{animation:serveCan .75s cubic-bezier(.3,.8,.4,1) forwards}
+  @keyframes serveCan{
+    0%{transform:translate(0,0) rotate(0) scale(var(--canScale,1))}
+    38%{transform:translate(4px,-8px) rotate(-4deg) scale(var(--canScale,1))}
+    100%{transform:translate(126px,-22px) rotate(9deg) scale(.65);opacity:0}
+  }
+  .can-wrap.bump{animation:canBump .28s ease}
+  @keyframes canBump{0%{transform:scale(var(--canScale,1))}45%{transform:scale(calc(var(--canScale,1) * 1.06)) translateY(-3px)}100%{transform:scale(var(--canScale,1))}}
+  .can-wrap.sealing .lid-group{animation:lidDrop .46s cubic-bezier(.2,.8,.3,1.3) both}
+  @keyframes lidDrop{0%{transform:translateY(-26px);opacity:0}70%{transform:translateY(2px);opacity:1}100%{transform:translateY(0);opacity:1}}
+  .can-wrap svg{width:100%;height:100%;overflow:visible}
+  .steam{animation:steamFloat 2.2s ease-in-out infinite;opacity:.55}
+  .steam.s2{animation-delay:.7s}
+  @keyframes steamFloat{0%{transform:translateY(4px);opacity:0}35%{opacity:.55}100%{transform:translateY(-9px);opacity:0}}
+  .ice-shine{animation:iceShine 2.8s ease-in-out infinite}
+  @keyframes iceShine{0%,100%{opacity:.55}50%{opacity:.15}}
+
+  .empty-can{
+    position:absolute;bottom:2px;left:50%;transform:translateX(-50%);
+    width:76px;height:126px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:#B28D5D;
+  }
+  .empty-can .outline{
+    position:absolute;inset:8px 4px 2px;border:2px dashed #C8A978;border-radius:13px;
+    background:rgba(255,250,236,.34);
+  }
+  .empty-can .lid-line{
+    position:absolute;top:13px;left:12px;right:12px;height:14px;border:2px dashed #C8A978;border-radius:50%;
+  }
+  .empty-can span{
+    position:relative;z-index:1;font-size:9px;font-weight:900;line-height:1.6;text-align:center;
+    background:#FFF7E5;border:1px solid #DCC39A;border-radius:8px;padding:3px 7px;
+    box-shadow:0 2px 0 rgba(126,92,45,.1);transform:rotate(-2deg);
+  }
+
+  /* ---------- 操作面板 ---------- */
+  .panel{
+    position:relative;z-index:30;
+    flex:1 1 auto;min-height:0;
+    padding:7px 11px 5px;
+    display:flex;flex-direction:column;gap:6px;
+    background:
+      linear-gradient(180deg,#FFF9EA 0%,#FFFDF7 65%),
+      var(--paper);
+    overflow-y:auto;scrollbar-width:none;
+  }
+  .panel::-webkit-scrollbar{display:none}
+  .panel-head{display:flex;align-items:center;gap:7px;min-height:24px;flex:0 0 auto}
+  .hint{
+    flex:1;min-width:0;display:flex;align-items:center;gap:6px;
+    background:#FFF0C4;border:1.5px solid #E9CE91;border-radius:999px;
+    padding:3px 9px 3px 5px;box-shadow:inset 0 -1px 0 #F5E4B9;
+    font-size:10px;font-weight:800;color:#795630;
+  }
+  .hint-frog{width:20px;height:20px;flex:0 0 auto;border-radius:50%;background:#FFD23F;display:grid;place-items:center;border:1px solid #D8A50E;overflow:hidden}
+  .hint-frog svg{width:18px;height:18px}
+  .hint-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hint.pulse{animation:hintPulse 1.4s ease-in-out infinite}
+  @keyframes hintPulse{0%,100%{box-shadow:inset 0 -1px 0 #F5E4B9}50%{box-shadow:0 0 0 3px rgba(255,210,63,.25),inset 0 -1px 0 #F5E4B9}}
+  .patience{display:flex;align-items:center;gap:5px;flex:0 0 auto}
+  .patience .icon{width:14px;height:14px;color:#8A6842}
+  .patience-track{
+    width:58px;height:8px;border-radius:99px;background:#EDE1CD;border:1px solid #DCC8A6;
+    overflow:hidden;box-shadow:inset 0 1px 2px rgba(90,55,20,.08);
+  }
+  .patience-fill{
+    width:100%;height:100%;border-radius:inherit;
+    background:linear-gradient(90deg,#67B77A,#B3D56A);
+    transform-origin:left;transition:background .25s;
+  }
+  .patience.low .patience-fill{background:linear-gradient(90deg,#EF8A3A,#E15245)}
+  .patience-time{font-size:9px;font-weight:900;color:#92704A;min-width:27px;text-align:right;font-variant-numeric:tabular-nums}
+
+  .cook-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:6px;flex:0 0 auto}
+  .ctrl-card{
+    position:relative;min-width:0;
+    background:#FFFEFA;border:1.5px solid #EAD7B7;border-radius:13px;
+    padding:6px 7px 6px;
+    box-shadow:0 2px 0 #F2E5CF,0 5px 10px rgba(100,65,25,.04);
+    transition:opacity .2s;
+  }
+  .ctrl-card.locked{opacity:.55}
+  .ctrl-head{display:flex;align-items:center;gap:4px;margin-bottom:4px;min-height:17px}
+  .stepnum{
+    width:16px;height:16px;flex:0 0 auto;border-radius:5px;
+    display:grid;place-items:center;
+    background:linear-gradient(#FFE266,#FFC92E);
+    border:1.3px solid #D39D0D;
+    font-size:9px;font-weight:900;color:#674505;
+    box-shadow:0 1px 0 #B8860A;
+  }
+  .ctrl-title{font-size:9.5px;font-weight:900;color:#75522F;letter-spacing:.15px;white-space:nowrap}
+  .ctrl-note{margin-left:auto;font-size:7.5px;font-weight:800;color:#AD8B61;white-space:nowrap}
+  .size-options{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .size-btn{
+    position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    min-width:0;padding:4px 1px 3px;border-radius:9px;
+    border:1.3px solid #E8D6B9;background:#FFFBF2;
+    color:#6C4925;transition:transform .1s,background .15s,border-color .15s;
+  }
+  .size-btn:active{transform:scale(.96)}
+  .size-btn.active{border-color:#E0A90A;background:#FFF5CB;box-shadow:inset 0 0 0 1px #FFD23F}
+  .size-btn.active::after{
+    content:"✓";position:absolute;top:1px;right:2px;font-size:8px;font-weight:900;color:#2F7D52;
+  }
+  .mini-can{
+    position:relative;width:12px;height:22px;margin-bottom:1px;
+    border-radius:3px;
+    background:linear-gradient(90deg,#C4BFB2,#F5F0E4 46%,#B7B1A4);
+    border:1px solid #9E9687;
+    box-shadow:inset 0 -3px 0 rgba(0,0,0,.06);
+  }
+  .mini-can::before{
+    content:"";position:absolute;left:0;right:0;top:5px;height:11px;
+    background:linear-gradient(180deg,#39865B,#276847);
+    border-top:1px solid #E7C963;border-bottom:1px solid #E7C963;
+  }
+  .mini-can::after{
+    content:"";position:absolute;left:1px;right:1px;top:-2px;height:3px;border-radius:50%;
+    background:#E9E4D7;border:1px solid #A8A193;
+  }
+  .size-btn b{font-size:9px;font-weight:900;line-height:1.1}
+  .size-btn small{font-size:6.5px;line-height:1.2;color:#A2835E;font-weight:700}
+  .size-btn:disabled{cursor:default}
+
+  .peach-control{display:flex;align-items:center;justify-content:space-between;gap:3px;height:36px}
+  .round-btn{
+    width:27px;height:27px;flex:0 0 auto;border-radius:50%;
+    display:grid;place-items:center;
+    background:#FFF8E8;border:1.5px solid #DCC39B;color:#78522C;
+    font-size:16px;font-weight:900;line-height:1;
+    box-shadow:0 2px 0 #E9D7BB;
+  }
+  .round-btn:active{transform:translateY(1px);box-shadow:none}
+  .round-btn:disabled{opacity:.4;box-shadow:none}
+  .peach-count{display:flex;align-items:baseline;justify-content:center;gap:2px;min-width:46px}
+  .peach-count .icon{width:19px;height:19px;color:#F07B2A;align-self:center;margin-right:1px;filter:drop-shadow(0 1px 0 rgba(255,255,255,.7))}
+  .peach-count b{font-size:20px;line-height:1;font-weight:900;color:#5E3D1D;font-variant-numeric:tabular-nums}
+  .peach-count small{font-size:8px;font-weight:800;color:#A17D55}
+
+  .syrup-card{flex:0 0 auto;padding:6px 8px 7px}
+  .syrup-row{display:flex;align-items:center;gap:7px}
+  .syrup-main{flex:1;min-width:0}
+  .syrup-gauge{
+    position:relative;height:23px;border-radius:7px;overflow:hidden;
+    background:#F1E6D3;border:1.3px solid #D9C4A3;
+    box-shadow:inset 0 2px 3px rgba(91,57,19,.08);
+  }
+  .syrup-target{
+    position:absolute;top:0;bottom:0;z-index:1;
+    background:repeating-linear-gradient(135deg,rgba(47,125,82,.27) 0 5px,rgba(47,125,82,.10) 5px 10px);
+    border-left:1.5px solid rgba(47,125,82,.66);
+    border-right:1.5px solid rgba(47,125,82,.66);
+    transition:left .2s,width .2s;
+  }
+  .syrup-target::before{
+    content:"目标";
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-90deg);
+    font-size:6px;font-weight:900;letter-spacing:1px;color:#2F7D52;opacity:.85;white-space:nowrap;
+  }
+  .syrup-fill{
+    position:absolute;left:0;top:0;bottom:0;width:0;z-index:0;
+    background:linear-gradient(90deg,#FFD852,#FFA63E);
+    border-right:2px solid #EA7C23;
+  }
+  .syrup-fill.in-zone{background:linear-gradient(90deg,#FFE16B,#7DC389);border-right-color:#3D9361}
+  .syrup-label{
+    position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:space-between;
+    padding:0 7px;font-size:7.5px;font-weight:900;color:#7D5C38;pointer-events:none;
+    text-shadow:0 1px 0 rgba(255,255,255,.35);
+  }
+  .pour-btn{
+    position:relative;flex:0 0 auto;height:38px;min-width:85px;padding:0 8px;
+    border-radius:10px;
+    background:linear-gradient(180deg,#FFE369,#FFC72D);
+    border:1.7px solid #D29B0C;
+    box-shadow:0 3px 0 #B98008,inset 0 1px 0 rgba(255,255,255,.7);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+    font-size:9px;font-weight:900;color:#5C3D05;line-height:1.1;
+    touch-action:none;
+    transition:transform .08s,box-shadow .08s;
+  }
+  .pour-btn .pour-label{display:flex;align-items:center;gap:3px}
+  .pour-btn .icon{width:12px;height:12px;color:#8A5D07}
+  .pour-btn small{font-size:7px;font-weight:800;color:#8E671A}
+  .pour-btn:active,.pour-btn.pouring{transform:translateY(2px);box-shadow:0 1px 0 #B98008}
+  .pour-btn:disabled{opacity:.52;box-shadow:none;transform:translateY(2px)}
+  .syrup-card .ctrl-head{margin-bottom:4px}
+
+  .chip-row{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .chip{
+    height:29px;min-width:0;padding:0 2px;
+    display:flex;align-items:center;justify-content:center;gap:2px;
+    border-radius:9px;border:1.3px solid #E7D4B6;background:#FFFBF2;
+    font-size:8.5px;font-weight:900;color:#715030;
+    transition:background .15s,border-color .15s,transform .1s;
+  }
+  .chip .icon{width:11px;height:11px;flex:0 0 auto;color:#8A6A45}
+  .chip:active{transform:scale(.96)}
+  .chip.active{border-color:#E0A90A;background:#FFF5CB;color:#604107;box-shadow:inset 0 0 0 1px #FFD23F}
+  .chip.active .icon{color:#B57B04}
+  .chip:disabled{cursor:default}
+
+  /* ---------- 底部按钮 ---------- */
+  .footer{
+    position:relative;z-index:40;flex:0 0 auto;
+    display:grid;grid-template-columns:.78fr 1.22fr 1fr;gap:7px;
+    padding:7px 11px calc(8px + var(--safe-bottom));
+    background:linear-gradient(180deg,#FFFDF7 0%,#FBEBC8 100%);
+    border-top:2px solid #E7D0A5;
+    box-shadow:0 -5px 14px rgba(100,65,25,.05);
+  }
+  .main-btn{
+    height:47px;border-radius:13px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+    font-size:13px;font-weight:900;line-height:1.1;
+    transition:transform .08s,box-shadow .08s,opacity .15s;
+  }
+  .main-btn small{font-size:7.5px;font-weight:800;opacity:.72}
+  .main-btn:active:not(:disabled){transform:translateY(3px);box-shadow:none!important}
+  .main-btn:disabled{opacity:.48;filter:saturate(.55);box-shadow:none!important;transform:translateY(2px);cursor:default}
+  .reset-btn{
+    background:#FFF9EC;border:1.7px solid #DAC4A2;color:#896744;
+    box-shadow:0 3px 0 #E7D5B7;font-size:9px;gap:2px;
+  }
+  .reset-btn .icon{width:15px;height:15px}
+  .seal-btn{
+    background:linear-gradient(180deg,#FFE16C,#FFC62C);
+    border:1.8px solid #D39D0D;
+    box-shadow:0 4px 0 #B77F07,inset 0 1px 0 rgba(255,255,255,.65);
+    color:#593C04;
+  }
+  .seal-btn .icon{width:16px;height:16px;margin-bottom:1px}
+  .seal-btn.pulse{animation:sealPulse 1.25s ease-in-out infinite}
+  @keyframes sealPulse{0%,100%{box-shadow:0 4px 0 #B77F07}50%{box-shadow:0 4px 0 #B77F07,0 0 0 4px rgba(255,210,63,.22)}}
+  .serve-btn{
+    background:linear-gradient(180deg,#59A979,#2F7D52);
+    border:1.8px solid #1E5B3B;
+    box-shadow:0 4px 0 #18482F,inset 0 1px 0 rgba(255,255,255,.18);
+    color:#fff;
+  }
+  .serve-btn .icon{width:16px;height:16px}
+  .serve-btn.ready{animation:servePulse 1.5s ease-in-out infinite}
+  @keyframes servePulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.1)}}
+
+  /* ---------- 提示/浮层 ---------- */
+  .toast{
+    position:absolute;left:50%;bottom:calc(70px + var(--safe-bottom));z-index:150;
+    transform:translate(-50%,10px) scale(.96);
+    max-width:calc(100% - 40px);
+    background:#4B331D;color:#FFF8E9;
+    border:1.5px solid #2F1F0F;border-radius:999px;
+    padding:8px 14px;font-size:10.5px;font-weight:800;line-height:1.4;text-align:center;
+    box-shadow:0 8px 18px rgba(34,20,8,.25);
+    opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0) scale(1)}
+
+  .overlay{
+    position:absolute;inset:0;z-index:200;
+    display:flex;align-items:center;justify-content:center;
+    padding:18px;
+    background:rgba(42,30,18,.46);
+    backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+    opacity:0;visibility:hidden;pointer-events:none;
+    transition:opacity .25s,visibility .25s;
+    overflow-y:auto;scrollbar-width:none;
+  }
+  .overlay::-webkit-scrollbar{display:none}
+  .overlay.show{opacity:1;visibility:visible;pointer-events:auto}
+  .intro-overlay{
+    background:
+      radial-gradient(circle at 20% 15%,rgba(255,255,255,.15) 0 2px,transparent 3px) 0 0/30px 30px,
+      linear-gradient(155deg,#397C59 0%,#1F533A 58%,#173F2B 100%);
+    align-items:center;
+  }
+  .intro-card{
+    position:relative;width:min(100%,352px);
+    background:#FFF9E9;
+    border:2px solid #E5C98F;border-radius:26px;
+    box-shadow:0 22px 50px rgba(8,32,20,.35),inset 0 0 0 5px rgba(255,255,255,.42);
+    padding:0 20px 18px;text-align:center;
+    overflow:hidden;
+    max-height:calc(100dvh - 30px);
+    overflow-y:auto;scrollbar-width:none;
+  }
+  .intro-card::-webkit-scrollbar{display:none}
+  .intro-hero{
+    position:relative;height:178px;margin:0 -20px 4px;
+    background:
+      radial-gradient(circle at 50% 120%,#FFE69A 0 44%,transparent 44.5%),
+      linear-gradient(180deg,#F8DDA1 0%,#FCEAC4 100%);
+    overflow:hidden;
+  }
+  .intro-hero::before{
+    content:"";position:absolute;left:50%;top:50%;width:260px;height:260px;transform:translate(-50%,-50%);
+    background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.21) 0 8deg,transparent 8deg 16deg);
+    border-radius:50%;opacity:.5;
+  }
+  .intro-hero svg{position:absolute;left:50%;top:50%;width:312px;height:210px;transform:translate(-50%,-45%)}
+  .intro-tag{
+    position:absolute;top:13px;left:14px;z-index:2;
+    background:#FFF8E7;border:1.5px solid #D1AC69;border-radius:999px;
+    color:#8B602E;font-size:8px;font-weight:900;letter-spacing:1.2px;
+    padding:3px 8px;transform:rotate(-3deg);
+  }
+  .intro-badge{
+    position:absolute;right:13px;top:14px;z-index:2;
+    width:52px;height:52px;display:grid;place-items:center;border-radius:50%;
+    background:#E8584A;color:#FFF5D9;border:2px dashed rgba(255,245,217,.75);
+    font-size:9px;font-weight:900;line-height:1.3;transform:rotate(8deg);
+    box-shadow:0 4px 0 rgba(115,39,26,.2);
+  }
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:5px;
+    color:#B9842F;font-size:8px;font-weight:900;letter-spacing:2.3px;
+    margin:5px 0 4px;
+  }
+  .eyebrow::before,.eyebrow::after{content:"";width:14px;height:1px;background:#D3AE6F}
+  .intro-title{
+    margin:0;font-size:30px;line-height:1.04;letter-spacing:1px;font-weight:900;color:#4A3119;
+    text-shadow:0 2px 0 rgba(255,255,255,.55);
+  }
+  .intro-title em{font-style:normal;color:#DD5F3E;position:relative}
+  .intro-title em::after{
+    content:"";position:absolute;left:0;right:0;bottom:2px;height:5px;border-radius:99px;
+    background:#FFD65A;z-index:-1;transform:rotate(-1deg);
+  }
+  .intro-desc{
+    margin:9px 0 11px;color:#85623D;font-size:10.5px;font-weight:700;line-height:1.7;
+  }
+  .howto{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 13px;
+  }
+  .howto-item{
+    background:#FFFDF7;border:1.3px solid #E7D3B0;border-radius:11px;
+    padding:7px 3px 6px;box-shadow:0 2px 0 #F2E5D0;
+  }
+  .howto-item .num{
+    width:17px;height:17px;margin:0 auto 4px;border-radius:6px;
+    background:#FFD23F;border:1px solid #D6A00C;
+    display:grid;place-items:center;font-size:8px;font-weight:900;color:#5E4105;
+  }
+  .howto-item b{display:block;font-size:9px;font-weight:900;color:#654423;margin-bottom:2px}
+  .howto-item small{display:block;font-size:7px;color:#A17E56;line-height:1.35;font-weight:700}
+  .primary-btn{
+    width:100%;height:49px;border-radius:14px;
+    background:linear-gradient(180deg,#FFE46D,#FFC62A);
+    border:1.8px solid #D39B0A;
+    box-shadow:0 4px 0 #B57D06,inset 0 1px 0 rgba(255,255,255,.65);
+    display:flex;align-items:center;justify-content:center;gap:7px;
+    color:#5A3D04;font-size:14px;font-weight:900;
+    transition:transform .08s,box-shadow .08s;
+  }
+  .primary-btn .icon{width:16px;height:16px}
+  .primary-btn:active{transform:translateY(3px);box-shadow:0 1px 0 #B57D06}
+  .intro-note{margin-top:9px;font-size:7.5px;font-weight:700;color:#AE9068;letter-spacing:.3px}
+
+  /* 评价浮层 */
+  .review-overlay{align-items:flex-end;padding:0}
+  .review-sheet{
+    position:relative;width:100%;
+    max-height:82dvh;overflow-y:auto;scrollbar-width:none;
+    background:#FFFDF7;border-radius:24px 24px 0 0;
+    border-top:3px solid #F3DCA9;
+    box-shadow:0 -20px 50px rgba(38,24,10,.24);
+    padding:13px 18px calc(17px + var(--safe-bottom));
+    transform:translateY(24px);opacity:0;
+    transition:transform .3s cubic-bezier(.2,.9,.3,1.05),opacity .25s;
+  }
+  .review-sheet::-webkit-scrollbar{display:none}
+  .overlay.show .review-sheet{transform:none;opacity:1}
+  .sheet-grip{width:39px;height:4px;border-radius:99px;background:#E2D3BC;margin:0 auto 11px}
+  .review-top{text-align:center;position:relative}
+  .review-stars{display:flex;justify-content:center;gap:5px;height:35px;align-items:center;margin-bottom:2px}
+  .review-stars .star{
+    width:31px;height:31px;color:#E3D8C6;transform:scale(.55);opacity:0;
+    transition:transform .3s cubic-bezier(.2,.9,.3,1.6),color .2s,opacity .2s;
+    filter:drop-shadow(0 2px 0 rgba(114,71,16,.12));
+  }
+  .review-stars .star.on{color:#FFC836;opacity:1;transform:scale(1)}
+  .review-stars .star.pop{animation:starPop .45s cubic-bezier(.2,.9,.3,1.5) both}
+  @keyframes starPop{0%{transform:scale(.2) rotate(-16deg);opacity:0}70%{transform:scale(1.18) rotate(3deg);opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
+  .review-stars .star:nth-child(2){transition-delay:.09s}
+  .review-stars .star:nth-child(3){transition-delay:.18s}
+  .review-title{font-size:19px;font-weight:900;color:#4D331A;letter-spacing:.3px}
+  .review-score-pill{
+    display:inline-flex;align-items:center;gap:3px;margin:5px auto 0;
+    background:#FFF2C8;border:1px solid #E8CC8C;border-radius:999px;
+    padding:2px 8px;font-size:8px;font-weight:900;color:#946817;
+  }
+  .review-score-pill b{font-size:11px;color:#B2770B}
+  .review-quote{
+    position:relative;margin:10px 0 12px;padding:10px 13px;
+    background:#FFF8E9;border:1.3px solid #EAD8B7;border-radius:12px;
+    color:#74542F;font-size:10px;font-weight:700;line-height:1.65;text-align:left;
+  }
+  .review-quote::before{
+    content:"“";position:absolute;left:5px;top:-7px;font-size:24px;color:#D8B273;font-family:Georgia,serif;
+  }
+  .review-quote b{color:#51361C}
+  .score-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:11px}
+  .score-item{
+    display:flex;align-items:flex-start;gap:5px;min-width:0;
+    background:#FFFDF8;border:1px solid #EFE1C9;border-radius:9px;
+    padding:5px 6px;
+  }
+  .score-item .status{
+    width:15px;height:15px;border-radius:50%;flex:0 0 auto;
+    display:grid;place-items:center;margin-top:1px;
+    background:#E7F3E9;color:#3C8A5A;
+  }
+  .score-item.bad .status{background:#FDECDD;color:#D26A32}
+  .score-item .status .icon{width:9px;height:9px}
+  .score-item .copy{min-width:0}
+  .score-item b{display:block;font-size:8.5px;font-weight:900;color:#61421F;line-height:1.25}
+  .score-item small{display:block;font-size:7px;font-weight:700;color:#9C7B56;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .reward-row{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:8px 10px;margin-bottom:11px;
+    background:linear-gradient(90deg,#FFF4CE,#FFF9E8);
+    border:1.3px dashed #E2C275;border-radius:11px;
+  }
+  .reward-row span{font-size:9px;font-weight:800;color:#8B673A}
+  .reward-row strong{display:flex;align-items:center;gap:3px;font-size:16px;font-weight:900;color:#B77B09}
+  .reward-row .icon{width:17px;height:17px;color:#DFA218}
+  .review-actions{display:grid;grid-template-columns:1fr;gap:8px}
+  .review-actions .primary-btn{height:47px}
+  .perfect-stamp{
+    position:absolute;right:8px;top:-2px;width:57px;height:57px;border-radius:50%;
+    border:2px dashed #DA6248;color:#DA6248;
+    display:grid;place-items:center;text-align:center;
+    font-size:7px;font-weight:900;line-height:1.25;letter-spacing:.7px;
+    transform:rotate(11deg);opacity:0;
+    animation:stampIn .5s .35s ease both;
+  }
+  @keyframes stampIn{0%{transform:rotate(11deg) scale(1.7);opacity:0}100%{transform:rotate(11deg) scale(1);opacity:.9}}
+
+  /* 结算 */
+  .summary-overlay{
+    background:
+      radial-gradient(circle at 30% 20%,rgba(255,255,255,.12) 0 2px,transparent 3px) 0 0/26px 26px,
+      linear-gradient(160deg,#3C805C 0%,#20563B 100%);
+    overflow:hidden;
+  }
+  .summary-card{
+    position:relative;width:min(100%,354px);
+    background:#FFF9E9;border:2px solid #E4C78E;border-radius:25px;
+    box-shadow:0 24px 60px rgba(6,30,18,.35),inset 0 0 0 5px rgba(255,255,255,.4);
+    padding:24px 18px 18px;text-align:center;
+    max-height:calc(100dvh - 30px);overflow-y:auto;scrollbar-width:none;
+  }
+  .summary-card::-webkit-scrollbar{display:none}
+  .summary-ribbon{
+    position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:3;
+    background:#E65F4D;color:#FFF7E2;font-size:9px;font-weight:900;letter-spacing:2px;
+    padding:5px 18px;border-radius:999px;border:2px solid #FFF2D0;
+    box-shadow:0 3px 0 rgba(96,34,20,.2);
+    white-space:nowrap;
+  }
+  .summary-eyebrow{font-size:8px;font-weight:900;letter-spacing:2.4px;color:#B6873B;margin-top:17px}
+  .summary-title{font-size:23px;font-weight:900;color:#4A3017;margin:3px 0 3px}
+  .summary-sub{font-size:9px;font-weight:700;color:#94714B;margin-bottom:12px}
+  .summary-hero{
+    position:relative;margin:0 -4px 11px;height:106px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .summary-hero::before{
+    content:"";position:absolute;left:50%;top:50%;width:205px;height:205px;transform:translate(-50%,-50%);
+    border-radius:50%;background:radial-gradient(circle,rgba(255,221,119,.55),rgba(255,221,119,0) 68%);
+  }
+  .summary-frog{position:relative;width:105px;height:106px;filter:drop-shadow(0 6px 3px rgba(90,55,20,.12))}
+  .summary-frog svg{width:100%;height:100%}
+  .summary-stars{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;margin-left:7px}
+  .summary-big-star{display:flex;align-items:center;gap:3px;color:#FFC62F;font-size:28px;font-weight:900;line-height:1}
+  .summary-big-star .icon{width:28px;height:28px;filter:drop-shadow(0 2px 0 #D59D10)}
+  .summary-stars small{font-size:8px;font-weight:800;color:#9E7B4C}
+  .summary-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:11px}
+  .stat-box{
+    background:#FFFDF7;border:1.3px solid #EBD8B4;border-radius:11px;
+    padding:8px 3px 7px;box-shadow:0 2px 0 #F3E7D3;
+  }
+  .stat-box .icon{width:16px;height:16px;color:#DCA315;margin:0 auto 2px}
+  .stat-box b{display:block;font-size:16px;font-weight:900;color:#54371B;line-height:1.1;font-variant-numeric:tabular-nums}
+  .stat-box small{display:block;font-size:7px;font-weight:800;color:#A17E55;margin-top:2px}
+  .summary-comment{
+    background:#FFF4D1;border:1.3px dashed #E4C474;border-radius:11px;
+    padding:8px 10px;margin-bottom:11px;font-size:9px;font-weight:700;line-height:1.6;color:#7B5A32;
+  }
+  .summary-comment b{color:#5C3E1D}
+  .summary-best{font-size:7.5px;font-weight:800;color:#A58459;margin-bottom:9px}
+  .summary-actions{display:grid;gap:7px}
+  .summary-actions .primary-btn{height:47px}
+  .ghost-btn{
+    height:38px;border-radius:11px;border:1.3px solid #D9C29D;background:#FFF9EC;
+    font-size:9px;font-weight:900;color:#8C6A43;
+  }
+  .confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+  .confetti i{
+    position:absolute;top:-20px;width:8px;height:12px;border-radius:2px;
+    animation:confettiFall linear forwards;
+  }
+  @keyframes confettiFall{
+    0%{transform:translateY(-20px) rotate(0);opacity:0}
+    10%{opacity:1}
+    100%{transform:translateY(105dvh) rotate(520deg);opacity:.8}
+  }
+
+  @media (max-width:370px){
+    .brand-title{font-size:12.5px}
+    .brand-badge{width:32px;height:32px}
+    .brand-badge svg{width:26px;height:26px}
+    .order-ticket{width:140px;left:8px;padding:4px 7px 3px}
+    .ticket-row{font-size:9px;min-height:13.5px}
+    .ticket-row b{font-size:9px}
+    .guest-wrap{right:5px;width:108px;height:158px}
+    .guest-svg{width:108px;height:148px}
+    .guest-name{font-size:8px}
+    .speech{right:8px;max-width:100px;font-size:8.5px}
+    .can-stage{width:96px;height:146px;left:53%}
+    .can-wrap{width:92px;height:140px}
+    .frog{width:70px;height:80px;left:1px;bottom:28px}
+    .cook-grid{grid-template-columns:1.22fr 1fr}
+    .pour-btn{min-width:78px;font-size:8.5px}
+    .chip{font-size:8px}
+    .main-btn{font-size:12px}
+    .reset-btn{font-size:8px}
+  }
+  @media (max-height:760px){
+    .topbar{padding-top:calc(5px + var(--safe-top));padding-bottom:5px}
+    .brand-badge{width:32px;height:32px}
+    .brand-badge svg{width:26px;height:26px}
+    .brand-title{font-size:13px}
+    .brand-sub{font-size:7px;margin-top:2px}
+    .icon-btn{width:32px;height:32px}
+    .coin-chip{font-size:12px;padding:4px 8px;min-width:54px}
+    .scene{flex-basis:228px}
+    .order-ticket{top:26px;padding:4px 7px 3px}
+    .ticket-row{min-height:13.5px;font-size:9px}
+    .ticket-row b{font-size:9px}
+    .guest-wrap{height:156px;bottom:42px}
+    .guest-svg{height:148px}
+    .frog{width:70px;height:80px;left:1px;bottom:26px}
+    .can-stage{bottom:41px;width:96px;height:144px}
+    .can-wrap{width:92px;height:140px}
+    .counter{height:60px}
+    .counter-front{height:45px}
+    .panel{padding-top:5px;gap:5px}
+    .panel-head{min-height:21px}
+    .ctrl-card{padding:5px 6px}
+    .ctrl-head{margin-bottom:3px}
+    .size-btn{padding:3px 1px 2px}
+    .mini-can{height:19px;width:11px}
+    .peach-control{height:32px}
+    .peach-count b{font-size:18px}
+    .round-btn{width:25px;height:25px}
+    .syrup-gauge{height:21px}
+    .pour-btn{height:34px}
+    .chip{height:26px}
+    .main-btn{height:42px}
+    .footer{padding-top:5px;padding-bottom:calc(6px + var(--safe-bottom))}
+    .intro-hero{height:158px}
+    .intro-title{font-size:27px}
+    .howto-item{padding:6px 3px 5px}
+    .summary-hero{height:92px}
+  }
+  @media (max-height:650px){
+    .scene{flex-basis:206px}
+    .order-ticket{width:138px;top:27px}
+    .ticket-row{min-height:15px;font-size:8.5px}
+    .ticket-row b{font-size:8.5px}
+    .guest-wrap{height:142px;bottom:40px}
+    .guest-svg{height:136px}
+    .frog{display:none}
+    .can-stage{height:132px;bottom:38px}
+    .can-wrap{height:128px;width:84px}
+    .counter{height:56px}
+    .counter-front{height:41px}
+    .size-btn small{display:none}
+    .ctrl-note{display:none}
+    .main-btn{height:39px}
+    .intro-hero{height:138px}
+    .howto{display:none}
+    .intro-desc{margin:7px 0 9px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  }
+</style>
+</head>
+<body>
+
+<svg class="svg-sprite" aria-hidden="true" focusable="false">
+  <defs>
+    <radialGradient id="frogSkin" cx="38%" cy="25%" r="82%">
+      <stop offset="0" stop-color="#FFE87B"/>
+      <stop offset=".45" stop-color="#FFD43D"/>
+      <stop offset="1" stop-color="#F3B51D"/>
+    </radialGradient>
+    <linearGradient id="frogBelly" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFF9E9"/>
+      <stop offset="1" stop-color="#FFEBC9"/>
+    </linearGradient>
+    <linearGradient id="hatShade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F1E6D1"/>
+    </linearGradient>
+    <linearGradient id="canMetal" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#B9B3A6"/>
+      <stop offset=".18" stop-color="#F5F1E6"/>
+      <stop offset=".48" stop-color="#D8D2C4"/>
+      <stop offset=".76" stop-color="#F1EDE3"/>
+      <stop offset="1" stop-color="#AFA99C"/>
+    </linearGradient>
+    <linearGradient id="canLabel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3D8B5E"/>
+      <stop offset="1" stop-color="#236344"/>
+    </linearGradient>
+    <radialGradient id="peachGrad" cx="38%" cy="30%" r="80%">
+      <stop offset="0" stop-color="#FFD56F"/>
+      <stop offset=".48" stop-color="#FFB245"/>
+      <stop offset="1" stop-color="#EF7C28"/>
+    </radialGradient>
+    <linearGradient id="peachCanBody" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#B5AEA0"/>
+      <stop offset=".2" stop-color="#F6F0E3"/>
+      <stop offset=".55" stop-color="#D9D1C2"/>
+      <stop offset=".8" stop-color="#F1EBDD"/>
+      <stop offset="1" stop-color="#A9A294"/>
+    </linearGradient>
+  </defs>
+
+  <symbol id="i-star" viewBox="0 0 24 24">
+    <path d="M12 2.4l2.92 5.92 6.53.95-4.72 4.6 1.11 6.5L12 17.3l-5.84 3.07 1.11-6.5-4.72-4.6 6.53-.95L12 2.4z" fill="currentColor"/>
+  </symbol>
+  <symbol id="i-coin" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="9.1" fill="#F4C43A" stroke="#B57B0F" stroke-width="1.7"/>
+    <circle cx="12" cy="12" r="6.4" fill="#FFDD69" stroke="#D39A16" stroke-width="1"/>
+    <path d="M12 7.2v9.6M9.1 10.1h5.8M9.1 13.1h5.8" fill="none" stroke="#9D670B" stroke-width="1.75" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-peach" viewBox="0 0 24 24">
+    <path d="M11.9 5.2C9.5 2.7 5.1 3.9 4.4 7.6c-.8 4.3 3.2 9.5 7.5 12.4 4.3-2.9 8.3-8.1 7.5-12.4-.7-3.7-5.1-4.9-7.5-2.4z" fill="currentColor"/>
+    <path d="M12.1 6.1C12 3.7 13.7 2.2 16 2.2c.1 2.2-1.4 3.9-3.9 3.9z" fill="#5C9B58"/>
+    <path d="M10.7 9.1c-1.8.4-3.2 1.7-3.8 3.4" fill="none" stroke="#FFE2AC" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>
+  </symbol>
+  <symbol id="i-can" viewBox="0 0 24 24">
+    <path d="M8.1 3.6h7.8l1.1 3.1v10.6l-1.1 3.1H8.1l-1.1-3.1V6.7l1.1-3.1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+    <path d="M7.3 8.3h9.4M7.3 15.4h9.4" fill="none" stroke="currentColor" stroke-width="1.6"/>
+    <ellipse cx="12" cy="3.7" rx="3.9" ry="1.4" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  </symbol>
+  <symbol id="i-drop" viewBox="0 0 24 24">
+    <path d="M12 2.6s6.3 6.8 6.3 11.2A6.3 6.3 0 0 1 12 20.1a6.3 6.3 0 0 1-6.3-6.3C5.7 9.4 12 2.6 12 2.6z" fill="currentColor"/>
+    <path d="M9.1 14.1c.2 1.5 1.1 2.4 2.4 2.7" fill="none" stroke="#FFF3D2" stroke-width="1.5" stroke-linecap="round" opacity=".65"/>
+  </symbol>
+  <symbol id="i-snow" viewBox="0 0 24 24">
+    <path d="M12 2.8v18.4M4 7.4l16 9.2M20 7.4L4 16.6M8.3 4.8L12 7.5l3.7-2.7M8.3 19.2L12 16.5l3.7 2.7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-heat" viewBox="0 0 24 24">
+    <path d="M12.7 2.5c.8 3.1-.8 4.6-2.1 6.2-1.2 1.5-2.5 3.2-2.5 5.5a5 5 0 0 0 10 0c0-2.9-1.4-4.6-2.9-6.6-1-1.4-1.9-2.8-2.5-5.1z" fill="currentColor"/>
+    <path d="M10 17.9c-1-.9-1.4-2.2-.9-3.4.4-1 1.2-1.8 1.6-2.1.2 1.3.8 2 1.4 2.7.5.7.9 1.4.7 2.2-.2 1.1-1.2 1.8-2.8.6z" fill="#FFF3CF" opacity=".7"/>
+  </symbol>
+  <symbol id="i-leaf" viewBox="0 0 24 24">
+    <path d="M20 3.2C9.6 2.9 4.3 7.1 4.4 14.2c0 2.8 1.9 5.1 4.8 5.1 6.9 0 10.6-5.4 10.8-16.1z" fill="currentColor"/>
+    <path d="M4.5 21c1.6-5.4 4.8-9.2 9.7-11.8" fill="none" stroke="#F7F0D9" stroke-width="1.3" stroke-linecap="round" opacity=".64"/>
+  </symbol>
+  <symbol id="i-flower" viewBox="0 0 24 24">
+    <circle cx="12" cy="6.4" r="3" fill="currentColor"/>
+    <circle cx="17" cy="10.4" r="3" fill="currentColor"/>
+    <circle cx="15.1" cy="16.3" r="3" fill="currentColor"/>
+    <circle cx="8.9" cy="16.3" r="3" fill="currentColor"/>
+    <circle cx="7" cy="10.4" r="3" fill="currentColor"/>
+    <circle cx="12" cy="12" r="2.1" fill="#FFF0B8"/>
+  </symbol>
+  <symbol id="i-thermo" viewBox="0 0 24 24">
+    <path d="M10 14.2V5.4a2.1 2.1 0 0 1 4.2 0v8.8a4.1 4.1 0 1 1-4.2 0z" fill="none" stroke="currentColor" stroke-width="1.8"/>
+    <path d="M12.1 8.1v7.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-check" viewBox="0 0 24 24">
+    <path d="M4.5 12.6l4.6 4.5L19.7 6.6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="i-x" viewBox="0 0 24 24">
+    <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8.7" fill="none" stroke="currentColor" stroke-width="1.8"/>
+    <path d="M12 7.2v5.1l3.5 2.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24">
+    <path d="M4 12h15M13 5.7l6.3 6.3-6.3 6.3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24">
+    <path d="M4 9.4h3.7L12.4 5v14l-4.7-4.4H4z" fill="currentColor"/>
+    <path d="M15.6 8.6c1 .9 1.5 2.1 1.5 3.4s-.5 2.5-1.5 3.4M18.3 6c1.6 1.6 2.5 3.7 2.5 6s-.9 4.4-2.5 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-muted" viewBox="0 0 24 24">
+    <path d="M4 9.4h3.7L12.4 5v14l-4.7-4.4H4z" fill="currentColor"/>
+    <path d="M16 9.5l5 5M21 9.5l-5 5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24">
+    <path d="M19.5 10.2A7.7 7.7 0 1 0 20 14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+    <path d="M19.5 4.3v6h-6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="i-lid" viewBox="0 0 24 24">
+    <ellipse cx="12" cy="8" rx="7.5" ry="3.1" fill="none" stroke="currentColor" stroke-width="1.8"/>
+    <path d="M4.5 8v8.3c0 1.7 3.4 3.1 7.5 3.1s7.5-1.4 7.5-3.1V8" fill="none" stroke="currentColor" stroke-width="1.8"/>
+    <path d="M14.3 13.3c1.2 0 2.1.8 2.1 1.8s-.9 1.8-2.1 1.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-ticket" viewBox="0 0 24 24">
+    <path d="M4.5 4.8h15v5.1a2.2 2.2 0 0 0 0 4.2v5.1h-15v-5.1a2.2 2.2 0 0 0 0-4.2V4.8z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+    <path d="M8 9h8M8 12.2h8M8 15.4h5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  </symbol>
+
+  <symbol id="frog-chef" viewBox="0 0 140 160">
+    <ellipse cx="70" cy="153" rx="48" ry="6.5" fill="#2A1A0C" opacity=".12"/>
+    <g class="frog-figure">
+      <path d="M70 29C46 29 31 48 33 73c1 18-8 27-6 47 3 25 21 33 43 33s40-8 43-33c2-20-7-29-6-47 2-25-13-44-37-44z" fill="url(#frogSkin)" stroke="#DFA316" stroke-width="1.6"/>
+      <path d="M43 96c-13 2-20 13-16 23 3 7 10 7 15 2" fill="#FFD23F" stroke="#DFA316" stroke-width="1.4" stroke-linecap="round"/>
+      <path d="M97 96c13 2 20 13 16 23-3 7-10 7-15 2" fill="#FFD23F" stroke="#DFA316" stroke-width="1.4" stroke-linecap="round"/>
+      <circle cx="34" cy="118" r="5" fill="#74713A"/>
+      <circle cx="106" cy="118" r="5" fill="#74713A"/>
+      <ellipse cx="70" cy="127" rx="35" ry="35" fill="url(#frogBelly)"/>
+      <path d="M52 111c4-5 10-7 18-7s14 2 18 7" fill="none" stroke="#F0DDBB" stroke-width="1.4" stroke-linecap="round"/>
+      <path d="M57 131c0-7 6-12 13-12s13 5 13 12v9H57z" fill="#FFFDF6" stroke="#E5D3B3" stroke-width="1.2"/>
+      <path d="M61 131c0-4 4-7 9-7s9 3 9 7" fill="none" stroke="#6CA378" stroke-width="2" stroke-linecap="round"/>
+      <g>
+        <ellipse cx="51" cy="62" rx="18" ry="19" fill="#5C9B5D" stroke="#437B47" stroke-width="1.5"/>
+        <ellipse cx="51" cy="63" rx="11.5" ry="12.5" fill="#1D2718"/>
+        <circle cx="47" cy="57.5" r="3.6" fill="#FFFFFF" opacity=".92"/>
+        <circle cx="55.5" cy="68" r="1.5" fill="#FFFFFF" opacity=".58"/>
+      </g>
+      <g>
+        <ellipse cx="89" cy="62" rx="18" ry="19" fill="#5C9B5D" stroke="#437B47" stroke-width="1.5"/>
+        <ellipse cx="89" cy="63" rx="11.5" ry="12.5" fill="#1D2718"/>
+        <circle cx="85" cy="57.5" r="3.6" fill="#FFFFFF" opacity=".92"/>
+        <circle cx="93.5" cy="68" r="1.5" fill="#FFFFFF" opacity=".58"/>
+      </g>
+      <path d="M61 81c5 5 13 5 18 0" fill="none" stroke="#4A371B" stroke-width="2.6" stroke-linecap="round"/>
+      <ellipse cx="44" cy="78" rx="6" ry="3.2" fill="#FF9C7A" opacity=".45"/>
+      <ellipse cx="96" cy="78" rx="6" ry="3.2" fill="#FF9C7A" opacity=".45"/>
+      <g>
+        <path d="M37 32c-3-11 6-19 16-18 2-10 15-13 22-6 8-7 20-1 20 9 10-1 16 7 14 16-1 5-6 8-11 8H49c-6 0-10-4-12-9z" fill="url(#hatShade)" stroke="#DDCBAE" stroke-width="1.4"/>
+        <path d="M47 38h46v11H47z" fill="#FFFDF7" stroke="#DDCBAE" stroke-width="1.3"/>
+        <path d="M55 38v11M73 38v11M91 38v11" stroke="#EFE3CF" stroke-width="1.2"/>
+      </g>
+      <path d="M57 113l6 5-6 4M83 113l-6 5 6 4" fill="none" stroke="#E4CFA9" stroke-width="1.1" stroke-linecap="round" opacity=".7"/>
+    </g>
+  </symbol>
+
+  <symbol id="peach-can" viewBox="0 0 140 190">
+    <ellipse cx="70" cy="179" rx="49" ry="7" fill="#3A2410" opacity=".13"/>
+    <path d="M26 34l-4 124c0 10 21 17 48 17s48-7 48-17l-4-124z" fill="url(#peachCanBody)" stroke="#8D8678" stroke-width="1.5"/>
+    <path d="M28 36c0 6 18 11 42 11s42-5 42-11" fill="#D9D2C3"/>
+    <ellipse cx="70" cy="35" rx="42" ry="12" fill="#F1EBDD" stroke="#8D8678" stroke-width="2"/>
+    <ellipse cx="70" cy="35" rx="35" ry="8.5" fill="#DFA759"/>
+    <g>
+      <ellipse cx="57" cy="39" rx="17" ry="10" transform="rotate(-8 57 39)" fill="url(#peachGrad)"/>
+      <ellipse cx="82" cy="36" rx="16" ry="9" transform="rotate(7 82 36)" fill="url(#peachGrad)"/>
+      <ellipse cx="70" cy="30" rx="12" ry="7" fill="#FFD475"/>
+    </g>
+    <path d="M25 102c0-5 3-8 8-8h74c5 0 8 3 8 8v50c0 13-19 19-45 19s-45-6-45-19z" fill="url(#canLabel)"/>
+    <path d="M30 93h80v10H30z" fill="#F7DF7B" opacity=".9"/>
+    <text x="70" y="122" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="14" font-weight="900" letter-spacing="1.2" fill="#FFFFFF">YELLOW</text>
+    <text x="70" y="137" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="14" font-weight="900" letter-spacing="1.2" fill="#FFFFFF">PEACH</text>
+    <text x="70" y="154" text-anchor="middle" font-family="'Microsoft YaHei',sans-serif" font-size="11" font-weight="900" letter-spacing="1.6" fill="#FFE672">黄桃罐头</text>
+    <path d="M52 161c4 0 6 2 6 5s-3 5-7 5c-6 0-9-3-8-7 1-4 5-6 9-3z" fill="#F7D24B"/>
+    <path d="M56 158c0-2 1-3 3-4 0 2-1 3-3 4z" fill="#B7D990"/>
+    <ellipse cx="70" cy="35" rx="42" ry="12" fill="none" stroke="#F9F5EA" stroke-width="4"/>
+    <ellipse cx="70" cy="35" rx="42" ry="12" fill="none" stroke="#918A7B" stroke-width="1.5"/>
+    <path d="M87 35c5 0 9 1 9 2s-4 2-9 2" fill="none" stroke="#8A8273" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+</svg>
+
+<div class="game" id="game">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-badge" aria-hidden="true">
+        <svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>
+      </div>
+      <div class="brand-copy">
+        <div class="brand-title">奶蛙黄桃罐头店</div>
+        <div class="brand-sub" id="daySub">DAY 01 · 准备营业</div>
+      </div>
+    </div>
+    <div class="hud">
+      <div class="coin-chip" aria-label="金币"><svg class="icon"><use href="#i-coin"></use></svg><span id="coins">0</span></div>
+      <button class="icon-btn" id="soundBtn" type="button" aria-label="开关声音"><svg class="icon"><use href="#i-sound"></use></svg></button>
+    </div>
+  </header>
+
+  <section class="scene" id="scene" aria-label="店铺场景">
+    <div class="awning"></div>
+    <div class="window" aria-hidden="true">
+      <div class="hill"></div><div class="hill two"></div>
+    </div>
+    <div class="shelf" aria-hidden="true">
+      <span class="jar j1"></span><span class="jar j2"></span><span class="jar j3"></span>
+    </div>
+    <div class="wall-note">今日营业中</div>
+
+    <div class="order-ticket" id="orderTicket">
+      <div class="ticket-head">
+        <span class="ticket-kicker">WAITING FOR ORDER</span>
+        <span class="ticket-name">奶蛙</span>
+      </div>
+      <div class="ticket-rule"></div>
+      <div class="ticket-empty" style="padding:22px 4px;text-align:center;font-size:9px;color:#A98556;font-weight:800;line-height:1.7">客人马上就到<br>先准备好黄桃吧～</div>
+    </div>
+
+    <div class="speech" id="speech" aria-live="polite"></div>
+    <div class="guest-wrap" id="guestWrap"></div>
+
+    <div class="frog" aria-hidden="true">
+      <svg viewBox="0 0 140 160"><g class="frog-idle"><use href="#frog-chef"></use></g></svg>
+    </div>
+
+    <div class="counter-plant" aria-hidden="true">
+      <span class="pot"></span><span class="leaf"></span><span class="leaf l2"></span><span class="leaf l3"></span>
+    </div>
+
+    <div class="can-stage">
+      <div class="doily"></div>
+      <div class="can-wrap empty" id="canWrap">
+        <div class="empty-can"><div class="outline"></div><div class="lid-line"></div><span>选个罐型<br>开始装罐</span></div>
+      </div>
+    </div>
+
+    <div class="counter" aria-hidden="true">
+      <div class="counter-top"></div>
+      <div class="counter-front"><span class="counter-sign">奶蛙的店 · 黄桃罐头</span></div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel" aria-label="制作区">
+    <div class="panel-head">
+      <div class="hint" id="hint">
+        <span class="hint-frog"><svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg></span>
+        <span class="hint-text" id="hintText">先挑一个罐型吧</span>
+      </div>
+      <div class="patience" id="patience">
+        <svg class="icon"><use href="#i-clock"></use></svg>
+        <div class="patience-track"><div class="patience-fill" id="patienceFill"></div></div>
+        <span class="patience-time" id="patienceTime">1:35</span>
+      </div>
+    </div>
+
+    <div class="cook-grid">
+      <div class="ctrl-card" id="sizeCard">
+        <div class="ctrl-head"><span class="stepnum">1</span><span class="ctrl-title">挑罐型</span><span class="ctrl-note">按订单来</span></div>
+        <div class="size-options">
+          <button class="size-btn" type="button" data-size="small"><span class="mini-can"></span><b>小罐</b><small>180ml</small></button>
+          <button class="size-btn" type="button" data-size="medium"><span class="mini-can"></span><b>中罐</b><small>300ml</small></button>
+          <button class="size-btn" type="button" data-size="large"><span class="mini-can"></span><b>大罐</b><small>420ml</small></button>
+        </div>
+      </div>
+      <div class="ctrl-card" id="peachCard">
+        <div class="ctrl-head"><span class="stepnum">2</span><span class="ctrl-title">放黄桃</span></div>
+        <div class="peach-control">
+          <button class="round-btn" id="peachMinus" type="button" aria-label="拿掉一块黄桃">−</button>
+          <div class="peach-count"><svg class="icon"><use href="#i-peach"></use></svg><b id="peachCount">0</b><small>块</small></div>
+          <button class="round-btn" id="peachPlus" type="button" aria-label="放一块黄桃">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="ctrl-card syrup-card" id="syrupCard">
+      <div class="ctrl-head"><span class="stepnum">3</span><span class="ctrl-title">调糖水</span><span class="ctrl-note">停在绿色目标区</span></div>
+      <div class="syrup-row">
+        <div class="syrup-main">
+          <div class="syrup-gauge">
+            <div class="syrup-target" id="syrupTarget"></div>
+            <div class="syrup-fill" id="syrupFill"></div>
+            <div class="syrup-label"><span>0%</span><span id="syrupReadout">0%</span></div>
+          </div>
+        </div>
+        <button class="pour-btn" id="pourBtn" type="button">
+          <span class="pour-label"><svg class="icon"><use href="#i-drop"></use></svg>按住倒糖水</span>
+          <small>松手停止</small>
+        </button>
+      </div>
+    </div>
+
+    <div class="cook-grid">
+      <div class="ctrl-card" id="tempCard">
+        <div class="ctrl-head"><span class="stepnum">4</span><span class="ctrl-title">温度</span></div>
+        <div class="chip-row">
+          <button class="chip" type="button" data-temp="ice"><svg class="icon"><use href="#i-snow"></use></svg>冰镇</button>
+          <button class="chip" type="button" data-temp="room"><svg class="icon"><use href="#i-thermo"></use></svg>常温</button>
+          <button class="chip" type="button" data-temp="warm"><svg class="icon"><use href="#i-heat"></use></svg>温热</button>
+        </div>
+      </div>
+      <div class="ctrl-card" id="toppingCard">
+        <div class="ctrl-head"><span class="stepnum">5</span><span class="ctrl-title">加料</span></div>
+        <div class="chip-row">
+          <button class="chip" type="button" data-topping="none"><svg class="icon"><use href="#i-x"></use></svg>不加</button>
+          <button class="chip" type="button" data-topping="mint"><svg class="icon"><use href="#i-leaf"></use></svg>薄荷</button>
+          <button class="chip" type="button" data-topping="osmanthus"><svg class="icon"><use href="#i-flower"></use></svg>桂花</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <button class="main-btn reset-btn" id="resetBtn" type="button"><svg class="icon"><use href="#i-refresh"></use></svg>重做</button>
+    <button class="main-btn seal-btn" id="sealBtn" type="button"><svg class="icon"><use href="#i-lid"></use></svg>封盖</button>
+    <button class="main-btn serve-btn" id="serveBtn" type="button" disabled><svg class="icon"><use href="#i-arrow"></use></svg>出餐</button>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- 开始页 -->
+  <div class="overlay intro-overlay show" id="introOverlay">
+    <div class="intro-card">
+      <div class="intro-hero">
+        <span class="intro-tag">SUMMER PEACH · 2026</span>
+        <span class="intro-badge">DEMO<br>试玩版</span>
+        <svg viewBox="0 0 312 210" aria-hidden="true">
+          <use href="#frog-chef" x="8" y="15" width="180" height="206"></use>
+          <use href="#peach-can" x="177" y="38" width="120" height="163"></use>
+          <g opacity=".8">
+            <circle cx="58" cy="43" r="4" fill="#FFF4C1"/>
+            <circle cx="266" cy="52" r="3.5" fill="#FFF4C1"/>
+            <path d="M248 28l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#FFF4C1"/>
+            <path d="M50 160l1.5 4 4 1.5-4 1.5-1.5 4-1.5-4-4-1.5 4-1.5z" fill="#FFF4C1"/>
+          </g>
+        </svg>
+      </div>
+      <div class="eyebrow">奶蛙的夏日小店</div>
+      <h1 class="intro-title">奶蛙黄桃<br><em>罐头店</em></h1>
+      <p class="intro-desc">接单、装罐、封盖，<br>把甜甜的黄桃罐头送到客人手里。</p>
+      <div class="howto">
+        <div class="howto-item"><span class="num">1</span><b>看订单</b><small>记住罐型、糖水和加料</small></div>
+        <div class="howto-item"><span class="num">2</span><b>配罐头</b><small>黄桃、糖水、温度都要对</small></div>
+        <div class="howto-item"><span class="num">3</span><b>封盖出餐</b><small>客人会给星星和金币</small></div>
+      </div>
+      <button class="primary-btn" id="startBtn" type="button">开始营业<svg class="icon"><use href="#i-arrow"></use></svg></button>
+      <div class="intro-note">Demo 共 3 位客人 · 建议竖屏游玩 · 打开声音更可爱</div>
+    </div>
+  </div>
+
+  <!-- 评价页 -->
+  <div class="overlay review-overlay" id="reviewOverlay" aria-hidden="true">
+    <div class="review-sheet" role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
+      <div class="sheet-grip"></div>
+      <div class="review-top">
+        <div class="perfect-stamp" id="perfectStamp" style="display:none">PERFECT<br>完美出餐</div>
+        <div class="review-stars" id="reviewStars"></div>
+        <h2 class="review-title" id="reviewTitle">客人超满意！</h2>
+        <div class="review-score-pill">综合评分 <b id="reviewScore">100</b> 分</div>
+      </div>
+      <div class="review-quote" id="reviewQuote"></div>
+      <div class="score-grid" id="scoreGrid"></div>
+      <div class="reward-row"><span>本单收入 · 奶蛙的小费</span><strong><svg class="icon"><use href="#i-coin"></use></svg>+<span id="reviewCoins">0</span></strong></div>
+      <div class="review-actions">
+        <button class="primary-btn" id="nextBtn" type="button">下一位客人<svg class="icon"><use href="#i-arrow"></use></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 结算页 -->
+  <div class="overlay summary-overlay" id="summaryOverlay" aria-hidden="true">
+    <div class="confetti" id="confetti"></div>
+    <div class="summary-card" role="dialog" aria-modal="true" aria-labelledby="summaryTitle">
+      <div class="summary-ribbon">今日营业结束</div>
+      <div class="summary-eyebrow">NAIWA PEACH SHOP</div>
+      <h2 class="summary-title" id="summaryTitle">第 1 天 · 打烊啦</h2>
+      <div class="summary-sub">奶蛙把今天的罐头都卖光啦！</div>
+      <div class="summary-hero">
+        <div class="summary-frog"><svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg></div>
+        <div class="summary-stars">
+          <div class="summary-big-star"><svg class="icon"><use href="#i-star"></use></svg><span id="summaryStars">0</span><small style="font-size:11px;color:#9E7B4C;font-weight:900">/ 9</small></div>
+          <small>今日获得星星</small>
+        </div>
+      </div>
+      <div class="summary-stats">
+        <div class="stat-box"><svg class="icon"><use href="#i-coin"></use></svg><b id="summaryCoins">0</b><small>今日收入</small></div>
+        <div class="stat-box"><svg class="icon" style="color:#E55B45"><use href="#i-star"></use></svg><b id="summaryPerfect">0</b><small>完美出餐</small></div>
+        <div class="stat-box"><svg class="icon" style="color:#4C9D69"><use href="#i-peach"></use></svg><b id="summaryAvg">0</b><small>平均评分</small></div>
+      </div>
+      <div class="summary-comment" id="summaryComment"></div>
+      <div class="summary-best" id="summaryBest"></div>
+      <div class="summary-actions">
+        <button class="primary-btn" id="replayBtn" type="button">再营业一天<svg class="icon"><use href="#i-arrow"></use></svg></button>
+        <button class="ghost-btn" id="introAgainBtn" type="button">回到开始页</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+  const clamp = (n,min,max) => Math.max(min,Math.min(max,n));
+  const pad2 = n => String(n).padStart(2,'0');
+  const icon = (name, cls='') => `<svg class="icon ${cls}" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
+
+  const SIZES = {
+    small:  { id:'small',  name:'小罐', ml:180 },
+    medium: { id:'medium', name:'中罐', ml:300 },
+    large:  { id:'large',  name:'大罐', ml:420 }
+  };
+  const SWEET = {
+    light:  { id:'light',  name:'少糖',   target:31, tol:8 },
+    normal: { id:'normal', name:'标准糖', target:61, tol:9 },
+    extra:  { id:'extra',  name:'多糖',   target:87, tol:7 }
+  };
+  const TEMPS = {
+    ice:  { id:'ice',  name:'冰镇', icon:'snow' },
+    room: { id:'room', name:'常温', icon:'thermo' },
+    warm: { id:'warm', name:'温热', icon:'heat' }
+  };
+  const TOPPINGS = {
+    none:      { id:'none',      name:'不加料' },
+    mint:      { id:'mint',      name:'薄荷' },
+    osmanthus: { id:'osmanthus', name:'桂花' }
+  };
+
+  const GUESTS = [
+    {
+      name:'小黄', accessory:null, body:'#FFC91D', bodyDark:'#EDB114', belly:'#FFF0C8',
+      greet:'第一次来！听说奶蛙的罐头超好吃～',
+      happy:'这罐黄桃也太香了吧！冰冰凉凉，甜度刚刚好！',
+      okay:'味道不错～下次我会再来买的。'
+    },
+    {
+      name:'阿蓝', accessory:'cap', body:'#FFD447', bodyDark:'#E9B41D', belly:'#FFF3D4', cap:'#4E8CC9',
+      greet:'老板，给我来一罐，拜托啦！',
+      happy:'哇，就是这个味道！黄桃又大又甜，奶蛙好厉害！',
+      okay:'还不错哦，下次记得快一点点～'
+    },
+    {
+      name:'豆豆', accessory:'glasses', body:'#F5B72B', bodyDark:'#DEA11A', belly:'#FFE9B8',
+      greet:'嘿嘿，今天想尝点不一样的～',
+      happy:'太完美了！暖乎乎的糖水配黄桃，超级治愈！',
+      okay:'味道可以，下次再给你一次机会吧～'
+    }
+  ];
+
+  const FIXED_ORDERS = [
+    { size:'medium', peaches:3, sweet:'normal', temp:'ice',  topping:'mint' },
+    { size:'small',  peaches:2, sweet:'light',  temp:'room', topping:'none' },
+    { size:'large',  peaches:4, sweet:'extra',  temp:'warm', topping:'osmanthus' }
+  ];
+
+  const PATIENCE_MS = 95000;
+  const GUEST_COUNT = 3;
+  const POUR_RATE = 0.027; // percent per ms
+
+  const state = {
+    phase:'intro',
+    day:1,
+    coins:0,
+    dayCoins:0,
+    dayStars:0,
+    guestIndex:0,
+    guest:null,
+    order:null,
+    can:emptyCan(),
+    reviews:[],
+    patience:1,
+    deadline:0,
+    lastFrame:0,
+    lastPatienceSec:-1,
+    pouring:false,
+    pourDinged:false,
+    lastInZone:false,
+    lastPourSfx:0,
+    hiddenAt:0,
+    sound:true,
+    best:0,
+    speechTimer:null,
+    toastTimer:null,
+    reviewTimer:null,
+    coinRaf:0,
+    busy:false
+  };
+
+  const els = {};
+  let audioCtx = null;
+  let masterGain = null;
+
+  function emptyCan(){
+    return { size:null, peaches:0, syrup:0, temp:null, topping:null, sealed:false };
+  }
+
+  function cacheEls(){
+    els.daySub = $('#daySub');
+    els.coins = $('#coins');
+    els.soundBtn = $('#soundBtn');
+    els.orderTicket = $('#orderTicket');
+    els.speech = $('#speech');
+    els.guestWrap = $('#guestWrap');
+    els.canWrap = $('#canWrap');
+    els.patience = $('#patience');
+    els.patienceFill = $('#patienceFill');
+    els.patienceTime = $('#patienceTime');
+    els.hint = $('#hint');
+    els.hintText = $('#hintText');
+    els.peachCount = $('#peachCount');
+    els.peachMinus = $('#peachMinus');
+    els.peachPlus = $('#peachPlus');
+    els.syrupFill = $('#syrupFill');
+    els.syrupReadout = $('#syrupReadout');
+    els.syrupTarget = $('#syrupTarget');
+    els.pourBtn = $('#pourBtn');
+    els.sealBtn = $('#sealBtn');
+    els.serveBtn = $('#serveBtn');
+    els.resetBtn = $('#resetBtn');
+    els.toast = $('#toast');
+    els.introOverlay = $('#introOverlay');
+    els.reviewOverlay = $('#reviewOverlay');
+    els.reviewTitle = $('#reviewTitle');
+    els.reviewStars = $('#reviewStars');
+    els.reviewScore = $('#reviewScore');
+    els.reviewQuote = $('#reviewQuote');
+    els.scoreGrid = $('#scoreGrid');
+    els.reviewCoins = $('#reviewCoins');
+    els.perfectStamp = $('#perfectStamp');
+    els.nextBtn = $('#nextBtn');
+    els.summaryOverlay = $('#summaryOverlay');
+    els.summaryTitle = $('#summaryTitle');
+    els.summaryStars = $('#summaryStars');
+    els.summaryCoins = $('#summaryCoins');
+    els.summaryPerfect = $('#summaryPerfect');
+    els.summaryAvg = $('#summaryAvg');
+    els.summaryComment = $('#summaryComment');
+    els.summaryBest = $('#summaryBest');
+    els.confetti = $('#confetti');
+    els.startBtn = $('#startBtn');
+    els.replayBtn = $('#replayBtn');
+    els.introAgainBtn = $('#introAgainBtn');
+    els.sizeCard = $('#sizeCard');
+    els.peachCard = $('#peachCard');
+    els.tempCard = $('#tempCard');
+    els.toppingCard = $('#toppingCard');
+    els.syrupCard = $('#syrupCard');
+  }
+
+  /* -------------------- 音效 -------------------- */
+  function ensureAudio(){
+    if(!audioCtx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return;
+      try{
+        audioCtx = new AC();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = state.sound ? 0.55 : 0;
+        masterGain.connect(audioCtx.destination);
+      }catch(e){ audioCtx = null; }
+    }
+    if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+  }
+
+  function tone(freq, dur=.08, type='sine', vol=.05, delay=0, endFreq=null){
+    if(!audioCtx || !state.sound) return;
+    try{
+      const t = audioCtx.currentTime + delay;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t);
+      if(endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, t + dur);
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(t);
+      osc.stop(t + dur + .03);
+    }catch(e){}
+  }
+
+  const sfx = {
+    tap(){ tone(520,.045,'triangle',.035); },
+    add(){ tone(330,.07,'sine',.06,0,520); tone(680,.06,'sine',.03,.055); },
+    remove(){ tone(320,.07,'sine',.035,0,220); },
+    pour(){ tone(210 + Math.random()*70,.055,'sine',.022); },
+    ding(){ tone(880,.1,'sine',.045); tone(1174,.13,'sine',.035,.08); },
+    error(){ tone(170,.12,'square',.025,0,140); },
+    seal(){ tone(160,.1,'square',.025); tone(360,.1,'triangle',.045,.08); tone(740,.1,'sine',.028,.15); },
+    serve(){ tone(523,.12,'triangle',.05); tone(659,.12,'triangle',.045,.1); tone(784,.18,'triangle',.04,.2); },
+    star(){ tone(660,.08,'sine',.04); tone(880,.09,'sine',.04,.09); tone(1100,.14,'sine',.035,.18); },
+    coin(){ tone(920,.07,'triangle',.04); tone(1240,.1,'triangle',.035,.07); },
+    sad(){ tone(330,.16,'triangle',.035,0,247); tone(220,.22,'triangle',.03,.15,196); },
+    guest(){ tone(660,.12,'sine',.035); tone(990,.16,'sine',.03,.13); }
+  };
+
+  function buzz(ms){
+    try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(e){}
+  }
+
+  function updateSoundButton(){
+    els.soundBtn.innerHTML = `<svg class="icon"><use href="#i-${state.sound ? 'sound' : 'muted'}"></use></svg>`;
+    if(masterGain) masterGain.gain.value = state.sound ? 0.55 : 0;
+  }
+
+  function setSound(on){
+    state.sound = on;
+    try{ localStorage.setItem('naiwa_sound', on ? '1' : '0'); }catch(e){}
+    updateSoundButton();
+  }
+
+  /* -------------------- 初始化 -------------------- */
+  function init(){
+    cacheEls();
+    try{
+      const savedSound = localStorage.getItem('naiwa_sound');
+      if(savedSound === '0') state.sound = false;
+      const savedBest = Number(localStorage.getItem('naiwa_best') || 0);
+      state.best = Number.isFinite(savedBest) ? savedBest : 0;
+    }catch(e){}
+    updateSoundButton();
+    updateHud();
+    renderPatience(1);
+    bindEvents();
+    requestAnimationFrame(tick);
+    if(location.search.includes('debug=1')){
+      window.__naiwa = { state, scoreOrder, startGame, newCustomer };
+    }
+  }
+
+  function bindEvents(){
+    els.startBtn.addEventListener('click', startGame);
+    els.soundBtn.addEventListener('click', () => {
+      ensureAudio();
+      setSound(!state.sound);
+      if(state.sound) sfx.tap();
+    });
+
+    $$('.size-btn').forEach(btn => btn.addEventListener('click', () => selectSize(btn.dataset.size)));
+    els.peachPlus.addEventListener('click', () => addPeach(1));
+    els.peachMinus.addEventListener('click', () => addPeach(-1));
+
+    const pourDown = (e) => {
+      e.preventDefault();
+      startPour();
+    };
+    const pourUp = (e) => {
+      if(e && e.preventDefault) e.preventDefault();
+      stopPour();
+    };
+    els.pourBtn.addEventListener('pointerdown', pourDown);
+    els.pourBtn.addEventListener('pointerup', pourUp);
+    els.pourBtn.addEventListener('pointercancel', pourUp);
+    els.pourBtn.addEventListener('pointerleave', (e) => {
+      if(state.pouring && e.buttons === 0) stopPour();
+    });
+    document.addEventListener('pointerup', () => { if(state.pouring) stopPour(); }, {passive:true});
+    document.addEventListener('visibilitychange', () => {
+      if(document.hidden){
+        if(state.phase === 'playing') state.hiddenAt = performance.now();
+        stopPour();
+      }else if(state.hiddenAt && state.phase === 'playing'){
+        state.deadline += performance.now() - state.hiddenAt;
+        state.hiddenAt = 0;
+      }
+    });
+
+    $$('.chip[data-temp]').forEach(btn => btn.addEventListener('click', () => selectTemp(btn.dataset.temp)));
+    $$('.chip[data-topping]').forEach(btn => btn.addEventListener('click', () => selectTopping(btn.dataset.topping)));
+
+    els.sealBtn.addEventListener('click', sealCan);
+    els.serveBtn.addEventListener('click', serveCan);
+    els.resetBtn.addEventListener('click', resetCan);
+    els.nextBtn.addEventListener('click', nextGuest);
+    els.replayBtn.addEventListener('click', replayDay);
+    els.introAgainBtn.addEventListener('click', resetToIntro);
+  }
+
+  /* -------------------- 游戏流程 -------------------- */
+  function startGame(){
+    ensureAudio();
+    state.day = 1;
+    state.coins = 0;
+    state.dayCoins = 0;
+    state.dayStars = 0;
+    state.reviews = [];
+    state.guestIndex = 0;
+    state.best = readBest();
+    els.introOverlay.classList.remove('show');
+    els.reviewOverlay.classList.remove('show');
+    els.summaryOverlay.classList.remove('show');
+    setSound(state.sound);
+    updateHud();
+    newCustomer(0);
+  }
+
+  function resetToIntro(){
+    state.phase = 'intro';
+    state.pouring = false;
+    els.summaryOverlay.classList.remove('show');
+    els.reviewOverlay.classList.remove('show');
+    els.introOverlay.classList.add('show');
+    renderPatience(1);
+    updateHud();
+  }
+
+  function makeOrderFor(index){
+    if(state.day === 1){
+      return Object.assign({}, FIXED_ORDERS[index]);
+    }
+    return randomOrder();
+  }
+
+  function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+  function randomOrder(){
+    const size = pick(['small','medium','large']);
+    let counts;
+    if(size === 'small') counts = [2,3];
+    else if(size === 'medium') counts = [3,4];
+    else counts = [4,5];
+    return {
+      size,
+      peaches: pick(counts),
+      sweet: pick(['light','normal','extra']),
+      temp: pick(['ice','room','warm']),
+      topping: pick(['none','mint','osmanthus'])
+    };
+  }
+
+  function newCustomer(index){
+    if(index >= GUEST_COUNT) { showSummary(); return; }
+    state.guestIndex = index;
+    state.guest = GUESTS[index % GUESTS.length];
+    state.order = makeOrderFor(index);
+    state.can = emptyCan();
+    state.phase = 'playing';
+    state.busy = false;
+    state.pouring = false;
+    state.pourDinged = false;
+    state.lastInZone = false;
+    state.lastPourSfx = 0;
+    state.patience = 1;
+    state.lastPatienceSec = -1;
+    state.deadline = performance.now() + PATIENCE_MS;
+    state.reviews = state.reviews || [];
+    clearTimeout(state.reviewTimer);
+    els.reviewOverlay.classList.remove('show');
+    els.canWrap.classList.remove('serving');
+    els.canWrap.style.removeProperty('--canScale');
+    els.guestWrap.classList.remove('sad','happy','guest-leave');
+    els.guestWrap.classList.add('guest-enter');
+    setTimeout(() => els.guestWrap.classList.remove('guest-enter'), 600);
+    renderGuest();
+    renderOrderTicket();
+    renderCan();
+    renderControls();
+    renderHint();
+    updateHud();
+    renderPatience(1);
+    updateFooter();
+    showSpeech(state.guest.greet, 3600);
+    sfx.guest();
+  }
+
+  /* -------------------- 订单票 -------------------- */
+  function renderOrderTicket(){
+    if(!state.order || !state.guest) return;
+    const o = state.order;
+    const rows = [
+      { cls:'size', ico:'can', label:'罐型', value:`${SIZES[o.size].name} · ${SIZES[o.size].ml}ml` },
+      { cls:'peach', ico:'peach', label:'黄桃', value:`${o.peaches} 块` },
+      { cls:'sweet', ico:'drop', label:'糖水', value:SWEET[o.sweet].name },
+      { cls:'temp', ico:TEMPS[o.temp].icon, label:'温度', value:TEMPS[o.temp].name },
+      { cls:'topping', ico:o.topping === 'mint' ? 'leaf' : o.topping === 'osmanthus' ? 'flower' : 'x', label:'加料', value:TOPPINGS[o.topping].name }
+    ];
+    els.orderTicket.innerHTML = `
+      <div class="ticket-head"><span class="ticket-kicker">ORDER ${pad2(state.guestIndex+1)} / 03</span><span class="ticket-name">${state.guest.name}的订单</span></div>
+      <div class="ticket-rule"></div>
+      ${rows.map(r => `<div class="ticket-row ${r.cls}">${icon(r.ico)}<span class="row-label">${r.label}</span><b>${r.value}</b></div>`).join('')}
+    `;
+    els.orderTicket.classList.remove('ticket-in');
+    void els.orderTicket.offsetWidth;
+    els.orderTicket.classList.add('ticket-in');
+  }
+
+  /* -------------------- 客人插画 -------------------- */
+  function dogSVG(guest, idx){
+    const id = 'dog' + idx;
+    const acc = guest.accessory;
+    const cap = acc === 'cap' ? `
+      <g transform="rotate(-6 88 38)">
+        <path d="M58 39c-2-13 10-24 27-24 16 0 27 9 28 20-19 4-37 6-55 4z" fill="${guest.cap || '#4E8CC9'}" stroke="#2F6096" stroke-width="1.5"/>
+        <path d="M55 39c2-5 9-6 17-4l22 4c-3 6-11 8-20 7l-16-3z" fill="${guest.cap || '#4E8CC9'}" stroke="#2F6096" stroke-width="1.4"/>
+        <path d="M84 20c5 2 8 7 8 13" fill="none" stroke="#7EB3E4" stroke-width="2" stroke-linecap="round" opacity=".7"/>
+      </g>` : '';
+    const glasses = acc === 'glasses' ? `
+      <g fill="none" stroke="#5B3D24" stroke-width="1.8">
+        <circle cx="62" cy="65" r="9.2" fill="rgba(255,255,255,.13)"/>
+        <circle cx="84" cy="61" r="9.2" fill="rgba(255,255,255,.13)"/>
+        <path d="M71 64l4-1M53 64l-7-2M93 60l6-2"/>
+      </g>` : '';
+    return `
+    <svg class="guest-svg" viewBox="0 0 160 200" role="img" aria-label="客人 ${guest.name}">
+      <defs>
+        <radialGradient id="${id}Body" cx="38%" cy="28%" r="80%">
+          <stop offset="0" stop-color="${guest.body}"/>
+          <stop offset=".68" stop-color="${guest.body}"/>
+          <stop offset="1" stop-color="${guest.bodyDark}"/>
+        </radialGradient>
+        <linearGradient id="${id}Belly" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="${guest.belly}"/>
+          <stop offset="1" stop-color="#FFE3A5"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="78" cy="192" rx="49" ry="6" fill="#3A2410" opacity=".12"/>
+      <g class="dog-bob">
+        <g class="dog-tail">
+          <path d="M114 143c20-4 33-16 31-33-1-9-7-14-12-13-6 1-7 8-4 13 5 9-1 17-17 21z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.2"/>
+        </g>
+        <path d="M78 96c-22 0-36 21-34 45 2 32 12 47 37 47s37-16 38-45c1-24-15-47-41-47z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.4"/>
+        <ellipse cx="80" cy="158" rx="25" ry="24" fill="url(#${id}Belly)" opacity=".9"/>
+        <path d="M57 175c-1 9 6 13 14 13M99 177c0 8-6 12-14 12" fill="none" stroke="${guest.bodyDark}" stroke-width="6" stroke-linecap="round"/>
+        <path d="M56 181c-4 1-6 5-4 8 2 2 6 2 10 1l10-2-1-5-8-3z" fill="${guest.bodyDark}"/>
+        <path d="M100 181c4 1 6 5 4 8-2 2-7 2-11 1l-9-2 1-5 8-3z" fill="${guest.bodyDark}"/>
+        <path d="M84 94c-16 0-28 11-29 26-1 14 9 25 25 25 16 0 26-10 26-24 0-17-8-27-22-27z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.3"/>
+        <path d="M62 42c-8-17-22-25-31-16-10 10 1 27 18 36 7 4 14 4 17 0 3-4 1-11-4-20z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.2"/>
+        <path d="M105 40c7-17 21-25 31-16 11 9 1 27-16 37-7 4-14 4-18 0-3-4-2-11 3-21z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.2"/>
+        <path d="M89 34c-20 0-37 15-38 36-1 20 15 35 37 35 20 0 37-15 37-34 0-21-16-37-36-37z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.4"/>
+        <path d="M52 60c-14 0-25 8-27 20-2 13 9 22 24 22 11 0 20-6 24-14 2-5 1-10-2-14-5-7-11-14-19-14z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.3"/>
+        <ellipse cx="31" cy="79" rx="13" ry="10.5" fill="#B13A17" stroke="#8C2D11" stroke-width="1.2"/>
+        <ellipse cx="27" cy="75" rx="4.1" ry="2.6" fill="#D96A42" opacity=".6" transform="rotate(-18 27 75)"/>
+        <g>
+          <ellipse cx="64" cy="62" rx="6.7" ry="7.3" fill="#3B2413"/>
+          <ellipse cx="86" cy="58" rx="6.7" ry="7.3" fill="#3B2413"/>
+          <circle cx="61.8" cy="59" r="2.1" fill="#FFF8E8"/>
+          <circle cx="83.8" cy="55" r="2.1" fill="#FFF8E8"/>
+          <circle cx="66.5" cy="65" r="1" fill="#FFF8E8" opacity=".55"/>
+          <circle cx="88.5" cy="61" r="1" fill="#FFF8E8" opacity=".55"/>
+        </g>
+        <g class="brow-sad" stroke="#5A3A22" stroke-width="1.6" stroke-linecap="round">
+          <path d="M56 50l10 4M93 46l-10 4"/>
+        </g>
+        <path class="mouth-happy" d="M34 94c5 5 12 5 17 0" fill="none" stroke="#5B3820" stroke-width="2" stroke-linecap="round"/>
+        <path class="mouth-sad" d="M33 99c6-5 13-5 18 0" fill="none" stroke="#5B3820" stroke-width="2" stroke-linecap="round"/>
+        <ellipse class="cheek" cx="52" cy="79" rx="7" ry="3.5" fill="#FF9B79" opacity=".3"/>
+        <ellipse class="cheek" cx="95" cy="75" rx="7" ry="3.5" fill="#FF9B79" opacity=".3"/>
+        <path d="M56 104c12 7 30 7 42-1" fill="none" stroke="#2E8B57" stroke-width="5" stroke-linecap="round" opacity=".95"/>
+        <path d="M95 106c8 3 11 9 9 15" fill="none" stroke="#2E8B57" stroke-width="3.5" stroke-linecap="round" opacity=".8"/>
+        ${cap}
+        ${glasses}
+      </g>
+    </svg>`;
+  }
+
+  function renderGuest(){
+    if(!state.guest) return;
+    els.guestWrap.innerHTML = `
+      <div class="guest-name">${state.guest.name}</div>
+      ${dogSVG(state.guest, state.guestIndex)}
+    `;
+  }
+
+  function setGuestMood(mood){
+    els.guestWrap.classList.toggle('sad', mood === 'sad');
+    els.guestWrap.classList.toggle('happy', mood === 'happy');
+  }
+
+  function showSpeech(text, ms=3200){
+    if(!text) return;
+    el_speech(text);
+    clearTimeout(state.speechTimer);
+    state.speechTimer = setTimeout(() => els.speech.classList.remove('show'), ms);
+  }
+  function el_speech(text){
+    els.speech.textContent = text;
+    els.speech.classList.remove('show');
+    void els.speech.offsetWidth;
+    els.speech.classList.add('show');
+  }
+
+  /* -------------------- 罐头渲染 -------------------- */
+  function renderCan(){
+    const c = state.can;
+    const scaleClass = c.size ? `size-${c.size}` : '';
+    els.canWrap.className = 'can-wrap ' + scaleClass + (c.size ? '' : ' empty') + (c.sealed ? ' sealed' : '');
+    els.canWrap.style.setProperty('--canScale', c.size === 'small' ? '.84' : c.size === 'large' ? '1.05' : '.95');
+    if(!c.size){
+      els.canWrap.innerHTML = `<div class="empty-can"><div class="outline"></div><div class="lid-line"></div><span>选个罐型<br>开始装罐</span></div>`;
+      return;
+    }
+    const peachPositions = {
+      1:[[65,82]],
+      2:[[50,88],[80,80]],
+      3:[[45,92],[66,86],[86,75]],
+      4:[[42,98],[61,90],[79,82],[96,92]],
+      5:[[40,102],[57,94],[74,86],[91,79],[65,72]]
+    };
+    const n = clamp(c.peaches, 0, 5);
+    const positions = (peachPositions[n] || []).slice().sort((a,b) => b[1]-a[1]);
+    const peachG = n ? positions.map((p,i) => `
+      <g transform="translate(${p[0]} ${p[1]}) rotate(${i % 2 ? 5 : -6})">
+        <ellipse cx="0" cy="0" rx="17" ry="12" fill="url(#canPeachGrad)" stroke="#DA7422" stroke-width=".8"/>
+        <path d="M-9-4c4-4 11-5 16-2" fill="none" stroke="#FFE2A1" stroke-width="1.8" stroke-linecap="round" opacity=".75"/>
+        <path d="M-4 0c3 3 8 4 12 2" fill="none" stroke="#DD7B28" stroke-width="1.1" stroke-linecap="round" opacity=".6"/>
+      </g>`).join('') : '';
+
+    const syrupY = 132 - clamp(c.syrup,0,100) * 0.9;
+    const syrupH = Math.max(0, 132 - syrupY);
+    const hasSyrup = c.syrup > 0;
+
+    const iceCubes = c.temp === 'ice' ? `
+      <g class="ice-shine">
+        <rect x="43" y="57" width="13" height="13" rx="3" transform="rotate(-12 49 63)" fill="#E6FAFF" stroke="#A9D8E5" stroke-width="1" opacity=".8"/>
+        <rect x="76" y="51" width="11" height="11" rx="3" transform="rotate(14 81 56)" fill="#E6FAFF" stroke="#A9D8E5" stroke-width="1" opacity=".75"/>
+        <rect x="62" y="44" width="9" height="9" rx="2.5" transform="rotate(-8 66 48)" fill="#F2FDFF" stroke="#A9D8E5" stroke-width=".9" opacity=".7"/>
+      </g>` : '';
+    const steam = c.temp === 'warm' ? `
+      <g fill="none" stroke="#FFF7E7" stroke-width="2.2" stroke-linecap="round" opacity=".7">
+        <path class="steam" d="M53 35c-4-7 4-10 0-17"/>
+        <path class="steam s2" d="M83 34c4-7-4-10 0-17"/>
+      </g>` : '';
+    const mint = c.topping === 'mint' ? `
+      <g transform="translate(70 44) rotate(-12)">
+        <path d="M0 0c-12-2-18-11-15-20 10-1 18 7 15 20z" fill="#4F9C60" stroke="#347243" stroke-width=".9"/>
+        <path d="M4 2c10-5 20-2 24 6-7 8-18 7-24-6z" fill="#64AF70" stroke="#347243" stroke-width=".9"/>
+        <path d="M-8-14c3 5 5 9 7 14" fill="none" stroke="#A9D7A5" stroke-width="1.2" stroke-linecap="round"/>
+      </g>` : '';
+    const osmanthus = c.topping === 'osmanthus' ? `
+      <g fill="#FFD45A" stroke="#E59C1A" stroke-width=".5">
+        <circle cx="53" cy="48" r="2.1"/><circle cx="60" cy="42" r="1.7"/><circle cx="68" cy="49" r="1.9"/>
+        <circle cx="77" cy="43" r="1.6"/><circle cx="85" cy="49" r="2"/><circle cx="72" cy="56" r="1.5"/>
+      </g>` : '';
+    const lid = c.sealed ? `
+      <g class="lid-group">
+        <ellipse cx="70" cy="36" rx="41.5" ry="12.5" fill="#DCD6C9" stroke="#8B8375" stroke-width="1.6"/>
+        <ellipse cx="70" cy="34" rx="37" ry="9.6" fill="#F4F0E5" stroke="#AAA295" stroke-width="1.2"/>
+        <ellipse cx="70" cy="34" rx="30" ry="6.4" fill="none" stroke="#D0C9BB" stroke-width="1"/>
+        <path d="M84 33c7 0 12 2 12 3.5s-5 3-12 3" fill="none" stroke="#8B8375" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="80" cy="36" r="1.4" fill="#8F887B"/>
+        <g transform="translate(99 139) rotate(8)">
+          <circle cx="0" cy="0" r="11" fill="#FFF5D8" stroke="#D9B76F" stroke-width="1.2"/>
+          <circle cx="0" cy="0" r="8.2" fill="#FFD23F" stroke="#D6A00E" stroke-width=".8"/>
+          <circle cx="-3" cy="-2" r="1.5" fill="#5B3D1D"/><circle cx="3" cy="-2" r="1.5" fill="#5B3D1D"/>
+          <path d="M-2 2c1.5 1.5 3.5 1.5 5 0" fill="none" stroke="#5B3D1D" stroke-width="1" stroke-linecap="round"/>
+        </g>
+      </g>` : '';
+
+    els.canWrap.innerHTML = `
+      <svg viewBox="0 0 140 185" role="img" aria-label="${SIZES[c.size].name}黄桃罐头">
+        <defs>
+          <linearGradient id="canMetalDyn" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#B9B3A6"/><stop offset=".18" stop-color="#F5F1E6"/>
+            <stop offset=".5" stop-color="#D5CEC0"/><stop offset=".8" stop-color="#F4EFE4"/>
+            <stop offset="1" stop-color="#AFA99C"/>
+          </linearGradient>
+          <linearGradient id="canLabelDyn" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#3C8C5D"/><stop offset="1" stop-color="#226242"/>
+          </linearGradient>
+          <radialGradient id="canPeachGrad" cx="38%" cy="30%" r="80%">
+            <stop offset="0" stop-color="#FFD56F"/><stop offset=".5" stop-color="#FFB245"/><stop offset="1" stop-color="#EE7C28"/>
+          </radialGradient>
+          <linearGradient id="syrupGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#FFD76B" stop-opacity=".82"/><stop offset="1" stop-color="#F19A2D" stop-opacity=".9"/>
+          </linearGradient>
+          <clipPath id="canOpenClip">
+            <path d="M29 37c0 6 18 10 41 10s41-4 41-10l-3 94c-9 6-23 9-38 9s-29-3-38-9z"/>
+          </clipPath>
+        </defs>
+        <ellipse cx="70" cy="178" rx="46" ry="6.5" fill="#3A2410" opacity=".13"/>
+        <path d="M27 35l-3 124c0 10 20 17 46 17s46-7 46-17l-3-124z" fill="url(#canMetalDyn)" stroke="#8B8375" stroke-width="1.5"/>
+        <ellipse cx="70" cy="35" rx="43" ry="13" fill="#EFEADD" stroke="#8B8375" stroke-width="1.4"/>
+        <g clip-path="url(#canOpenClip)">
+          <rect x="24" y="35" width="92" height="115" fill="#F8E5B3"/>
+          <rect id="canSyrupRect" x="24" y="${syrupY}" width="92" height="${syrupH}" fill="url(#syrupGrad)"/>
+          <ellipse id="canSyrupSurface" cx="70" cy="${syrupY}" rx="44" ry="9" fill="#FFE08A" opacity="${hasSyrup ? .75 : 0}"/>
+          ${peachG}
+          ${iceCubes}
+          ${mint}
+          ${osmanthus}
+          ${steam}
+        </g>
+        <path d="M26 93h88v53c0 13-19 19-44 19s-44-6-44-19z" fill="url(#canLabelDyn)"/>
+        <path d="M28 84h84v11H28z" fill="#F6DD78" opacity=".92"/>
+        <path d="M35 97h70" stroke="rgba(255,255,255,.22)" stroke-width="1"/>
+        <text x="70" y="116" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="12.5" font-weight="900" letter-spacing=".9" fill="#FFFFFF">YELLOW</text>
+        <text x="70" y="130" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="12.5" font-weight="900" letter-spacing=".9" fill="#FFFFFF">PEACH</text>
+        <text x="70" y="147" text-anchor="middle" font-family="'Microsoft YaHei',sans-serif" font-size="10" font-weight="900" letter-spacing="1.3" fill="#FFE672">黄桃罐头</text>
+        <path d="M51 154c4 0 6 2 6 5s-3 5-7 5c-5 0-9-3-8-7 1-4 5-6 9-3z" fill="#F7D24B"/>
+        <path d="M55 151c0-2 1-3 3-4 0 2-1 3-3 4z" fill="#B7D990"/>
+        <ellipse cx="70" cy="35" rx="43" ry="13" fill="none" stroke="#FAF6EB" stroke-width="4"/>
+        <ellipse cx="70" cy="35" rx="43" ry="13" fill="none" stroke="#8A8273" stroke-width="1.2"/>
+        ${lid}
+      </svg>`;
+  }
+
+  function updateSyrupVisual(){
+    const c = state.can;
+    if(!state.order) return;
+    const pct = clamp(c.syrup, 0, 100);
+    const sw = SWEET[state.order.sweet];
+    const inZone = Math.abs(pct - sw.target) <= sw.tol;
+    els.syrupFill.style.width = pct + '%';
+    els.syrupFill.classList.toggle('in-zone', inZone);
+    const readout = Math.round(pct) + '%';
+    if(els.syrupReadout.textContent !== readout) els.syrupReadout.textContent = readout;
+    const syrupY = 132 - pct * 0.9;
+    const rect = els.canWrap.querySelector('#canSyrupRect');
+    if(rect){
+      rect.setAttribute('y', String(syrupY));
+      rect.setAttribute('height', String(Math.max(0, 132 - syrupY)));
+    }
+    const surf = els.canWrap.querySelector('#canSyrupSurface');
+    if(surf){
+      surf.setAttribute('cy', String(syrupY));
+      surf.setAttribute('opacity', pct > 0 ? '.75' : '0');
+    }
+  }
+
+  /* -------------------- 操作 -------------------- */
+  function locked(){ return state.phase !== 'playing' || state.can.sealed; }
+
+  function bumpCan(){
+    els.canWrap.classList.remove('bump');
+    void els.canWrap.offsetWidth;
+    els.canWrap.classList.add('bump');
+  }
+
+  function selectSize(size){
+    if(locked() || !SIZES[size]) return;
+    if(state.can.size === size) return;
+    state.can.size = size;
+    ensureAudio();
+    sfx.tap();
+    renderCan();
+    bumpCan();
+    renderControls();
+    renderHint();
+    updateFooter();
+  }
+
+  function addPeach(delta){
+    if(locked()) return;
+    if(!state.can.size){ toast('先挑一个罐型，再放黄桃哦～'); sfx.error(); return; }
+    const next = clamp(state.can.peaches + delta, 0, 5);
+    if(next === state.can.peaches) return;
+    state.can.peaches = next;
+    ensureAudio();
+    if(delta > 0) sfx.add(); else sfx.remove();
+    renderCan();
+    bumpCan();
+    renderControls();
+    renderHint();
+    updateFooter();
+  }
+
+  function selectTemp(temp){
+    if(locked() || !TEMPS[temp]) return;
+    state.can.temp = temp;
+    ensureAudio(); sfx.tap();
+    renderCan(); renderControls(); renderHint(); updateFooter();
+  }
+
+  function selectTopping(topping){
+    if(locked() || !TOPPINGS[topping]) return;
+    state.can.topping = topping;
+    ensureAudio(); sfx.tap();
+    renderCan(); renderControls(); renderHint(); updateFooter();
+  }
+
+  function startPour(){
+    if(locked()) return;
+    ensureAudio();
+    if(!state.can.size){ toast('先挑一个罐型，再倒糖水～'); sfx.error(); return; }
+    if(state.can.syrup >= 100) return;
+    state.pouring = true;
+    state.pourDinged = false;
+    state.lastInZone = false;
+    els.pourBtn.classList.add('pouring');
+    els.pourBtn.innerHTML = `<span class="pour-label">${icon('drop')}正在倒…</span><small>松手停止</small>`;
+    buzz(12);
+    updateSyrupVisual();
+  }
+
+  function stopPour(){
+    if(!state.pouring) return;
+    state.pouring = false;
+    els.pourBtn.classList.remove('pouring');
+    els.pourBtn.innerHTML = `<span class="pour-label">${icon('drop')}按住倒糖水</span><small>松手停止</small>`;
+    if(state.order){
+      const sw = SWEET[state.order.sweet];
+      const pct = state.can.syrup;
+      if(Math.abs(pct - sw.target) <= sw.tol){
+        sfx.ding();
+        toast('糖水刚好停在目标区，漂亮！');
+        buzz(18);
+      }else if(pct > 0){
+        sfx.tap();
+      }
+    }
+    renderHint();
+    updateFooter();
+  }
+
+  function allReady(){
+    const c = state.can;
+    return !!(c.size && c.peaches > 0 && c.syrup > 0 && c.temp && c.topping);
+  }
+
+  function sealCan(){
+    if(state.phase !== 'playing') return;
+    if(state.can.sealed){ toast('已经封好盖啦，直接出餐吧！'); return; }
+    if(!allReady()){
+      sfx.error();
+      const c = state.can;
+      let msg = '还差一点：';
+      if(!c.size) msg += '挑罐型、';
+      if(c.peaches <= 0) msg += '放黄桃、';
+      if(c.syrup <= 0) msg += '倒糖水、';
+      if(!c.temp) msg += '选温度、';
+      if(!c.topping) msg += '选加料、';
+      toast(msg.replace(/、$/,'') + '。');
+      return;
+    }
+    ensureAudio();
+    state.pouring = false;
+    state.can.sealed = true;
+    els.pourBtn.classList.remove('pouring');
+    sfx.seal();
+    buzz([12,30,12]);
+    renderCan();
+    els.canWrap.classList.remove('bump');
+    els.canWrap.classList.add('sealing');
+    renderControls();
+    renderHint();
+    updateFooter();
+    setTimeout(() => {
+      if(state.can.sealed) els.canWrap.classList.remove('sealing');
+    }, 550);
+    showSpeech('封好盖啦！快送给客人吧～', 2400);
+  }
+
+  function resetCan(){
+    if(state.phase !== 'playing') return;
+    ensureAudio();
+    stopPour();
+    state.can = emptyCan();
+    state.pourDinged = false;
+    state.lastInZone = false;
+    renderCan(); renderControls(); renderHint(); updateFooter();
+    sfx.remove();
+    toast('这罐重做，重新来一次吧！');
+  }
+
+  function serveCan(){
+    if(state.phase !== 'playing' || !state.can.sealed) return;
+    ensureAudio();
+    stopPour();
+    state.phase = 'serving';
+    state.busy = true;
+    els.serveBtn.disabled = true;
+    els.canWrap.classList.add('serving');
+    sfx.serve();
+    buzz(20);
+    state.reviewTimer = setTimeout(() => {
+      finishOrder(false);
+    }, 650);
+  }
+
+  function timeoutOrder(){
+    if(state.phase !== 'playing') return;
+    state.phase = 'timeout';
+    state.pouring = false;
+    els.pourBtn.classList.remove('pouring');
+    els.pourBtn.innerHTML = `<span class="pour-label">${icon('drop')}按住倒糖水</span><small>松手停止</small>`;
+    sfx.sad();
+    setGuestMood('sad');
+    showSpeech('等太久啦……我先走了。', 4500);
+    state.reviewTimer = setTimeout(() => finishOrder(true), 600);
+  }
+
+  function finishOrder(isTimeout){
+    if(state.phase === 'reviewing' || state.phase === 'summary') return;
+    state.phase = 'reviewing';
+    state.pouring = false;
+    const result = scoreOrder(isTimeout);
+    result.index = state.guestIndex;
+    result.guest = state.guest;
+    state.reviews.push(result);
+    state.coins += result.coins;
+    state.dayCoins += result.coins;
+    state.dayStars += result.stars;
+    state.busy = false;
+    setGuestMood(result.stars >= 2 ? 'happy' : 'sad');
+    showSpeech(result.comment, 5200);
+    renderHUDCoins(state.coins - result.coins);
+    renderControls();
+    updateFooter();
+    if(result.stars >= 2){
+      setGuestMood('happy');
+    }
+    setTimeout(() => {
+      if(state.starsSound !== false){
+        if(result.stars >= 2) sfx.star(); else sfx.sad();
+      }
+    }, 120);
+    renderReview(result);
+  }
+
+  function scoreOrder(isTimeout){
+    const c = state.can;
+    const o = state.order;
+    const sw = SWEET[o.sweet];
+    const remaining = isTimeout ? 0 : clamp(state.patience, 0, 1);
+
+    const sizeOk = c.size === o.size;
+    const peachDiff = Math.abs(c.peaches - o.peaches);
+    const peachOk = peachDiff === 0;
+    const peachScore = peachDiff === 0 ? 20 : peachDiff === 1 ? 11 : peachDiff === 2 ? 5 : 0;
+    const syrupDiff = Math.abs(c.syrup - sw.target);
+    const syrupOk = syrupDiff <= sw.tol;
+    const syrupScore = isTimeout ? (syrupOk ? 12 : 0) : syrupOk ? 20 : Math.max(0, Math.round(20 - (syrupDiff - sw.tol) * 1.05));
+    const tempOk = c.temp === o.temp;
+    const toppingOk = c.topping === o.topping;
+    const speedScore = isTimeout ? 0 : remaining >= .55 ? 10 : remaining >= .28 ? 7 : 4;
+
+    const score = clamp((sizeOk ? 20 : 0) + peachScore + syrupScore + (tempOk ? 15 : 0) + (toppingOk ? 15 : 0) + speedScore, 0, 100);
+    const stars = score >= 90 ? 3 : score >= 70 ? 2 : score >= 45 ? 1 : 0;
+    const perfect = score >= 100;
+    const coins = isTimeout ? 0 : 6 + Math.round(score * .1) + (perfect ? 4 : 0);
+
+    let comment;
+    if(isTimeout){
+      comment = '等太久啦，我的黄桃罐头还没好吗？下次要快一点哦……';
+    }else if(score >= 100){
+      comment = state.guest.happy;
+    }else if(score >= 90){
+      comment = state.guest.happy;
+    }else{
+      const issues = [];
+      if(!sizeOk) issues.push('罐型拿错了');
+      if(!peachOk) issues.push(`黄桃要 ${o.peaches} 块呀`);
+      if(!syrupOk) issues.push(c.syrup > sw.target ? '糖水偏甜' : '糖水偏淡');
+      if(!tempOk) issues.push('温度不太对');
+      if(!toppingOk) issues.push('加料弄错啦');
+      if(speedScore < 10) issues.push('稍微有点慢');
+      if(issues.length){
+        comment = `${issues[0]}，${score >= 70 ? '不过整体还不错，' : ''}味道是可以的，下次记住我的订单哦～`;
+      }else{
+        comment = state.guest.okay;
+      }
+    }
+
+    const details = [
+      {
+        label:'罐型', ok:sizeOk,
+        text: sizeOk ? `${SIZES[o.size].name} ✓` : `要${SIZES[o.size].name} · 用了${c.size ? SIZES[c.size].name : '空罐'}`
+      },
+      {
+        label:'黄桃', ok:peachOk,
+        text: peachOk ? `${o.peaches} 块 ✓` : `要 ${o.peaches} 块 · 放了 ${c.peaches} 块`
+      },
+      {
+        label:'糖水', ok:syrupOk,
+        text: syrupOk ? `${sw.name} · ${Math.round(c.syrup)}%` : `${sw.name} · 你倒了 ${Math.round(c.syrup)}%`
+      },
+      {
+        label:'温度', ok:tempOk,
+        text: tempOk ? `${TEMPS[o.temp].name} ✓` : `要 ${TEMPS[o.temp].name} · 选了 ${c.temp ? TEMPS[c.temp].name : '未选'}`
+      },
+      {
+        label:'加料', ok:toppingOk,
+        text: toppingOk ? `${TOPPINGS[o.topping].name} ✓` : `要 ${TOPPINGS[o.topping].name} · 选了 ${c.topping ? TOPPINGS[c.topping].name : '未选'}`
+      },
+      {
+        label:'出餐速度', ok:speedScore >= 7,
+        text: isTimeout ? '超时了…' : speedScore >= 10 ? '手速超快' : speedScore >= 7 ? '刚刚好' : '客人等急了'
+      }
+    ];
+
+    return { score, stars, coins, perfect, isTimeout, comment, details, remaining };
+  }
+
+  function renderReview(result){
+    const starsHtml = [0,1,2].map(i => `<svg class="icon star ${i < result.stars ? 'on' : ''}" style="transition-delay:${i*.08}s"><use href="#i-star"></use></svg>`).join('');
+    els.reviewStars.innerHTML = starsHtml;
+    els.reviewTitle.textContent = result.isTimeout ? '客人等不及了…' : result.perfect ? '完美出餐！' : result.stars === 3 ? '客人超满意！' : result.stars === 2 ? '还不错哦～' : result.stars === 1 ? '勉强过关…' : '客人有点失望…';
+    els.reviewScore.textContent = result.score;
+    els.reviewQuote.innerHTML = `<b>${result.guest.name}：</b>${result.comment}`;
+    els.reviewCoins.textContent = result.coins;
+    els.perfectStamp.style.display = result.perfect ? 'grid' : 'none';
+    els.scoreGrid.innerHTML = result.details.map(d => `
+      <div class="score-item ${d.ok ? 'ok' : 'bad'}">
+        <span class="status">${icon(d.ok ? 'check' : 'x')}</span>
+        <span class="copy"><b>${d.label}</b><small>${d.text}</small></span>
+      </div>`).join('');
+    els.nextBtn.innerHTML = state.guestIndex >= GUEST_COUNT - 1
+      ? `查看今日结算${icon('arrow')}`
+      : `下一位客人${icon('arrow')}`;
+    els.reviewOverlay.classList.add('show');
+    els.reviewOverlay.setAttribute('aria-hidden','false');
+    setTimeout(() => {
+      Array.from(els.reviewStars.querySelectorAll('.star.on')).forEach((star, i) => {
+        star.style.animationDelay = (i * .1) + 's';
+        star.classList.add('pop');
+      });
+    }, 160);
+    setTimeout(() => els.nextBtn.focus({preventScroll:true}), 250);
+    animateCoins(state.coins - result.coins, state.coins, 500);
+  }
+
+  function nextGuest(){
+    if(state.phase !== 'reviewing') return;
+    sfx.tap();
+    els.reviewOverlay.classList.remove('show');
+    els.reviewOverlay.setAttribute('aria-hidden','true');
+    if(state.guestIndex >= GUEST_COUNT - 1){
+      setTimeout(showSummary, 280);
+    }else{
+      newCustomer(state.guestIndex + 1);
+    }
+  }
+
+  function showSummary(){
+    state.phase = 'summary';
+    stopPour();
+    const total = state.reviews.length;
+    const stars = state.reviews.reduce((s,r) => s + r.stars, 0);
+    const perfect = state.reviews.filter(r => r.perfect).length;
+    const avg = total ? Math.round(state.reviews.reduce((s,r) => s + r.score, 0) / total) : 0;
+    els.summaryTitle.textContent = `第 ${state.day} 天 · 打烊啦`;
+    els.summaryStars.textContent = stars;
+    els.summaryCoins.textContent = state.dayCoins;
+    els.summaryPerfect.textContent = perfect;
+    els.summaryAvg.textContent = avg;
+    let comment = '';
+    if(stars >= 9) comment = '<b>奶蛙今天大成功！</b>三位客人都给出了满星评价，黄桃罐头店的招牌越来越亮啦！';
+    else if(stars >= 7) comment = `<b>奶蛙辛苦啦！</b>今天拿到了 ${stars} 颗星，客人们都很喜欢你的黄桃罐头。`;
+    else if(stars >= 4) comment = `<b>还不错哦～</b>再仔细看看订单，把糖水和加料都配对，客人会更开心。`;
+    else comment = `<b>明天继续加油！</b>先看清订单再动手，奶蛙一定能做出完美的黄桃罐头。`;
+    els.summaryComment.innerHTML = comment;
+    if(state.dayStars > state.best){
+      state.best = state.dayStars;
+      writeBest(state.best);
+    }
+    els.summaryBest.textContent = state.best > 0 ? `最佳记录：单日 ${state.best} / 9 颗星` : '完成第一天，就会留下你的最佳记录';
+    els.summaryOverlay.classList.add('show');
+    els.summaryOverlay.setAttribute('aria-hidden','false');
+    spawnConfetti(stars >= 7 ? 30 : 16);
+    if(stars >= 7) sfx.star(); else sfx.coin();
+  }
+
+  function replayDay(){
+    sfx.tap();
+    state.day += 1;
+    state.dayCoins = 0;
+    state.dayStars = 0;
+    state.reviews = [];
+    state.guestIndex = 0;
+    els.summaryOverlay.classList.remove('show');
+    els.summaryOverlay.setAttribute('aria-hidden','true');
+    els.canWrap.classList.remove('serving');
+    newCustomer(0);
+  }
+
+  function spawnConfetti(count){
+    const colors = ['#FFD23F','#EF6758','#4C9D69','#FFF0C0','#FF9B42','#7EB3E4'];
+    els.confetti.innerHTML = '';
+    for(let i=0;i<count;i++){
+      const piece = document.createElement('i');
+      piece.style.left = (Math.random() * 100) + '%';
+      piece.style.background = colors[i % colors.length];
+      piece.style.animationDuration = (2.4 + Math.random() * 2.4) + 's';
+      piece.style.animationDelay = (Math.random() * 1.2) + 's';
+      piece.style.width = (5 + Math.random() * 5) + 'px';
+      piece.style.height = (8 + Math.random() * 7) + 'px';
+      piece.style.opacity = (.55 + Math.random() * .4);
+      els.confetti.appendChild(piece);
+    }
+  }
+
+  /* -------------------- HUD / UI 更新 -------------------- */
+  function updateHud(){
+    const phaseText = state.phase === 'intro' ? '准备营业' : state.phase === 'summary' ? '今日打烊' : `客人 ${Math.min(state.guestIndex + 1, GUEST_COUNT)} / ${GUEST_COUNT}`;
+    els.daySub.textContent = `DAY ${pad2(state.day)} · ${phaseText}`;
+    if(state.coins !== Number(els.coins.textContent)){
+      animateCoins(Number(els.coins.textContent) || 0, state.coins, 400);
+    }
+  }
+
+  function renderHUDCoins(from){
+    animateCoins(from, state.coins, 550);
+    const phaseText = `客人 ${Math.min(state.guestIndex + 1, GUEST_COUNT)} / ${GUEST_COUNT}`;
+    els.daySub.textContent = `DAY ${pad2(state.day)} · ${phaseText}`;
+  }
+
+  function animateCoins(from, to, duration){
+    cancelAnimationFrame(state.coinRaf);
+    const start = performance.now();
+    const diff = to - from;
+    const step = (now) => {
+      const p = clamp((now - start) / duration, 0, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      els.coins.textContent = String(Math.round(from + diff * eased));
+      if(p < 1) state.coinRaf = requestAnimationFrame(step);
+      else { els.coins.textContent = String(to); sfx.coin(); }
+    };
+    state.coinRaf = requestAnimationFrame(step);
+  }
+
+  function renderControls(){
+    const c = state.can;
+    const isLocked = locked();
+    $$('.size-btn').forEach(btn => {
+      btn.classList.toggle('active', c.size === btn.dataset.size);
+      btn.disabled = isLocked;
+    });
+    els.peachCount.textContent = String(c.peaches);
+    els.peachMinus.disabled = isLocked || c.peaches <= 0;
+    els.peachPlus.disabled = isLocked || c.peaches >= 5;
+    els.peachMinus.style.opacity = els.peachMinus.disabled ? '.4' : '';
+    els.peachPlus.style.opacity = els.peachPlus.disabled ? '.4' : '';
+
+    els.syrupFill.style.width = clamp(c.syrup,0,100) + '%';
+    els.syrupReadout.textContent = Math.round(c.syrup) + '%';
+    if(state.order){
+      const sw = SWEET[state.order.sweet];
+      els.syrupTarget.style.left = (sw.target - sw.tol) + '%';
+      els.syrupTarget.style.width = (sw.tol * 2) + '%';
+      const inZone = Math.abs(c.syrup - sw.target) <= sw.tol;
+      els.syrupFill.classList.toggle('in-zone', inZone);
+    }
+    els.pourBtn.disabled = isLocked || c.syrup >= 100;
+    if(!state.pouring){
+      els.pourBtn.innerHTML = `<span class="pour-label">${icon('drop')}按住倒糖水</span><small>${c.syrup >= 100 ? '已经倒满啦' : '松手停止'}</small>`;
+    }
+
+    $$('.chip[data-temp]').forEach(btn => {
+      btn.classList.toggle('active', c.temp === btn.dataset.temp);
+      btn.disabled = isLocked;
+    });
+    $$('.chip[data-topping]').forEach(btn => {
+      btn.classList.toggle('active', c.topping === btn.dataset.topping);
+      btn.disabled = isLocked;
+    });
+
+    [els.sizeCard, els.peachCard, els.syrupCard, els.tempCard, els.toppingCard].forEach(card => card.classList.toggle('locked', isLocked));
+    els.resetBtn.disabled = state.phase !== 'playing';
+  }
+
+  function updateFooter(){
+    const c = state.can;
+    const canPlay = state.phase === 'playing';
+    const ready = allReady();
+    els.sealBtn.disabled = !canPlay || c.sealed;
+    els.serveBtn.disabled = !(canPlay && c.sealed);
+    els.sealBtn.classList.toggle('pulse', canPlay && ready && !c.sealed);
+    els.serveBtn.classList.toggle('ready', canPlay && c.sealed);
+    els.sealBtn.innerHTML = c.sealed ? `${icon('check')}已封盖` : `${icon('lid')}封盖`;
+    els.serveBtn.innerHTML = `${icon('arrow')}出餐`;
+    els.resetBtn.disabled = !canPlay;
+  }
+
+  function renderHint(){
+    if(!state.order){ els.hintText.textContent = '等客人来点单吧～'; return; }
+    const c = state.can;
+    let text = '先挑一个罐型吧';
+    if(c.sealed) text = '封好盖啦，送到客人手里吧！';
+    else if(!c.size) text = '第 1 步：按订单挑一个罐型';
+    else if(c.peaches <= 0) text = '第 2 步：切几块黄桃放进去';
+    else if(c.syrup <= 0) text = '第 3 步：按住倒糖水，停在绿色区';
+    else if(!c.temp) text = '第 4 步：选一下罐头的温度';
+    else if(!c.topping) text = '第 5 步：加料也要对得上订单哦';
+    else text = '都配好啦，先「封盖」，再「出餐」吧！';
+    els.hintText.textContent = text;
+    els.hint.classList.toggle('pulse', c.sealed || allReady());
+  }
+
+  function renderPatience(pct){
+    const p = clamp(pct, 0, 1);
+    els.patienceFill.style.transform = `scaleX(${p})`;
+    els.patience.classList.toggle('low', p < .3);
+    const secs = Math.max(0, Math.ceil(p * PATIENCE_MS / 1000));
+    if(secs !== state.lastPatienceSec){
+      state.lastPatienceSec = secs;
+      els.patienceTime.textContent = `${Math.floor(secs/60)}:${pad2(secs%60)}`;
+    }
+  }
+
+  function toast(text){
+    clearTimeout(state.toastTimer);
+    els.toast.textContent = text;
+    els.toast.classList.add('show');
+    state.toastTimer = setTimeout(() => els.toast.classList.remove('show'), 2200);
+  }
+
+  /* -------------------- 主循环 -------------------- */
+  function tick(now){
+    if(!state.lastFrame) state.lastFrame = now;
+    const dt = Math.min(50, Math.max(0, now - state.lastFrame));
+    state.lastFrame = now;
+
+    if(state.phase === 'playing'){
+      if(state.pouring){
+        const before = state.can.syrup;
+        state.can.syrup = Math.min(100, before + dt * POUR_RATE);
+        updateSyrupVisual();
+        if(Math.abs(state.can.syrup - before) > 0 && Math.floor(state.can.syrup / 14) !== Math.floor(before / 14)){
+          sfx.pour();
+        }
+        if(state.order){
+          const sw = SWEET[state.order.sweet];
+          const inZone = Math.abs(state.can.syrup - sw.target) <= sw.tol;
+          if(inZone && !state.lastInZone && !state.pourDinged){
+            state.pourDinged = true;
+            sfx.ding();
+          }
+          state.lastInZone = inZone;
+        }
+        if(state.can.syrup >= 100){
+          stopPour();
+          toast('糖水倒满啦！觉得太多可以点「重做」～');
+          els.pourBtn.disabled = true;
+        }
+        updateFooter();
+      }
+      const remain = Math.max(0, (state.deadline - now) / PATIENCE_MS);
+      state.patience = remain;
+      renderPatience(remain);
+      if(remain <= 0){
+        timeoutOrder();
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  /* -------------------- 本地存储 -------------------- */
+  function readBest(){
+    try{
+      const n = Number(localStorage.getItem('naiwa_best') || 0);
+      return Number.isFinite(n) ? n : 0;
+    }catch(e){ return 0; }
+  }
+  function writeBest(n){
+    try{ localStorage.setItem('naiwa_best', String(n)); }catch(e){}
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+</body>
+</html>

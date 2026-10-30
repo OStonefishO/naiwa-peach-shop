@@ -1,0 +1,2565 @@
+﻿(function(){
+  'use strict';
+
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const icon = name => `<svg class="icon"><use href="#i-${name}"></use></svg>`;
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  const SIZES = {
+    small:{name:'灏忕綈', ml:180, scale:.84},
+    medium:{name:'涓綈', ml:300, scale:.95},
+    large:{name:'澶х綈', ml:420, scale:1.05}
+  };
+  const SUGAR = {
+    1:{name:'灏戠硸', target:31, tol:8},
+    2:{name:'鏍囧噯绯?, target:61, tol:9},
+    3:{name:'澶氱硸', target:87, tol:7}
+  };
+  const TEMPS = {ice:'鍐伴晣', room:'甯告俯', warm:'娓╃儹'};
+  const JARS = {
+    classic:{name:'缁忓吀缃?, price:0, free:true, scale:1},
+    narrow:{name:'绐勫彛缃?, price:80, scale:.84},
+    wide:{name:'骞垮彛缃?, price:100, scale:1.12}
+  };
+  const TOPPINGS = {
+    none:{name:'涓嶅姞', icon:'x'},
+    mint:{name:'钖勮嵎', icon:'leaf'},
+    osmanthus:{name:'妗傝姳', icon:'flower'},
+    dates:{name:'绾㈡灒', icon:'peach'},
+    goji:{name:'鏋告潪', icon:'flower'},
+    rock:{name:'鍐扮硸', icon:'drop'},
+    honeysuckle:{name:'閲戦摱鑺?, icon:'flower'}
+  };
+  const BASE_TOPPINGS = ['mint','osmanthus'];
+  const EXPANSION = {
+    topping:[
+      {id:'dates', name:'绾㈡灒', price:45, desc:'鐢滈鍘氬疄鐨勭孩鏋ｏ紝瀹汉鍙兘鐐?1鈥? 鍕?},
+      {id:'goji', name:'鏋告潪', price:55, desc:'鍏荤敓绯绘灨鏉烇紝璁㈠崟閲屽彲鑳藉嚭鐜?},
+      {id:'rock', name:'鍐扮硸', price:65, desc:'娓呯敎鍐扮硸锛岄厤榛勬绯栨按姝ｅソ'},
+      {id:'honeysuckle', name:'閲戦摱鑺?, price:75, desc:'娓呯埥閲戦摱鑺憋紝澶忔棩闄愬畾鍔犳枡'}
+    ],
+    jar:[
+      {id:'narrow', name:'绐勫彛缃?, price:80, desc:'鐡跺彛鏇寸獎锛屽€掔硸姘存椂瑕佹洿绋?},
+      {id:'wide', name:'骞垮彛缃?, price:100, desc:'澶у彛瑁呮锛屾憜鐩樻洿璞斁'}
+    ]
+  };
+  const GUESTS = [
+    {name:'灏忛粍', kind:'dog', tier:'normal', accessory:null, body:'#FFC91D', bodyDark:'#EDB114', belly:'#FFF0C8',
+      greet:'绗竴娆℃潵锛佸惉璇村ザ铔欑殑缃愬ご瓒呭ソ鍚冿綖',
+      happy:'杩欑綈榛勬涔熷お棣欎簡鍚э紒鍐板啺鍑夊噳锛岀敎搴﹀垰鍒氬ソ锛?,
+      okay:'鍛抽亾涓嶉敊锝炰笅娆℃垜浼氬啀鏉ヤ拱鐨勩€?},
+    {name:'闃胯摑', kind:'dog', tier:'normal', accessory:'cap', body:'#FFD447', bodyDark:'#E9B41D', belly:'#FFF3D4', cap:'#4E8CC9',
+      greet:'鑰佹澘锛岀粰鎴戞潵涓€缃愶紝鎷滄墭鍟︼紒',
+      happy:'鍝囷紝灏辨槸杩欎釜鍛抽亾锛侀粍妗冨張澶у張鐢滐紝濂惰洐濂藉帀瀹筹紒',
+      okay:'杩樹笉閿欏摝锛屼笅娆¤寰楀揩涓€鐐圭偣锝?},
+    {name:'璞嗚眴', kind:'dog', tier:'normal', accessory:'glasses', body:'#F5B72B', bodyDark:'#DEA11A', belly:'#FFE9B8',
+      greet:'鍢垮樋锛屼粖澶╂兂灏濈偣涓嶄竴鏍风殑锝?,
+      happy:'澶畬缇庝簡锛佹殩涔庝箮鐨勭硸姘撮厤榛勬锛岃秴绾ф不鎰堬紒',
+      okay:'鍛抽亾鍙互锛屼笅娆″啀缁欎綘涓€娆℃満浼氬惂锝?},
+    {name:'鍙ｆ按鐚?, kind:'cat', tier:'normal', patience:1.02, coin:1.05, tolDelta:0,
+      greet:'鍚告簻鈥︹€﹀ソ棣欑殑榛勬鍛筹紝鎴戝彲浠ュ湪绐楄竟绛夊悧锛?,
+      happy:'鍚告簻锛佽繖缃愪篃澶ソ鍚冧簡鍚э紝鐢滄按鎴戦兘鎯冲枬鍏夛紒',
+      okay:'杩樹笉閿欙紝灏辨槸鎴戠殑鍙ｆ按蹇淮鍒版煖鍙颁笂浜嗏€︹€?},
+    {name:'澶滆幒甯堝倕', kind:'bird', tier:'normal', patience:.95, coin:1.1, tolDelta:0,
+      greet:'鍡€︹€﹁鎴戝惉鍚繖缃愰粍妗冪殑澹伴煶銆?,
+      happy:'楂橀煶鐢滐紝涓煶鍑嗭紝浣庨煶娌夆€斺€旇繖缃愰粍妗冿紝閫氶€忥紒',
+      okay:'鑺傚杩樿锛屽熬闊冲樊浜嗙偣鎰忔€濄€?},
+    {name:'娴风坏瀹濆疂', kind:'sponge', tier:'normal', patience:1.1, coin:1.1, tolDelta:0,
+      greet:'鎴戝噯澶囧ソ鍟︼紒鎴戝噯澶囧ソ鍟︼紒浠婂ぉ涔熻鏉ヤ竴缃愰粍妗冿紒',
+      happy:'杩欑綈榛勬姣旇煿榛勫牎杩橀锛佹垜瑕佺粰瀹冩墦涓€鐧惧垎锛?,
+      okay:'鍡€︹€﹀懗閬撲笉閿欙紝涓嶈繃杩樺彲浠ュ啀蹇箰涓€鐐癸紒'},
+    {name:'椋炴満鑰崇尗', kind:'plane', tier:'normal', patience:1.05, coin:1.05, tolDelta:0,
+      greet:'锛堥鏈鸿€筹級鈥︹€﹀彲浠ワ紝缁欐垜涓€缃愬悧锛熸垜銆佹垜浼氫粯閽辩殑銆?,
+      happy:'鑰虫湹閮界珫璧锋潵浜嗭紒杩欑綈鐪熺殑濂藉ソ鍚冿紒',
+      okay:'鍡€︹€﹁繕琛屽惂锛屾垜娌℃湁寰堝け鏈涖€?}
+  ];
+  const ELITE_GUEST = {name:'瀵稿ご鐚?, kind:'pig', tier:'elite', badge:'绮捐嫳', patience:.8, coin:1.35, tolDelta:-2,
+    greet:'鎴戜粠娌欐紶涓€璺簻杈炬潵鐨勩€傜粰鎴戝仛缃愯绌剁偣鐨勶紝鍒硦寮勩€?,
+    happy:'琛屽晩锛岃繖鎵嬭壓鍦ㄦ矙婕犻噷鑳藉紑鍒嗗簵銆?,
+    okay:'鍑戝悎鍚э紝涓嬫绯栨按鍙埆鍊掓浜嗐€?};
+  const BOSS_GUEST = {name:'璁ょ湡鐙?, kind:'serious', tier:'boss', badge:'BOSS', patience:.62, coin:2, tolDelta:-3,
+    greet:'鎴戝彧璇翠竴閬嶏細缃愬瀷銆佸潡鏁般€佺硸姘存瘮渚嬶紝鍏ㄩ儴鎸夊崟瀛愭潵銆?,
+    happy:'鈥︹€﹀悎鏍笺€備粖澶╃殑妫€鏌ワ紝浣犻€氳繃浜嗐€?,
+    okay:'鏈夊嚑涓粏鑺備笉杈炬爣銆備笅娆℃垜浼氬甫鏀惧ぇ闀滄潵銆?};
+  const PATRICK_GUEST = {name:'娲惧ぇ鏄?, kind:'patrick', tier:'boss', badge:'BOSS', patience:.7, coin:1.9, tolDelta:-2,
+    greet:'鎴戞槸涓€棰楁槦鈥︹€﹀惉璇磋繖閲屾湁榛勬缃愬ご锛熸垜瑕佺敤鍏ㄩ儴闆惰姳閽变拱锛?,
+    happy:'澶€斺€斿ソ鈥斺€斿悆鈥斺€斿暒锛佹垜瑕佹妸瀹冨綋鏋曞ご鎶辩潃鐫★紒',
+    okay:'鎴戞湁鐐规病鍚冩槑鐧解€︹€︿笉杩囨病鍏崇郴锛屽啀鏉ヤ竴缃愶紒'};
+  function bossGuestForDay(day){
+    const week = Math.floor((day - 1) / WEEK_DAYS) + 1;
+    return week % 2 === 0 ? PATRICK_GUEST : BOSS_GUEST;
+  }
+  const SPECIAL_SLOT = {elite:1, boss:2};
+  function specialForDay(day){
+    const d = ((day - 1) % WEEK_DAYS) + 1;
+    if(d === 7) return {type:'boss', slot:SPECIAL_SLOT.boss, guest:bossGuestForDay(day)};
+    if(d === 5) return {type:'elite', slot:SPECIAL_SLOT.elite, guest:ELITE_GUEST};
+    return null;
+  }
+  const MODES = {
+    normal:{name:'鏅€氭ā寮?, days:14, desc:'14 澶╁懆鐩?路 灏藉彲鑳藉璧氶挶'},
+    endless:{name:'鏃犲敖妯″紡', weekDays:7, desc:'姣忓懆瀹屾垚涓氱哗 路 涓嶈揪鏍囧氨鍏抽棬'}
+  };
+  const NORMAL_DAYS = 14;
+  const WEEK_DAYS = 7;
+  const weekTargetFor = week => Math.min(480, 190 + (week - 1) * 40);
+  const MUSIC = {
+    title:'music/title.mp3',
+    desk:'music/desk.mp3',
+    work:'music/work.mp3',
+    summary:'music/summary.mp3'
+  };
+  const PATIENCE_MS = 100000;
+  const GUEST_COUNT = 3;
+  const POUR_RATE = 0.032;
+  const BOIL_MS = 14000;
+  const BOIL_MIN = 55;
+  const BOIL_MAX = 82;
+  const CUT_STOCK = 14;
+  const MAX_PIECES = 5;
+  const SAVE_KEY = 'naiwa_v2_save';
+  const POT_PRICES = {1:28, 2:48, 3:75};
+  const KNIVES = {
+    wood:{name:'鏈ㄦ焺鍒€', price:0, color:'#8A5A32'},
+    mint:{name:'钖勮嵎鍒€', price:18, color:'#62B79A'},
+    sakura:{name:'妯辫姳鍒€', price:35, color:'#E39AAE'},
+    gold:{name:'榛勯噾鍒€', price:60, color:'#E8B53A'}
+  };
+
+  /* -------------------- 鐜╁灏忓鏁版嵁 -------------------- */
+  const PROFILE_KEY = 'naiwa_profiles_v1';
+  const ACTIVE_KEY = 'naiwa_active_v1';
+  const FURNITURE = {
+    rug:{name:'榛勬鍦版', price:60, icon:'馃煥', desc:'杞箮涔庯紝韪╀笂鍘诲儚韪╁湪榛勬涓?},
+    plant:{name:'钖勮嵎鐩嗘牻', price:45, icon:'馃尶', desc:'璁╁皬瀹堕椈璧锋潵娓呮竻鍑夊噳'},
+    lamp:{name:'鏆栭粍钀藉湴鐏?, price:90, icon:'馃挕', desc:'鎵撶儕鍚庣殑娓╂煍鐏厜'},
+    table:{name:'灏忔湪妗?, price:80, icon:'馃', desc:'鏀句竴缃愬垰灏佸ソ鐨勯粍妗?},
+    shelf:{name:'缃愬ご闄堝垪鏋?, price:120, icon:'馃珯', desc:'鎶婃嫑鐗岀綈澶存憜缁欏浜虹湅'},
+    pumpkin:{name:'鍗楃摐鐏?, price:70, icon:'馃巸', desc:'涓囧湥鑺傞檺瀹氱殑灏忔憜浠?}
+  };
+  const FURN_POS = {
+    rug:{x:38,y:91}, plant:{x:26,y:74}, lamp:{x:69,y:58},
+    table:{x:32,y:78}, shelf:{x:66,y:33}, pumpkin:{x:58,y:73}
+  };
+  const CLOTHES = {
+    head:[
+      {id:'chef', name:'鍘ㄥ笀甯?, price:0, free:true, icon:'馃懆鈥嶐煃?},
+      {id:'witch', name:'涓囧湥灏栧附', price:55, icon:'馃'},
+      {id:'glasses', name:'鍦嗘鐪奸暅', price:35, icon:'馃憮'},
+      {id:'shades', name:'澧ㄩ暅', price:45, icon:'馃暥锔?},
+      {id:'scholar', name:'鏍″洯楦垖甯?, price:50, icon:'馃Б'}
+    ],
+    top:[
+      {id:'apron', name:'濂惰洐鍥磋', price:0, free:true, icon:'馃ゼ'},
+      {id:'hoodie', name:'榛勬鍗。', price:60, icon:'馃Д'},
+      {id:'uniform', name:'鏍″洯鍒舵湇', price:70, icon:'馃幗'},
+      {id:'pumpkin', name:'鍗楃摐姣涜。', price:65, icon:'馃巸'}
+    ]
+  };
+  const SKIN_AREAS = {desk:'鏈嶅姟鍙?, work:'宸ヤ綔鍙?, kitchen:'鍘ㄦ埧'};
+  const SKINS = {
+    desk:[
+      {id:'classic', name:'鍘熸湪灏忓簵', price:0, free:true},
+      {id:'halloween', name:'涓囧湥鍗楃摐', price:80},
+      {id:'campus', name:'鏍″洯鍊兼棩', price:80}
+    ],
+    work:[
+      {id:'classic', name:'鍘熸湪宸ヤ綔鍙?, price:0, free:true},
+      {id:'halloween', name:'鍗楃摐宸ュ潑', price:80},
+      {id:'campus', name:'鏍″洯鎵嬪伐璇?, price:80}
+    ],
+    kitchen:[
+      {id:'classic', name:'鍘熸湪鍘ㄦ埧', price:0, free:true},
+      {id:'halloween', name:'濂冲帆鍘ㄦ埧', price:80},
+      {id:'campus', name:'鏍″洯椋熷爞', price:80}
+    ]
+  };
+  function defaultProfile(name){
+    return {
+      name:name || '濂惰洐搴楅暱', wallet:200, bestNormal:0, bestEndless:0, totalRuns:0,
+      ownedFurniture:[], placedFurniture:[], furniturePositions:{},
+      clothes:{head:['chef'], top:['apron']},
+      equipped:{head:'chef', top:'apron'},
+      skins:{desk:['classic'], work:['classic'], kitchen:['classic']},
+      equippedSkins:{desk:'classic', work:'classic', kitchen:'classic'},
+      unlocks:{toppings:[], jars:[]},
+      lastRun:null
+    };
+  }
+  let profiles = {};
+  let activeProfile = null;
+
+  let audioCtx = null, masterGain = null;
+  let batchSeq = 0;
+
+  function emptyCan(){
+    return {size:null, jar:'classic', pieces:[], syrup:0, temp:null, topping:null, toppingQty:0, sealed:false, batchId:null};
+  }
+  function makePots(){
+    return Array.from({length:4}, (_,i) => ({id:i, sugar:0, progress:0, status:'idle', quality:null, startedAt:0, alarmFired:false}));
+  }
+
+  const state = {
+    phase:'intro', stage:'desk', day:1, coins:0, best:0,
+    mode:'normal', introMode:'normal', runEarned:0, week:1, weekEarned:0, weekTarget:weekTargetFor(1),
+    summaryKind:'day', bestNormal:0, bestEndless:0,
+    dayCoins:0, dayStars:0, guestIndex:0, guest:null, order:null, todayGuests:[],
+    can:emptyCan(), bowl:{large:0,small:0}, stock:Infinity,
+    pots:makePots(), batches:[], selectedBatch:null,
+    upgrade:{pots:1, alarm:false, knife:'wood', knives:['wood']},
+    reviews:[], patience:1, patienceMs:PATIENCE_MS, deadline:0, pouring:false,
+    sound:true, lastPourSfx:0, speechTimer:null, toastTimer:null, scoreResult:null,
+    metaAwarded:false, homeTab:'room', skinPreview:{area:'desk', id:'classic'}
+  };
+  let bgmEl = null, bgmKey = null, bgmToken = 0, musicWanted = false;
+
+  /* -------------------- 闊虫晥 -------------------- */
+  function ensureAudio(){
+    try{
+      if(!audioCtx){
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if(!AC) return;
+        audioCtx = new AC();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = state.sound ? .55 : 0;
+        masterGain.connect(audioCtx.destination);
+      }
+      if(audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+    }catch(e){ audioCtx = null; }
+  }
+  function tone(freq, dur=.08, type='sine', vol=.05, delay=0, endFreq=null){
+    if(!audioCtx || !state.sound) return;
+    try{
+      const t = audioCtx.currentTime + delay;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t);
+      if(endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, t + dur);
+      gain.gain.setValueAtTime(.0001, t);
+      gain.gain.exponentialRampToValueAtTime(vol, t + .012);
+      gain.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      osc.connect(gain); gain.connect(masterGain);
+      osc.start(t); osc.stop(t + dur + .03);
+    }catch(e){}
+  }
+  const sfx = {
+    tap(){ tone(520,.045,'triangle',.035); },
+    add(){ tone(330,.07,'sine',.06,0,520); tone(680,.06,'sine',.03,.055); },
+    remove(){ tone(320,.07,'sine',.035,0,220); },
+    chop(){ tone(240,.035,'square',.025,0,160); tone(620,.05,'triangle',.035,.035); },
+    pour(){ tone(210 + Math.random()*70,.055,'sine',.022); },
+    ding(){ tone(880,.1,'sine',.045); tone(1174,.13,'sine',.035,.08); },
+    alarm(){ tone(1046,.09,'square',.035); tone(1318,.1,'square',.03,.11); },
+    error(){ tone(170,.12,'square',.025,0,140); },
+    seal(){ tone(160,.1,'square',.025); tone(360,.1,'triangle',.045,.08); tone(740,.1,'sine',.028,.15); },
+    serve(){ tone(523,.12,'triangle',.05); tone(659,.12,'triangle',.045,.1); tone(784,.18,'triangle',.04,.2); },
+    star(){ tone(660,.08,'sine',.04); tone(880,.09,'sine',.04,.09); tone(1100,.14,'sine',.035,.18); },
+    coin(){ tone(920,.07,'triangle',.04); tone(1240,.1,'triangle',.035,.07); },
+    sad(){ tone(330,.16,'triangle',.035,0,247); tone(220,.22,'triangle',.03,.15,196); },
+    guest(){ tone(660,.12,'sine',.035); tone(990,.16,'sine',.03,.13); }
+  };
+  function buzz(ms){ try{ if(navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) navigator.vibrate(ms); }catch(e){} }
+
+  /* -------------------- 鑳屾櫙闊充箰 -------------------- */
+  function musicKeyFor(){
+    if(state.phase === 'intro') return 'title';
+    if(state.phase === 'playing') return state.stage === 'desk' ? 'desk' : 'work';
+    return 'summary';
+  }
+  function playBgm(key){
+    if(!bgmEl) bgmEl = els.bgm;
+    if(!bgmEl) return;
+    if(!state.sound){ bgmEl.pause(); return; }
+    if(bgmKey === key){
+      if(bgmEl.paused){ const p = bgmEl.play(); if(p && p.catch) p.catch(()=>{}); }
+      return;
+    }
+    bgmKey = key;
+    const token = ++bgmToken;
+    try{
+      bgmEl.pause();
+      bgmEl.src = MUSIC[key];
+      bgmEl.volume = .3;
+      const p = bgmEl.play();
+      if(p && p.catch) p.catch(()=>{});
+    }catch(e){}
+  }
+  function cueMusic(){
+    playBgm(musicKeyFor());
+  }
+
+  /* -------------------- 瀛樻。 -------------------- */
+  function loadSave(){
+    try{
+      const raw = localStorage.getItem(SAVE_KEY);
+      if(!raw) return;
+      const s = JSON.parse(raw);
+      if(Number.isFinite(s.bestNormal)) state.bestNormal = Math.max(0, s.bestNormal);
+      if(Number.isFinite(s.bestEndless)) state.bestEndless = Math.max(0, s.bestEndless);
+      if(Number.isFinite(s.coins)) state.coins = Math.max(0, s.coins);
+      if(Number.isFinite(s.best)) state.best = Math.max(0, s.best);
+      if(s.upgrade){
+        if(Number.isFinite(s.upgrade.pots)) state.upgrade.pots = clamp(s.upgrade.pots, 1, 4);
+        if(typeof s.upgrade.alarm === 'boolean') state.upgrade.alarm = s.upgrade.alarm;
+        if(s.upgrade.knife && KNIVES[s.upgrade.knife]) state.upgrade.knife = s.upgrade.knife;
+        if(Array.isArray(s.upgrade.knives)){
+          state.upgrade.knives = ['wood'].concat(s.upgrade.knives.filter(k => k !== 'wood' && KNIVES[k]));
+        }
+      }
+    }catch(e){}
+  }
+  function saveGame(){
+    try{
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        coins:state.coins, best:state.best, bestNormal:state.bestNormal, bestEndless:state.bestEndless,
+        upgrade:state.upgrade
+      }));
+    }catch(e){}
+  }
+
+  /* -------------------- 鐜╁妗?/ 灏忓 / 鎺掕姒?-------------------- */
+  function normalizeProfile(p){
+    const d = defaultProfile(p.name);
+    p.wallet = Number.isFinite(p.wallet) ? Math.max(0, p.wallet) : d.wallet;
+    p.bestNormal = Number.isFinite(p.bestNormal) ? Math.max(0, p.bestNormal) : 0;
+    p.bestEndless = Number.isFinite(p.bestEndless) ? Math.max(0, p.bestEndless) : 0;
+    p.totalRuns = Number.isFinite(p.totalRuns) ? p.totalRuns : 0;
+    p.ownedFurniture = Array.isArray(p.ownedFurniture) ? p.ownedFurniture.filter(id => FURNITURE[id]) : [];
+    p.placedFurniture = Array.isArray(p.placedFurniture) ? p.placedFurniture.filter(id => p.ownedFurniture.includes(id)).slice(0,4) : [];
+    p.furniturePositions = p.furniturePositions && typeof p.furniturePositions === 'object' ? p.furniturePositions : {};
+    const legacyPos = {rug:{x:50,y:86}, plant:{x:13,y:72}, lamp:{x:87,y:56}, table:{x:27,y:76}, shelf:{x:82,y:31}, pumpkin:{x:58,y:71}};
+    p.placedFurniture.forEach((id,i) => {
+      const pos = p.furniturePositions[id];
+      if(!pos || !Number.isFinite(pos.x) || !Number.isFinite(pos.y)) p.furniturePositions[id] = FURN_POS[id] || {x:22+i*18,y:70};
+      else if(legacyPos[id] && Math.abs(pos.x-legacyPos[id].x) < 1 && Math.abs(pos.y-legacyPos[id].y) < 1) p.furniturePositions[id] = FURN_POS[id];
+    });
+    p.clothes = p.clothes && typeof p.clothes === 'object' ? p.clothes : {};
+    p.clothes.head = Array.isArray(p.clothes.head) ? p.clothes.head.filter(id => CLOTHES.head.some(c => c.id === id)) : [];
+    p.clothes.top = Array.isArray(p.clothes.top) ? p.clothes.top.filter(id => CLOTHES.top.some(c => c.id === id)) : [];
+    ['chef'].forEach(id => { if(!p.clothes.head.includes(id)) p.clothes.head.push(id); });
+    ['apron'].forEach(id => { if(!p.clothes.top.includes(id)) p.clothes.top.push(id); });
+    p.equipped = p.equipped && typeof p.equipped === 'object' ? p.equipped : {};
+    if(!p.clothes.head.includes(p.equipped.head)) p.equipped.head = 'chef';
+    if(!p.clothes.top.includes(p.equipped.top)) p.equipped.top = 'apron';
+    p.skins = p.skins && typeof p.skins === 'object' ? p.skins : {};
+    p.equippedSkins = p.equippedSkins && typeof p.equippedSkins === 'object' ? p.equippedSkins : {};
+    Object.keys(SKINS).forEach(area => {
+      const owned = Array.isArray(p.skins[area]) ? p.skins[area] : [];
+      p.skins[area] = Array.from(new Set(['classic'].concat(owned.filter(id => SKINS[area].some(s => s.id === id)))));
+      if(!p.skins[area].includes(p.equippedSkins[area])) p.equippedSkins[area] = 'classic';
+    });
+    p.unlocks = p.unlocks && typeof p.unlocks === 'object' ? p.unlocks : {};
+    p.unlocks.toppings = Array.isArray(p.unlocks.toppings)
+      ? Array.from(new Set(p.unlocks.toppings.filter(id => EXPANSION.topping.some(x => x.id === id))))
+      : [];
+    p.unlocks.jars = Array.isArray(p.unlocks.jars)
+      ? Array.from(new Set(p.unlocks.jars.filter(id => EXPANSION.jar.some(x => x.id === id))))
+      : [];
+    return p;
+  }
+  function unlockedToppings(){
+    const extra = activeProfile && activeProfile.unlocks ? activeProfile.unlocks.toppings : [];
+    return BASE_TOPPINGS.concat(extra);
+  }
+  function unlockedJars(){
+    const extra = activeProfile && activeProfile.unlocks ? activeProfile.unlocks.jars : [];
+    return ['classic'].concat(extra);
+  }
+  function loadProfiles(){
+    try{
+      const raw = localStorage.getItem(PROFILE_KEY);
+      profiles = raw ? JSON.parse(raw) : {};
+      if(!profiles || typeof profiles !== 'object') profiles = {};
+    }catch(e){ profiles = {}; }
+    let activeName = '';
+    try{ activeName = localStorage.getItem(ACTIVE_KEY) || ''; }catch(e){}
+    if(!profiles[activeName]){
+      activeName = activeName || '濂惰洐搴楅暱';
+      profiles[activeName] = defaultProfile(activeName);
+    }
+    Object.keys(profiles).forEach(name => {
+      profiles[name].name = name;
+      normalizeProfile(profiles[name]);
+    });
+    activeProfile = profiles[activeName];
+    syncProfile();
+    saveProfiles();
+  }
+  function saveProfiles(){
+    try{
+      localStorage.setItem(PROFILE_KEY, JSON.stringify(profiles));
+      if(activeProfile) localStorage.setItem(ACTIVE_KEY, activeProfile.name);
+    }catch(e){}
+  }
+  function syncProfile(){
+    if(!activeProfile) return;
+    state.bestNormal = activeProfile.bestNormal || 0;
+    state.bestEndless = activeProfile.bestEndless || 0;
+  }
+  function playerNameSafe(name){
+    return String(name || '').trim().replace(/\s+/g, ' ').slice(0, 10);
+  }
+  function switchProfile(name){
+    name = playerNameSafe(name) || '濂惰洐搴楅暱';
+    if(!profiles[name]) profiles[name] = defaultProfile(name);
+    activeProfile = normalizeProfile(profiles[name]);
+    activeProfile.name = name;
+    saveProfiles();
+    syncProfile();
+    renderPlayerBar();
+    setIntroMode(state.introMode || 'normal');
+    renderHome();
+    return name;
+  }
+  function savePlayerName(){
+    if(state.phase !== 'intro'){ toast('钀ヤ笟涓笉鑳芥崲搴楅暱鍝?); return; }
+    const name = switchProfile(els.playerName.value);
+    sfx.ding();
+    toast(`宸茬櫥褰曘€?{name}銆嵚?鏁版嵁淇濆瓨鍦ㄦ湰鏈篳);
+  }
+  function renderPlayerBar(){
+    if(!els.playerName || !activeProfile) return;
+    if(document.activeElement !== els.playerName) els.playerName.value = activeProfile.name;
+    if(els.homeOwner) els.homeOwner.textContent = `搴楅暱锛?{activeProfile.name}`;
+  }
+  function addWallet(n){
+    if(!activeProfile || !Number.isFinite(n) || n <= 0) return;
+    activeProfile.wallet += n;
+    saveProfiles();
+    if(els.homeCoins) els.homeCoins.textContent = activeProfile.wallet;
+  }
+  function awardProfile(kind){
+    if(!activeProfile) return 0;
+    if(kind === 'weekPass'){
+      if(state.week > activeProfile.bestEndless) activeProfile.bestEndless = state.week;
+      syncProfile(); saveProfiles(); return 0;
+    }
+    if(kind !== 'runEnd' && kind !== 'gameOver') return 0;
+    if(state.metaAwarded) return 0;
+    let bonus = 0;
+    if(kind === 'runEnd'){
+      bonus = Math.max(30, Math.round(state.runEarned * .12));
+      activeProfile.bestNormal = Math.max(activeProfile.bestNormal, state.runEarned);
+    }else{
+      bonus = Math.max(20, Math.round(state.runEarned * .08));
+      activeProfile.bestEndless = Math.max(activeProfile.bestEndless, state.week);
+    }
+    activeProfile.wallet += bonus;
+    activeProfile.totalRuns += 1;
+    activeProfile.lastRun = {
+      mode:state.mode, day:state.day, week:state.week, earned:state.runEarned,
+      kind, date:new Date().toISOString().slice(0,10)
+    };
+    state.metaAwarded = true;
+    syncProfile();
+    saveProfiles();
+    return bonus;
+  }
+  function leaderboardProfiles(){
+    return Object.values(profiles)
+      .filter(p => (p.bestEndless || 0) > 0 || (p.totalRuns || 0) > 0)
+      .sort((a,b) => (b.bestEndless - a.bestEndless) || (b.bestNormal - a.bestNormal) || a.name.localeCompare(b.name));
+  }
+  function renderLeaderboard(){
+    if(!els.leaderboardList) return;
+    const rows = leaderboardProfiles();
+    if(!rows.length){
+      els.leaderboardList.innerHTML = '<div class="leaderboard-empty">杩樻病鏈夋棤灏芥ā寮忚褰曘€?br>鍘绘寫鎴樹竴鍛紝鎶婂悕瀛楃暀鍦ㄦ涓婂惂锛?/div>';
+      return;
+    }
+    els.leaderboardList.innerHTML = rows.slice(0,10).map((p,i) => `
+      <div class="leaderboard-row${activeProfile && p.name === activeProfile.name ? ' me' : ''}">
+        <div class="leaderboard-rank">${i + 1}</div>
+        <div class="leaderboard-name">${esc(p.name)}<small>${p.totalRuns || 0} 灞€ 路 鏈€浣冲懆鐩?${p.bestNormal || 0} 閲戝竵</small></div>
+        <div class="leaderboard-score">绗?${p.bestEndless || 0} 鍛?small>鏃犲敖鏈€杩?/small></div>
+      </div>`).join('');
+  }
+  function openLeaderboard(){
+    renderLeaderboard();
+    els.leaderboardOverlay.classList.add('show');
+    els.leaderboardOverlay.setAttribute('aria-hidden','false');
+    sfx.tap();
+  }
+  function closeLeaderboard(){
+    els.leaderboardOverlay.classList.remove('show');
+    els.leaderboardOverlay.setAttribute('aria-hidden','true');
+  }
+  function askEarlyLeave(){
+    if(state.phase === 'intro') return;
+    els.confirmOverlay.classList.add('show');
+    els.confirmOverlay.setAttribute('aria-hidden','false');
+    sfx.tap();
+  }
+  function closeConfirm(){
+    els.confirmOverlay.classList.remove('show');
+    els.confirmOverlay.setAttribute('aria-hidden','true');
+  }
+  function doEarlyLeave(){
+    closeConfirm();
+    goHome();
+    sfx.tap();
+  }
+  function hatHTML(id){
+    if(!id || id === 'chef') return '';
+    if(id === 'glasses') return '<div class="wear-hat glasses"><i></i><i></i></div>';
+    return `<div class="wear-hat ${id}"></div>`;
+  }
+  function topHTML(id){
+    if(!id) return '';
+    return `<div class="wear-top ${id}"></div>`;
+  }
+  function dollHTML(){
+    return `<div class="room-doll">
+      <svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>
+      ${hatHTML(activeProfile.equipped.head)}
+      ${topHTML(activeProfile.equipped.top)}
+    </div>`;
+  }
+  function furnitureHTML(id){
+    if(id === 'plant') return '<div class="furn furn-plant"><i class="leaf"></i><i class="leaf two"></i><i class="pot"></i></div>';
+    if(id === 'lamp') return '<div class="furn furn-lamp"><i class="shade"></i><i class="pole"></i></div>';
+    if(id === 'table') return '<div class="furn furn-table"><i class="top"></i><i class="leg l"></i><i class="leg r"></i></div>';
+    if(id === 'shelf') return '<div class="furn furn-shelf"></div>';
+    if(id === 'pumpkin') return '<div class="furn furn-pumpkin"></div>';
+    if(id === 'rug') return '<div class="furn furn-rug"></div>';
+    return '';
+  }
+  function furnitureItemHTML(id){
+    const pos = activeProfile.furniturePositions[id] || FURN_POS[id] || {x:50,y:70};
+    const z = id === 'rug' ? 2 : Math.round(pos.y);
+    return `<div class="furn-item" data-furn="${id}" style="left:${pos.x}%;top:${pos.y}%;z-index:${z}" role="button" aria-label="鎷栧姩${FURNITURE[id].name}">
+      ${furnitureHTML(id)}<span class="furn-grab">鉁?/span>
+    </div>`;
+  }
+  function bindFurnitureDrag(){
+    const canvas = els.homeRoom && els.homeRoom.querySelector('.room-canvas');
+    if(!canvas) return;
+    $$('.furn-item', canvas).forEach(el => {
+      el.addEventListener('pointerdown', e => {
+        if(!activeProfile || state.homeTab !== 'room') return;
+        e.preventDefault();
+        const id = el.dataset.furn;
+        const rect = canvas.getBoundingClientRect();
+        const start = {x:e.clientX, y:e.clientY};
+        const pos = activeProfile.furniturePositions[id] || FURN_POS[id] || {x:50,y:70};
+        const orig = {x:pos.x/100*rect.width, y:pos.y/100*rect.height};
+        let moved = false;
+        el.classList.add('dragging');
+        try{ el.setPointerCapture(e.pointerId); }catch(err){}
+        const move = ev => {
+          const dx = ev.clientX - start.x, dy = ev.clientY - start.y;
+          if(Math.abs(dx)+Math.abs(dy) > 3) moved = true;
+          const x = clamp(orig.x + dx, 24, rect.width - 8);
+          const y = clamp(orig.y + dy, 34, rect.height - 4);
+          activeProfile.furniturePositions[id] = {x:x/rect.width*100, y:y/rect.height*100};
+          el.style.left = (x/rect.width*100) + '%';
+          el.style.top = (y/rect.height*100) + '%';
+          el.style.zIndex = id === 'rug' ? '2' : String(Math.round(y/rect.height*100));
+        };
+        const up = () => {
+          el.classList.remove('dragging');
+          el.removeEventListener('pointermove', move);
+          el.removeEventListener('pointerup', up);
+          el.removeEventListener('pointercancel', up);
+          if(moved){ saveProfiles(); sfx.tap(); }
+        };
+        el.addEventListener('pointermove', move);
+        el.addEventListener('pointerup', up);
+        el.addEventListener('pointercancel', up);
+      });
+    });
+  }
+  function renderRoom(){
+    if(!els.homeRoom || !activeProfile) return;
+    const scrollLeft = els.homeRoom.scrollLeft, scrollTop = els.homeRoom.scrollTop;
+    const furn = activeProfile.placedFurniture.map(furnitureItemHTML).join('');
+    els.homeRoom.innerHTML = `<div class="room-canvas">${furn}${dollHTML()}<div class="room-pan-tip">鎷栧姩瀹跺叿鎽嗘斁 路 婊戝姩绌虹櫧澶勭湅鎴块棿</div></div>`;
+    bindFurnitureDrag();
+    const count = activeProfile.placedFurniture.length;
+    if(els.homeRoomTip) els.homeRoomTip.textContent = count
+      ? `宸茬粡鎽嗕笅 ${count} 浠跺鍏凤紝鎸変綇瀹跺叿鍙互鎷栧姩鎹綅缃€俙
+      : '鎴块棿杩樼┖绌虹殑锛屽幓瀹跺叿搴楁寫涓€浠跺惂銆?;
+    const canvas = els.homeRoom.querySelector('.room-canvas');
+    requestAnimationFrame(() => {
+      if(!canvas) return;
+      els.homeRoom.scrollLeft = scrollLeft || Math.max(0,(canvas.offsetWidth - els.homeRoom.clientWidth) / 2);
+      els.homeRoom.scrollTop = scrollTop || Math.max(0,(canvas.offsetHeight - els.homeRoom.clientHeight) / 2);
+    });
+  }
+  function renderFurniture(){
+    if(!els.furnitureGrid || !activeProfile) return;
+    els.furnitureGrid.innerHTML = Object.entries(FURNITURE).map(([id,f]) => {
+      const owned = activeProfile.ownedFurniture.includes(id);
+      const placed = activeProfile.placedFurniture.includes(id);
+      const afford = activeProfile.wallet >= f.price;
+      return `<div class="home-item">
+        <div class="item-ico">${f.icon}</div>
+        <b>${f.name}</b><small>${f.desc}</small>
+        <button class="item-buy${owned ? ' owned' : ''}" type="button" data-furniture="${id}" ${!owned && !afford ? 'disabled' : ''}>
+          ${owned ? (placed ? '鏀惰捣' : '鎽嗘斁') : afford ? `涔?${f.price}` : `杩樺樊 ${f.price - activeProfile.wallet}`}
+        </button>
+      </div>`;
+    }).join('');
+  }
+  function renderCloset(){
+    if(!els.closetGrid || !activeProfile) return;
+    const section = (kind,label) => {
+      const items = CLOTHES[kind].map(item => {
+        const owned = activeProfile.clothes[kind].includes(item.id);
+        const equipped = activeProfile.equipped[kind] === item.id;
+        const afford = activeProfile.wallet >= item.price;
+        return `<div class="home-item">
+          <div class="item-ico">${item.icon}</div>
+          <b>${item.name}</b><small>${equipped ? '姝ｅ湪绌跨潃' : owned ? '宸叉嫢鏈? : '琛ｆ┍鏂板搧'}</small>
+          <button class="item-buy${equipped ? ' owned' : ''}" type="button" data-clothes="${kind}:${item.id}" ${equipped ? 'disabled' : !owned && !afford ? 'disabled' : ''}>
+            ${equipped ? '绌跨潃涓? : owned ? '绌夸笂' : afford ? `涔?${item.price}` : `杩樺樊 ${item.price - activeProfile.wallet}`}
+          </button>
+        </div>`;
+      }).join('');
+      return `<div class="closet-label">${label}</div>${items}`;
+    };
+    els.closetGrid.innerHTML = section('head','甯藉瓙 / 鐪奸暅妲?) + section('top','涓婅。妲?);
+  }
+  function skinPreviewHTML(){
+    const area = state.skinPreview.area || 'desk';
+    const skin = SKINS[area].find(s => s.id === state.skinPreview.id) || SKINS[area][0];
+    const owned = activeProfile.skins[area].includes(skin.id);
+    const equipped = activeProfile.equippedSkins[area] === skin.id;
+    const afford = activeProfile.wallet >= skin.price;
+    const action = equipped ? '浣跨敤涓? : owned ? '瑁呭' : afford ? `涔?${skin.price}` : `杩樺樊 ${skin.price - activeProfile.wallet}`;
+    const disabled = equipped || (!owned && !afford);
+    return `<div class="skin-preview" data-theme="${skin.id}">
+      <div class="sp-awning"></div>
+      <div class="sp-scene">
+        <div class="sp-window"></div>
+        <div class="sp-ticket">ORDER<br><b>01 / 03</b></div>
+        <div class="sp-frog"><svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg></div>
+        <div class="sp-counter"><span>濂惰洐鐨勫簵 路 榛勬缃愬ご</span></div>
+      </div>
+      <div class="skin-preview-bar">
+        <div><b>${SKIN_AREAS[area]} 路 ${skin.name}</b><small>${owned ? '宸叉嫢鏈?路 棰勮涓? : '棰勮鏁堟灉 路 璐拱鍚庢案涔呮嫢鏈?}</small></div>
+        <button class="mini-btn" type="button" data-skin-apply="${area}:${skin.id}" ${disabled ? 'disabled' : ''}>${action}</button>
+      </div>
+    </div>`;
+  }
+  function renderSkins(){
+    if(!els.skinShop || !activeProfile) return;
+    const groups = Object.keys(SKIN_AREAS).map(area => {
+      const current = SKINS[area].find(s => s.id === activeProfile.equippedSkins[area]) || SKINS[area][0];
+      const opts = SKINS[area].map(s => {
+        const owned = activeProfile.skins[area].includes(s.id);
+        const equipped = activeProfile.equippedSkins[area] === s.id;
+        const selected = state.skinPreview.area === area && state.skinPreview.id === s.id;
+        const afford = activeProfile.wallet >= s.price;
+        return `<button class="skin-choice${selected ? ' active' : ''}${!owned && !afford ? ' locked' : ''}" type="button" data-skin-area="${area}" data-skin-id="${s.id}" data-skin-theme="${s.id}">
+          <span class="swatch"></span>${s.name}<span class="tiny">${equipped ? '浣跨敤涓? : owned ? '鐐瑰嚮棰勮' : afford ? `${s.price} 閲戝竵` : '閲戝竵涓嶈冻'}</span>
+        </button>`;
+      }).join('');
+      return `<div class="skin-group">
+        <div class="skin-group-head"><b>${SKIN_AREAS[area]}</b><span>褰撳墠锛?{current.name}</span></div>
+        <div class="skin-options">${opts}</div>
+      </div>`;
+    }).join('');
+    els.skinShop.innerHTML = skinPreviewHTML() + groups;
+  }
+  function renderHome(){
+    if(!els.homeOverlay || !activeProfile) return;
+    els.homeCoins.textContent = activeProfile.wallet;
+    els.homeOwner.textContent = `搴楅暱锛?{activeProfile.name}`;
+    els.homeTabs.forEach(t => t.classList.toggle('active', t.dataset.homeTab === state.homeTab));
+    $$('.home-panel', els.homeOverlay).forEach(p => { p.hidden = p.dataset.homePanel !== state.homeTab; });
+    renderRoom();
+    renderFurniture();
+    renderCloset();
+    renderSkins();
+  }
+  function openHome(tab){
+    if(!activeProfile) return;
+    state.homeTab = tab || 'room';
+    renderHome();
+    els.homeOverlay.classList.add('show');
+    els.homeOverlay.setAttribute('aria-hidden','false');
+    sfx.tap();
+  }
+  function closeHome(){
+    els.homeOverlay.classList.remove('show');
+    els.homeOverlay.setAttribute('aria-hidden','true');
+  }
+  function setHomeTab(tab){
+    if(!['room','furniture','closet','skins'].includes(tab)) return;
+    state.homeTab = tab;
+    renderHome();
+    sfx.tap();
+  }
+  function handleFurniture(id){
+    const f = FURNITURE[id];
+    if(!f || !activeProfile) return;
+    const owned = activeProfile.ownedFurniture.includes(id);
+    if(!owned){
+      if(activeProfile.wallet < f.price){ toast('灏忓閲戝竵涓嶅锛屽厛鍘昏惀涓氳禋涓€鐐瑰惂'); sfx.error(); return; }
+      activeProfile.wallet -= f.price;
+      activeProfile.ownedFurniture.push(id);
+      if(activeProfile.placedFurniture.length < 4){
+        activeProfile.placedFurniture.push(id);
+        activeProfile.furniturePositions[id] = activeProfile.furniturePositions[id] || FURN_POS[id] || {x:50,y:70};
+      }
+      sfx.coin();
+    }else{
+      const at = activeProfile.placedFurniture.indexOf(id);
+      if(at >= 0) activeProfile.placedFurniture.splice(at,1);
+      else{
+        if(activeProfile.placedFurniture.length >= 4){ toast('鏈€澶氬悓鏃舵憜鏀?4 浠跺鍏?); sfx.error(); return; }
+        activeProfile.placedFurniture.push(id);
+        activeProfile.furniturePositions[id] = activeProfile.furniturePositions[id] || FURN_POS[id] || {x:50,y:70};
+      }
+      sfx.tap();
+    }
+    saveProfiles();
+    renderHome();
+  }
+  function handleClothes(spec){
+    const [kind,id] = String(spec).split(':');
+    if(!CLOTHES[kind] || !activeProfile) return;
+    const item = CLOTHES[kind].find(c => c.id === id);
+    if(!item) return;
+    const owned = activeProfile.clothes[kind].includes(id);
+    if(!owned){
+      if(activeProfile.wallet < item.price){ toast('灏忓閲戝竵涓嶅锛屽厛鍘昏惀涓氳禋涓€鐐瑰惂'); sfx.error(); return; }
+      activeProfile.wallet -= item.price;
+      activeProfile.clothes[kind].push(id);
+      sfx.coin();
+    }else sfx.tap();
+    activeProfile.equipped[kind] = id;
+    saveProfiles();
+    renderHome();
+  }
+  function handleSkin(area,id){
+    if(!SKINS[area] || !activeProfile) return;
+    const skin = SKINS[area].find(s => s.id === id);
+    if(!skin) return;
+    const owned = activeProfile.skins[area].includes(id);
+    if(!owned){
+      if(activeProfile.wallet < skin.price){ toast('灏忓閲戝竵涓嶅锛屽厛鍘昏惀涓氳禋涓€鐐瑰惂'); sfx.error(); return; }
+      activeProfile.wallet -= skin.price;
+      activeProfile.skins[area].push(id);
+      sfx.coin();
+    }else sfx.tap();
+    activeProfile.equippedSkins[area] = id;
+    state.skinPreview = {area, id};
+    saveProfiles();
+    applySkins();
+    renderHome();
+  }
+  function applySkins(){
+    if(!activeProfile || !els.game) return;
+    const area = ['desk','work','kitchen'].includes(state.stage) ? state.stage : 'desk';
+    els.game.dataset.area = area;
+    els.game.dataset.theme = activeProfile.equippedSkins[area] || 'classic';
+  }
+
+  /* -------------------- 鍏冪礌 -------------------- */
+  const els = {};
+  function cacheEls(){
+    const ids = ['game','daySub','coins','soundBtn','stageTabs','orderTicket','speech','guestWrap','canWrap',
+      'deskView','workView','kitchenView','deskAvatar','deskGuestName','deskGuestMood','deskStatus',
+      'hint','hintText','patience','patienceFill','patienceTime','canLarge','canSmall','bowlWorkLarge','bowlWorkSmall','syrupNote',
+      'batchStrip','syrupTarget','syrupFill','syrupReadout','pourBtn','kitchenOrder','cutStage','cutStock',
+      'bowlLarge','bowlSmall','potGrid','potNote','alarmNote','footer','resetBtn','sealBtn','serveBtn','toast',
+      'introOverlay','startBtn','introNote','reviewOverlay','reviewStars','reviewTitle','reviewScore','reviewQuote',
+      'scoreGrid','reviewCoins','perfectStamp','nextBtn','summaryOverlay','summaryTitle','summaryStars',
+      'summaryCoins','summaryCoinsLabel','summaryPerfect','summaryAvg','summaryComment','summaryBest','summarySub','confetti',
+      'summaryRibbon','homeBtn','weekBanner','weekLabel','weekFill','weekValue','weekLeft','bgm',
+      'reviewSpecial','shopBtn','replayBtn','shopOverlay','shopCoins','shopEvent','shopGrid','shopStartBtn','shopBackBtn',
+      'shopTabs','shopWallet','shopExpandGrid','jarSwitchBtn','toppingQtyRow','toppingQtyVal','toppingMinus','toppingPlus',
+      'playerName','savePlayerBtn','homeEntryBtn','rankEntryBtn','summaryRankBtn','homeOverlay','homeCoins','homeOwner',
+      'homeTabs','homeRoom','homeRoomTip','furnitureGrid','closetGrid','skinShop','homeClose','homePlayBtn','homeRankBtn',
+      'leaderboardOverlay','leaderboardList','leaderboardClose',
+      'earlyBtn','reviewEarlyBtn','summaryEarlyBtn','shopEarlyBtn','confirmOverlay','confirmCancel','confirmOk'];
+    ids.forEach(id => els[id] = document.getElementById(id));
+    els.panel = $('#panel');
+    els.footer = $('.footer');
+    els.stageTabs = $$('.stage-tab');
+    els.modeCards = $$('.mode-card');
+    els.homeTabs = $$('.home-tab');
+    els.sizeBtns = $$('.size-btn');
+    els.tempChips = $$('[data-temp]');
+    els.toppingChips = $('#toppingChips');
+    els.shopTabs = $$('[data-shoptab]');
+  }
+
+  function lockViewport(){
+    const setH = () => {
+      const h = Math.round((window.visualViewport && window.visualViewport.height) || window.innerHeight || document.documentElement.clientHeight);
+      if(h > 200) document.documentElement.style.setProperty('--app-h', h + 'px');
+    };
+    setH();
+    window.addEventListener('resize', setH, {passive:true});
+    window.addEventListener('orientationchange', () => setTimeout(setH, 300), {passive:true});
+    if(window.visualViewport) window.visualViewport.addEventListener('resize', setH, {passive:true});
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('gesturestart', e => e.preventDefault());
+    document.addEventListener('dblclick', e => e.preventDefault());
+    const unlock = () => { ensureAudio(); cueMusic(); };
+    document.addEventListener('touchstart', unlock, {once:true, passive:true});
+    document.addEventListener('pointerdown', unlock, {once:true, passive:true});
+    document.addEventListener('visibilitychange', () => {
+      if(!bgmEl) bgmEl = els.bgm;
+      if(!bgmEl) return;
+      if(document.hidden) bgmEl.pause();
+      else cueMusic();
+    });
+  }
+
+  function updateSoundButton(){
+    if(!els.soundBtn) return;
+    els.soundBtn.innerHTML = icon(state.sound ? 'sound' : 'muted');
+    if(masterGain) masterGain.gain.value = state.sound ? .55 : 0;
+  }
+  function toast(text){
+    if(!els.toast) return;
+    els.toast.textContent = text;
+    els.toast.classList.add('show');
+    clearTimeout(state.toastTimer);
+    state.toastTimer = setTimeout(() => els.toast.classList.remove('show'), 2200);
+  }
+  function showSpeech(text, ms=3200){
+    if(!text || !els.speech) return;
+    els.speech.textContent = text;
+    els.speech.classList.remove('show');
+    void els.speech.offsetWidth;
+    els.speech.classList.add('show');
+    clearTimeout(state.speechTimer);
+    state.speechTimer = setTimeout(() => els.speech.classList.remove('show'), ms);
+  }
+  function setGuestMood(mood){
+    els.guestWrap.classList.toggle('sad', mood === 'sad');
+    els.guestWrap.classList.toggle('happy', mood === 'happy');
+  }
+
+  /* -------------------- 璁㈠崟 -------------------- */
+  function randInt(a,b){ return a + Math.floor(Math.random() * (b - a + 1)); }
+  let lastOrderSig = '';
+  function makeOrder(index, guest){
+    const hard = guest && (guest.tier === 'elite' || guest.tier === 'boss');
+    let order = null, sig = '';
+    for(let tries=0; tries<16; tries++){
+      const size = ['small','medium','large'][randInt(0,2)];
+      const total = hard ? randInt(3,4) : state.day <= 2 ? randInt(2,3) : randInt(2,4);
+      let large = randInt(0,total);
+      if(total >= 2 && Math.random() < (hard ? .86 : .78)) large = clamp(large, 1, total-1);
+      const sugar = hard ? randInt(2,3) : randInt(1,3);
+      const temp = ['ice','room','warm'][randInt(0,2)];
+      const jars = unlockedJars();
+      const jar = jars.length > 1 && Math.random() < .38 ? jars[randInt(1,jars.length-1)] : 'classic';
+      const toppings = unlockedToppings();
+      const topping = Math.random() < .24 ? 'none' : toppings[randInt(0,toppings.length-1)];
+      const toppingQty = topping === 'none' ? 0 : randInt(1,3);
+      const tol = Math.max(3, SUGAR[sugar].tol + (guest && guest.tolDelta || 0));
+      order = {size, jar, peaches:{large, small:total-large}, sugar, temp, topping, toppingQty, tol};
+      sig = `${size}|${jar}|${large}|${total-large}|${sugar}|${temp}|${topping}|${toppingQty}`;
+      if(sig !== lastOrderSig || tries >= 12) break;
+    }
+    lastOrderSig = sig;
+    return order;
+  }
+  const peachTotal = p => (p.large||0) + (p.small||0);
+  function peachText(p){
+    const l = p.large||0, s = p.small||0;
+    if(l && s) return `${l} 澶?+ ${s} 灏廯;
+    if(l) return `${l} 鍧楀叏鏄ぇ鍧梎;
+    return `${s} 鍧楀叏鏄皬鍧梎;
+  }
+  function countPieces(pieces){
+    return pieces.reduce((a,s) => { a[s]++; return a; }, {large:0,small:0});
+  }
+  function findBatch(){
+    if(state.selectedBatch == null) return null;
+    return state.batches.find(b => b.id === state.selectedBatch && !b.used) || null;
+  }
+
+  /* -------------------- 娓叉煋 -------------------- */
+  function setStage(stage, silent=false){
+    if(state.phase !== 'playing' && !silent) return;
+    if(state.pouring) stopPour();
+    state.stage = stage;
+    els.game.dataset.stage = stage;
+    els.stageTabs.forEach(t => t.classList.toggle('active', t.dataset.stage === stage));
+    els.deskView.classList.toggle('active', stage === 'desk');
+    els.workView.classList.toggle('active', stage === 'work');
+    els.kitchenView.classList.toggle('active', stage === 'kitchen');
+    if(stage === 'desk') renderDesk();
+    if(stage === 'work') renderWork();
+    if(stage === 'kitchen') renderKitchen();
+    updateFooter();
+    renderHint();
+    updateHud();
+    applySkins();
+    if(!silent){ sfx.tap(); cueMusic(); }
+  }
+
+  function updateHud(){
+    if(els.coins) els.coins.textContent = state.coins;
+    if(els.earlyBtn) els.earlyBtn.style.display = state.phase === 'intro' ? 'none' : '';
+    if(els.daySub){
+      const label = state.phase === 'intro' ? '鍑嗗钀ヤ笟' : state.stage === 'desk' ? '鏈嶅姟鍙? : state.stage === 'work' ? '宸ヤ綔鍙? : '鍘ㄦ埧';
+      const special = specialForDay(state.day);
+      const mark = special ? (special.type === 'boss' ? ' 路 BOSS鏃? : ' 路 绮捐嫳鏃?) : '';
+      if(state.phase === 'intro') els.daySub.textContent = '閫夋嫨妯″紡 路 鍑嗗钀ヤ笟';
+      else if(state.mode === 'endless'){
+        const d = ((state.day - 1) % WEEK_DAYS) + 1;
+        els.daySub.textContent = `鏃犲敖 W${state.week} 路 DAY ${d}/${WEEK_DAYS}${mark} 路 ${label}`;
+      }else{
+        els.daySub.textContent = `鏅€?路 DAY ${state.day}/${NORMAL_DAYS}${mark} 路 ${label}`;
+      }
+    }
+    updateWeekBanner();
+  }
+
+  function updateWeekBanner(){
+    if(!els.weekBanner) return;
+    const show = state.mode === 'endless' && state.phase !== 'intro';
+    els.weekBanner.hidden = !show;
+    if(!show) return;
+    const pct = state.weekTarget ? clamp(state.weekEarned / state.weekTarget * 100, 0, 100) : 0;
+    els.weekLabel.textContent = `绗?${state.week} 鍛ㄤ笟缁ー;
+    els.weekValue.textContent = `${state.weekEarned} / ${state.weekTarget}`;
+    els.weekFill.style.width = pct + '%';
+    els.weekFill.classList.toggle('met', state.weekEarned >= state.weekTarget);
+    const left = WEEK_DAYS - ((state.day - 1) % WEEK_DAYS);
+    els.weekLeft.textContent = state.weekEarned >= state.weekTarget ? '宸茶揪鏍? : `杩樺墿 ${left} 澶ー;
+  }
+
+  function renderOrderTicket(){
+    if(!state.guest || !state.order){
+      els.orderTicket.innerHTML = `<div class="ticket-head"><span class="ticket-kicker">WAITING FOR ORDER</span><span class="ticket-name">濂惰洐</span></div>
+        <div class="ticket-rule"></div>
+        <div class="ticket-empty" style="padding:22px 4px;text-align:center;font-size:9px;color:#A98556;font-weight:800;line-height:1.7">瀹汉椹笂灏卞埌<br>鍏堝噯澶囧ソ榛勬鍚э綖</div>`;
+      return;
+    }
+    const o = state.order;
+    els.orderTicket.innerHTML = `
+      <div class="ticket-head"><span class="ticket-kicker">ORDER ${String(state.guestIndex+1).padStart(2,'0')}/03</span><span class="ticket-name">${state.guest.name}鐨勮鍗?{guestTag(state.guest)}</span></div>
+      <div class="ticket-rule"></div>
+      <div class="ticket-row size">${icon('can')}<span class="row-label">缃愬瀷</span><b>${SIZES[o.size].name} 路 ${JARS[o.jar].name}</b></div>
+      <div class="ticket-row peach">${icon('peach')}<span class="row-label">榛勬</span><b>${peachText(o.peaches)}</b></div>
+      <div class="ticket-row sweet">${icon('drop')}<span class="row-label">绯栨按</span><b>${SUGAR[o.sugar].name} 路 ${o.sugar} 鍕?/b></div>
+      <div class="ticket-row temp">${icon(o.temp === 'ice' ? 'snow' : o.temp === 'warm' ? 'heat' : 'thermo')}<span class="row-label">娓╁害</span><b>${TEMPS[o.temp]}</b></div>
+      <div class="ticket-row topping">${icon(TOPPINGS[o.topping].icon)}<span class="row-label">鍔犳枡</span><b>${TOPPINGS[o.topping].name}${o.toppingQty ? ` 脳${o.toppingQty} 鍕篳 : ''}</b></div>`;
+    els.orderTicket.classList.remove('ticket-in');
+    void els.orderTicket.offsetWidth;
+    els.orderTicket.classList.add('ticket-in');
+  }
+
+  function renderGuest(){
+    if(!state.guest){ els.guestWrap.innerHTML = ''; return; }
+    els.guestWrap.innerHTML = `<div class="guest-name">${state.guest.name}${guestTag(state.guest)}</div>${guestSVG(state.guest, state.guestIndex)}`;
+    els.guestWrap.classList.remove('guest-enter');
+    void els.guestWrap.offsetWidth;
+    els.guestWrap.classList.add('guest-enter');
+  }
+
+  function guestSVG(guest, idx){
+    if(guest.kind === 'cat') return catSVG(guest, idx);
+    if(guest.kind === 'pig') return pigSVG(guest, idx);
+    if(guest.kind === 'bird') return birdSVG(guest, idx);
+    if(guest.kind === 'serious') return seriousDogSVG(guest, idx);
+    if(guest.kind === 'sponge') return spongeSVG(guest, idx);
+    if(guest.kind === 'patrick') return patrickSVG(guest, idx);
+    if(guest.kind === 'plane') return planeCatSVG(guest, idx);
+    return dogSVG(guest, idx);
+  }
+
+  function catSVG(guest, idx){
+    const id = 'cat' + idx;
+    return `
+    <svg class="guest-svg cat-svg" viewBox="0 0 160 200" role="img" aria-label="瀹汉 ${guest.name}">
+      <defs>
+        <linearGradient id="${id}Fur" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#E3B277"/><stop offset=".62" stop-color="#C98B4E"/><stop offset="1" stop-color="#A96A34"/>
+        </linearGradient>
+        <linearGradient id="${id}Can" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#F4F7F5"/><stop offset=".5" stop-color="#C7D0CD"/><stop offset="1" stop-color="#9AA6A2"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="80" cy="192" rx="46" ry="6" fill="#3A2410" opacity=".12"/>
+      <g class="dog-bob">
+        <path d="M114 158c23 1 32-13 25-27-5-10-16-10-19-3-2 6 4 9 8 6 4 8-4 15-17 16z" fill="url(#${id}Fur)" stroke="#8D572A" stroke-width="1.3"/>
+        <path d="M78 104c-25 2-38 25-33 50 4 24 17 38 34 38 18 0 32-15 34-39 2-25-11-47-35-49z" fill="url(#${id}Fur)" stroke="#8D572A" stroke-width="1.3"/>
+        <ellipse cx="80" cy="160" rx="25" ry="27" fill="#FFF0D7" opacity=".95"/>
+        <path d="M52 49 45 22c-1-5 4-8 8-4l18 18z" fill="url(#${id}Fur)" stroke="#8D572A" stroke-width="1.3"/>
+        <path d="M108 49 116 23c2-5-3-9-7-5l-19 18z" fill="url(#${id}Fur)" stroke="#8D572A" stroke-width="1.3"/>
+        <path d="M50 36l3-9 9 9zM110 36l-3-9-9 9z" fill="#F1A3A8"/>
+        <ellipse cx="80" cy="67" rx="41" ry="37" fill="url(#${id}Fur)" stroke="#8D572A" stroke-width="1.4"/>
+        <path d="M57 39c7 6 14 8 23 8M83 36c9 1 17 4 24 9" fill="none" stroke="#8C5528" stroke-width="4.5" stroke-linecap="round" opacity=".65"/>
+        <path d="M65 96c4 5 9 7 15 7s11-2 15-7c-3 13-8 19-15 19s-12-6-15-19z" fill="#FFF5E4"/>
+        <ellipse cx="80" cy="83" rx="21" ry="15" fill="#FFF3DD"/>
+        <g>
+          <ellipse cx="62" cy="66" rx="12.5" ry="13.5" fill="#2E2118"/>
+          <ellipse cx="98" cy="66" rx="12.5" ry="13.5" fill="#2E2118"/>
+          <circle cx="58" cy="62" r="4.2" fill="#FFFDF4"/><circle cx="94" cy="62" r="4.2" fill="#FFFDF4"/>
+          <circle cx="68" cy="72" r="2.3" fill="#FFFDF4"/><circle cx="104" cy="72" r="2.3" fill="#FFFDF4"/>
+        </g>
+        <path d="M76 82h8l-4 5z" fill="#E58A9E" stroke="#C96F84" stroke-width="1"/>
+        <path d="M80 87c0 5 3 8 7 8M80 87c0 5-3 8-7 8" fill="none" stroke="#7E4D2C" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M82 94c7-4 13 0 12 6-1 5-7 7-11 5-4-2-5-8-1-11z" fill="#F08FA5" stroke="#D56F88" stroke-width="1"/>
+        <path d="M64 94c0 8 0 14 1 18" fill="none" stroke="#BFE7F2" stroke-width="2.2" stroke-linecap="round" opacity=".9"/>
+        <circle cx="65" cy="114" r="2.4" fill="#BFE7F2" opacity=".95"/>
+        <g stroke="#7A4B28" stroke-width="1" opacity=".8">
+          <path d="M52 82l-17-3M53 88l-18 4M108 82l17-3M107 88l18 4"/>
+        </g>
+        <g transform="rotate(-5 80 137)">
+          <rect x="66" y="122" width="28" height="48" rx="6" fill="url(#${id}Can)" stroke="#7C8985" stroke-width="1.2"/>
+          <rect x="66" y="134" width="28" height="19" fill="#3F7F52"/>
+          <path d="M74 141h12M74 146h8" stroke="#F7E5A9" stroke-width="2" stroke-linecap="round"/>
+          <ellipse cx="69" cy="169" rx="9" ry="7" fill="#D69A55" stroke="#A66C31" stroke-width="1"/>
+          <ellipse cx="92" cy="167" rx="9" ry="7" fill="#D69A55" stroke="#A66C31" stroke-width="1"/>
+        </g>
+      </g>
+    </svg>`;
+  }
+
+  function pigSVG(guest, idx){
+    const id = 'pig' + idx;
+    return `
+    <svg class="guest-svg pig-svg" viewBox="0 0 160 200" role="img" aria-label="瀹汉 ${guest.name}">
+      <defs>
+        <linearGradient id="${id}Skin" x1=".2" y1="0" x2=".8" y2="1">
+          <stop offset="0" stop-color="#FBE7E1"/><stop offset=".55" stop-color="#F0C9C3"/><stop offset="1" stop-color="#DDA8A3"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="80" cy="193" rx="44" ry="6" fill="#3A2410" opacity=".12"/>
+      <g class="dog-bob">
+        <path d="M106 158c18-6 27 2 22 12-4 8-14 7-16 1 7-1 8-5 2-5z" fill="none" stroke="#C98D87" stroke-width="5" stroke-linecap="round"/>
+        <path d="M64 140c-10 8-13 26-10 45 2 9 13 9 16 1l4-29zM96 140c10 8 13 26 10 45-2 9-13 9-16 1l-4-29z" fill="url(#${id}Skin)" stroke="#C98D87" stroke-width="1.3"/>
+        <path d="M60 185c-6 1-8 6-4 8h17v-8zM100 185c6 1 8 6 4 8H87v-8z" fill="#D79B95"/>
+        <path d="M78 88c-29 3-42 32-35 62 5 20 18 31 37 31s33-12 37-32c6-30-9-58-39-61z" fill="url(#${id}Skin)" stroke="#C98D87" stroke-width="1.4"/>
+        <ellipse cx="80" cy="154" rx="29" ry="30" fill="#FFF1EA" opacity=".85"/>
+        <path d="M54 108c-11 2-17 14-14 27 2 9 8 14 13 12l7-23zM106 108c11 2 17 14 14 27-2 9-8 14-13 12l-7-23z" fill="url(#${id}Skin)" stroke="#C98D87" stroke-width="1.3"/>
+        <path d="M54 44c-7-9-19-10-22-3-3 6 4 19 14 24 6 3 11 0 12-5 1-5-1-10-4-16zM106 44c7-9 19-10 22-3 3 6-4 19-14 24-6 3-11 0-12-5-1-5 1-10 4-16z" fill="url(#${id}Skin)" stroke="#C98D87" stroke-width="1.3"/>
+        <path d="M80 25c-25 0-44 17-44 39 0 21 18 37 44 37s44-16 44-37c0-22-19-39-44-39z" fill="url(#${id}Skin)" stroke="#C98D87" stroke-width="1.4"/>
+        <path d="M47 52c3-20 16-33 33-33 18 0 31 12 35 32-22-5-46-5-68 1z" fill="#45413B"/>
+        <g fill="#5C5750" opacity=".45">
+          <circle cx="56" cy="37" r="1.3"/><circle cx="65" cy="30" r="1.2"/><circle cx="76" cy="27" r="1.4"/>
+          <circle cx="88" cy="28" r="1.2"/><circle cx="99" cy="33" r="1.3"/><circle cx="108" cy="41" r="1.2"/>
+        </g>
+        <ellipse cx="62" cy="58" rx="5" ry="4.2" fill="#3E322C"/>
+        <ellipse cx="98" cy="58" rx="5" ry="4.2" fill="#3E322C"/>
+        <circle cx="63.5" cy="56.5" r="1.4" fill="#FFF7EE"/><circle cx="99.5" cy="56.5" r="1.4" fill="#FFF7EE"/>
+        <path d="M50 50c4-3 9-4 13-2M110 50c-4-3-9-4-13-2" fill="none" stroke="#6C5E56" stroke-width="2" stroke-linecap="round"/>
+        <ellipse cx="80" cy="77" rx="21" ry="16" fill="#F3BDB8" stroke="#D49A96" stroke-width="1.3"/>
+        <ellipse cx="73" cy="77" rx="3.2" ry="4.2" fill="#B97573"/><ellipse cx="87" cy="77" rx="3.2" ry="4.2" fill="#B97573"/>
+        <path d="M68 92c5 5 19 5 24 0" fill="none" stroke="#A35F5B" stroke-width="2" stroke-linecap="round"/>
+        <path d="M46 80c-10 2-16 10-14 18 2 9 12 13 18 9" fill="none" stroke="#C98D87" stroke-width="2"/>
+        <path d="M114 80c10 2 16 10 14 18-2 9-12 13-18 9" fill="none" stroke="#C98D87" stroke-width="2"/>
+      </g>
+    </svg>`;
+  }
+
+  function birdSVG(guest, idx){
+    const id = 'bird' + idx;
+    return `
+    <svg class="guest-svg bird-svg" viewBox="0 0 160 200" role="img" aria-label="瀹汉 ${guest.name}">
+      <defs>
+        <linearGradient id="${id}Feather" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#FFFFFF"/><stop offset=".6" stop-color="#E9EFF0"/><stop offset="1" stop-color="#C3CFD3"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="80" cy="193" rx="38" ry="5" fill="#3A2410" opacity=".12"/>
+      <g class="dog-bob">
+        <path d="M92 151v34M78 153v32" stroke="#8B7455" stroke-width="3.4" stroke-linecap="round"/>
+        <path d="M82 187l-9 4M92 187l9 4" stroke="#8B7455" stroke-width="3" stroke-linecap="round"/>
+        <path d="M107 157c17-3 24-17 17-27-5-7-13-5-14 1-1 5 5 6 8 3 1 6-5 12-14 13z" fill="#BBC9CD" stroke="#8FA0A5" stroke-width="1.2"/>
+        <ellipse cx="86" cy="126" rx="35" ry="46" fill="url(#${id}Feather)" stroke="#9CABB0" stroke-width="1.3"/>
+        <ellipse cx="93" cy="135" rx="20" ry="28" fill="#F7FAFA" opacity=".9"/>
+        <path d="M108 103c18 7 24 26 13 42-7 10-18 12-23 5-5-7 0-14 7-13 4 10 12 4 10-6-2-9-10-16-18-19z" fill="#C9D4D8" stroke="#8FA0A5" stroke-width="1.2"/>
+        <path d="M112 74c-4-20-15-28-28-25-13 3-20 20-14 34 6 15 23 20 35 11 6-5 9-12 7-20z" fill="url(#${id}Feather)" stroke="#9CABB0" stroke-width="1.3"/>
+        <path d="M72 59c8-17 29-20 40-6-9-2-17 0-23 6-6 6-12 8-17 0z" fill="#30383C"/>
+        <path d="M72 73c9-3 16-1 22 4-8 1-14 5-19 11-4-5-5-10-3-15z" fill="#30383C"/>
+        <path d="M67 79l-47 9c-4 1-4 6 1 6l48-5z" fill="#23282B" stroke="#15191B" stroke-width="1"/>
+        <path d="M67 84l-29 13c-3 1-2 5 2 4l31-9z" fill="#3A4347"/>
+        <circle cx="79" cy="72" r="6.4" fill="#F7F2E2" stroke="#283135" stroke-width="1.6"/>
+        <circle cx="77.4" cy="72.4" r="3.3" fill="#23282B"/>
+        <circle cx="76.2" cy="71" r="1.1" fill="#FFF"/>
+        <path d="M72 64c4-3 9-3 13 0" fill="none" stroke="#30383C" stroke-width="2" stroke-linecap="round"/>
+      </g>
+    </svg>`;
+  }
+
+  function seriousDogSVG(guest, idx){
+    const id = 'serious' + idx;
+    return `
+    <svg class="guest-svg serious-svg" viewBox="0 0 160 200" role="img" aria-label="瀹汉 ${guest.name}">
+      <defs>
+        <linearGradient id="${id}Coat" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#F1E4D0"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="80" cy="192" rx="39" ry="6" fill="#3A2410" opacity=".14"/>
+      <g class="dog-bob">
+        <path d="M106 155c13-2 20 3 18 9-2 5-9 5-12 0 5-1 5-4 0-3z" fill="none" stroke="#B79C7E" stroke-width="4" stroke-linecap="round"/>
+        <path d="M78 115c-23 4-34 27-28 52 4 18 14 27 30 27 17 0 27-10 31-28 5-25-8-47-33-51z" fill="url(#${id}Coat)" stroke="#3A3028" stroke-width="2"/>
+        <ellipse cx="80" cy="158" rx="21" ry="22" fill="#FFF9EE"/>
+        <path d="M56 160c-10 2-15 12-12 23 2 8 8 12 12 10l9-21zM104 160c10 2 15 12 12 23-2 8-8 12-12 10l-9-21z" fill="#F4E7D3" stroke="#3A3028" stroke-width="2"/>
+        <path d="M69 163c7-6 15-6 22 0M69 170c7-6 15-6 22 0" fill="none" stroke="#3A3028" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M47 42c-8-8-17-8-19-2-2 5 3 17 12 22 5 3 10 1 11-4 1-5-1-10-4-16zM113 42c8-8 17-8 19-2 2 5-3 17-12 22-5 3-10 1-11-4-1-5 1-10 4-16z" fill="#E5B26A" stroke="#3A3028" stroke-width="2"/>
+        <path d="M80 25c-27 0-46 18-46 40 0 23 19 39 46 39s46-16 46-39c0-22-19-40-46-40z" fill="#FFFCF4" stroke="#3A3028" stroke-width="2.2"/>
+        <path d="M80 25c17 0 31 7 39 18-10-3-20-1-27 5-7 5-13 5-19-1-8-8-20-9-31-4 8-11 21-18 38-18z" fill="#E5B26A" opacity=".9"/>
+        <path d="M55 42c8-5 16-5 23 1M105 42c-8-5-16-5-23 1" fill="none" stroke="#6D5B48" stroke-width="4" stroke-linecap="round"/>
+        <g>
+          <ellipse cx="59" cy="67" rx="15" ry="16" fill="#FFFDF7" stroke="#3A3028" stroke-width="2.2"/>
+          <ellipse cx="101" cy="67" rx="15" ry="16" fill="#FFFDF7" stroke="#3A3028" stroke-width="2.2"/>
+          <ellipse cx="62" cy="69" rx="6.6" ry="8.4" fill="#6E4A2A"/>
+          <ellipse cx="98" cy="69" rx="6.6" ry="8.4" fill="#6E4A2A"/>
+          <circle cx="64" cy="65.5" r="2.5" fill="#FFF"/><circle cx="100" cy="65.5" r="2.5" fill="#FFF"/>
+          <path d="M40 54c9-8 19-9 27-3M120 54c-9-8-19-9-27-3" fill="none" stroke="#2F2923" stroke-width="4" stroke-linecap="round"/>
+          <path d="M46 78c8 4 15 3 20-1M114 78c-8 4-15 3-20-1" fill="none" stroke="#3A3028" stroke-width="2" stroke-linecap="round" opacity=".75"/>
+        </g>
+        <path d="M75 88h10l-5 5z" fill="#3A3028"/>
+        <path d="M80 93c0 4 4 6 8 5M80 93c0 4-4 6-8 5" fill="none" stroke="#3A3028" stroke-width="2" stroke-linecap="round"/>
+        <path d="M66 101c9 4 19 4 28 0" fill="none" stroke="#3A3028" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M59 139c12 9 30 9 42 0M59 148c12 9 30 9 42 0" fill="none" stroke="#3A3028" stroke-width="2.3" stroke-linecap="round"/>
+      </g>
+    </svg>`;
+  }
+
+  function guestTag(guest){
+    if(!guest || !guest.badge) return '';
+    return `<span class="guest-tag ${guest.tier}">${guest.badge}</span>`;
+  }
+
+  function spongeSVG(guest, idx){
+    const id = 'sponge' + idx;
+    return `
+    <svg class="guest-svg sponge-svg" viewBox="0 0 160 200" role="img" aria-label="瀹汉 ${guest.name}">
+      <defs><linearGradient id="${id}Body" x1="0" y1="0" x2=".7" y2="1">
+        <stop offset="0" stop-color="#FFF05C"/><stop offset=".65" stop-color="#F4D92E"/><stop offset="1" stop-color="#D9B81A"/>
+      </linearGradient></defs>
+      <ellipse cx="80" cy="193" rx="43" ry="5" fill="#3A2410" opacity=".13"/>
+      <g class="dog-bob">
+        <path d="M38 154c-13 2-18 18-9 24 9 5 17-5 15-13" fill="none" stroke="#D9B81A" stroke-width="6" stroke-linecap="round"/>
+        <path d="M122 154c13 2 18 18 9 24-9 5-17-5-15-13" fill="none" stroke="#D9B81A" stroke-width="6" stroke-linecap="round"/>
+        <path d="M80 170v13M68 170v13" stroke="#F2D63A" stroke-width="3"/>
+        <rect x="38" y="30" width="84" height="124" rx="15" fill="url(#${id}Body)" stroke="#B99A13" stroke-width="2"/>
+        <g fill="#B9C93A" opacity=".85">
+          <ellipse cx="51" cy="47" rx="5" ry="4" transform="rotate(-16 51 47)"/>
+          <ellipse cx="116" cy="42" rx="4" ry="3.2"/>
+          <ellipse cx="112" cy="63" rx="3.2" ry="2.8"/>
+          <ellipse cx="47" cy="88" rx="3.4" ry="2.6"/>
+          <ellipse cx="118" cy="92" rx="5.2" ry="3.8" transform="rotate(18 118 92)"/>
+          <ellipse cx="52" cy="113" rx="3" ry="2.5"/>
+        </g>
+        <rect x="42" y="112" width="76" height="30" fill="#FFFDF3" stroke="#D8C9A7" stroke-width="1"/>
+        <path d="M70 112l10 10 10-10" fill="#FFFDF3" stroke="#D8C9A7" stroke-width="1"/>
+        <path d="M80 120l-7 9 7 19 7-19z" fill="#E4473E" stroke="#B22A24" stroke-width="1.2"/>
+        <rect x="42" y="142" width="76" height="18" fill="#8A5A2F" stroke="#6B421F" stroke-width="1"/>
+        <path d="M60 142v18M100 142v18" stroke="#6B421F" stroke-width="1.4"/>
+        <g>
+          <ellipse cx="62" cy="71" rx="18" ry="19" fill="#FFFDF5" stroke="#2F3B44" stroke-width="2"/>
+          <ellipse cx="98" cy="71" rx="18" ry="19" fill="#FFFDF5" stroke="#2F3B44" stroke-width="2"/>
+          <circle cx="66" cy="73" r="8.2" fill="#4DB7DF"/>
+          <circle cx="94" cy="73" r="8.2" fill="#4DB7DF"/>
+          <circle cx="67" cy="74" r="4.2" fill="#19242B"/><circle cx="93" cy="74" r="4.2" fill="#19242B"/>
+          <circle cx="69" cy="70" r="2" fill="#FFF"/><circle cx="95" cy="70" r="2" fill="#FFF"/>
+          <path d="M46 54l9-5M114 54l-9-5" stroke="#1F2A32" stroke-width="2" stroke-linecap="round"/>
+        </g>
+        <path d="M80 85c-3 6-7 9-7 13 0 4 3 6 7 6s7-2 7-6c0-4-4-7-7-13z" fill="#F3C84B" stroke="#C49A22" stroke-width="1.2"/>
+        <path d="M50 100c9 18 51 18 60 0" fill="#FFF" stroke="#6A3A20" stroke-width="2.2"/>
+        <path d="M50 100c9 18 51 18 60 0" fill="none" stroke="#4A2A18" stroke-width="2"/>
+        <rect x="63" y="100" width="14" height="17" rx="2" fill="#FFF" stroke="#CBBFA8" stroke-width="1"/>
+        <rect x="83" y="100" width="14" height="17" rx="2" fill="#FFF" stroke="#CBBFA8" stroke-width="1"/>
+        <path d="M70 100v17M90 100v17" stroke="#CBBFA8" stroke-width="1"/>
+        <circle cx="45" cy="74" r="3.2" fill="#EDD550" opacity=".8"/><circle cx="115" cy="74" r="3.2" fill="#EDD550" opacity=".8"/>
+      </g>
+    </svg>`;
+  }
+
+  function patrickSVG(guest, idx){
+    const id = 'patrick' + idx;
+    return `
+    <svg class="guest-svg patrick-svg" viewBox="0 0 160 200" role="img" aria-label="瀹汉 ${guest.name}">
+      <defs><linearGradient id="${id}Skin" x1=".2" y1="0" x2=".8" y2="1">
+        <stop offset="0" stop-color="#F79AA0"/><stop offset=".58" stop-color="#E98089"/><stop offset="1" stop-color="#D76672"/>
+      </linearGradient></defs>
+      <ellipse cx="80" cy="193" rx="50" ry="6" fill="#3A2410" opacity=".13"/>
+      <g class="dog-bob">
+        <path d="M80 22l64 70-18 92-46-27-46 27-18-92z" fill="url(#${id}Skin)" stroke="#B95260" stroke-width="2"/>
+        <g fill="#D46F7A" opacity=".55">
+          <ellipse cx="54" cy="88" rx="3" ry="2.2"/><ellipse cx="108" cy="76" rx="2.6" ry="2"/>
+          <ellipse cx="98" cy="118" rx="2.2" ry="1.8"/><ellipse cx="52" cy="127" rx="2.4" ry="1.8"/>
+        </g>
+        <g>
+          <ellipse cx="65" cy="73" rx="13" ry="15" fill="#FFFDF8" stroke="#3F2B22" stroke-width="2"/>
+          <ellipse cx="95" cy="73" rx="13" ry="15" fill="#FFFDF8" stroke="#3F2B22" stroke-width="2"/>
+          <ellipse cx="67" cy="76" rx="5.6" ry="7" fill="#2A2320"/><ellipse cx="93" cy="76" rx="5.6" ry="7" fill="#2A2320"/>
+          <circle cx="68.5" cy="72.5" r="1.8" fill="#FFF"/><circle cx="94.5" cy="72.5" r="1.8" fill="#FFF"/>
+          <path d="M48 53c5-5 13-6 20-3M112 53c-5-5-13-6-20-3" fill="none" stroke="#3A2A22" stroke-width="4" stroke-linecap="round"/>
+        </g>
+        <path d="M69 94c4-4 18-4 22 0-1 13-5 19-11 19s-10-6-11-19z" fill="#7E3A3A" stroke="#5E2B2B" stroke-width="1.2"/>
+        <path d="M62 96c7 5 29 5 36 0" fill="none" stroke="#5E2B2B" stroke-width="2" stroke-linecap="round"/>
+        <path d="M57 121c15 4 31 4 46 0l-3 27c-13 5-27 5-40 0z" fill="#B6D957" stroke="#7D9C33" stroke-width="1.6"/>
+        <g fill="#B18BD6" opacity=".9">
+          <path d="M61 126c8 4 13 4 20 1l2 10c-7 3-14 3-20 0z"/>
+          <path d="M94 132c5 1 9 0 12-1l-1 11c-4 2-8 2-12 0z"/>
+        </g>
+        <path d="M66 154v22M94 154v22" stroke="#E98089" stroke-width="14" stroke-linecap="round"/>
+        <path d="M55 181c-8 0-10 9-2 10h17l1-10zM105 181c8 0 10 9 2 10H90l-1-10z" fill="#E98089" stroke="#B95260" stroke-width="1.2"/>
+        <ellipse cx="80" cy="139" rx="3" ry="2" fill="#B95260"/>
+      </g>
+    </svg>`;
+  }
+
+  function planeCatSVG(guest, idx){
+    const id = 'plane' + idx;
+    return `
+    <svg class="guest-svg plane-svg" viewBox="0 0 160 200" role="img" aria-label="瀹汉 ${guest.name}">
+      <defs><linearGradient id="${id}Fur" x1="0" y1="0" x2=".5" y2="1">
+        <stop offset="0" stop-color="#A9A6A4"/><stop offset=".55" stop-color="#8F8B88"/><stop offset="1" stop-color="#6F6B68"/>
+      </linearGradient></defs>
+      <ellipse cx="80" cy="193" rx="40" ry="5" fill="#3A2410" opacity=".12"/>
+      <g class="dog-bob">
+        <path d="M56 140c-17 0-24 20-14 32 6 7 15 5 18-2 3-8-4-12-9-9" fill="none" stroke="#777270" stroke-width="7" stroke-linecap="round"/>
+        <path d="M60 112c-18 7-24 32-15 51 7 15 20 23 35 23s29-8 36-24c8-19 2-43-16-50-12-5-28-5-40 0z" fill="#F7F2EA" stroke="#8B8178" stroke-width="1.4"/>
+        <path d="M39 70c-9-4-17-13-16-20 1-6 9-8 18-4l14 8-5 17zM121 70c9-4 17-13 16-20-1-6-9-8-18-4l-14 8 5 17z" fill="url(#${id}Fur)" stroke="#6F6B68" stroke-width="1.4"/>
+        <path d="M41 57c-5-2-9-6-9-9 0-2 3-3 7-1l8 4zM119 57c5-2 9-6 9-9 0-2-3-3-7-1l-8 4z" fill="#E7A3A9"/>
+        <path d="M80 26c-29 0-49 20-49 44 0 24 20 43 49 43s49-19 49-43c0-24-20-44-49-44z" fill="#FBF7F0" stroke="#8B8178" stroke-width="1.4"/>
+        <path d="M80 26c-17 0-30 6-39 16 8-3 17-1 23 4 7 6 14 5 21-1 5-4 12-5 18-3 5 1 9 4 14 8-7-15-20-24-37-24z" fill="url(#${id}Fur)" opacity=".95"/>
+        <path d="M49 66c10-9 24-11 34-6" fill="none" stroke="#7D7670" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+        <g>
+          <ellipse cx="62" cy="79" rx="16" ry="18" fill="#FFFDF8" stroke="#5F5752" stroke-width="1.8"/>
+          <ellipse cx="98" cy="79" rx="16" ry="18" fill="#FFFDF8" stroke="#5F5752" stroke-width="1.8"/>
+          <ellipse cx="63" cy="81" rx="8" ry="10" fill="#3A2E28"/><ellipse cx="97" cy="81" rx="8" ry="10" fill="#3A2E28"/>
+          <circle cx="66" cy="77" r="3" fill="#FFF"/><circle cx="100" cy="77" r="3" fill="#FFF"/>
+          <circle cx="60" cy="86" r="2" fill="#FFF" opacity=".8"/><circle cx="94" cy="86" r="2" fill="#FFF" opacity=".8"/>
+        </g>
+        <path d="M76 94c3-2 5-2 8 0l-4 4z" fill="#D78B92"/>
+        <path d="M80 98c0 4-3 6-6 5M80 98c0 4 3 6 6 5" fill="none" stroke="#6D5C54" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M58 40l-9-12M61 38l-5-14M102 40l9-12M99 38l5-14" stroke="#8B8178" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M55 157c8-7 17-7 25 0M80 157c8-7 17-7 25 0" fill="none" stroke="#C9BEB2" stroke-width="2" stroke-linecap="round"/>
+        <path d="M50 113c-9 2-13 11-11 20M110 113c9 2 13 11 11 20" fill="none" stroke="#8B8178" stroke-width="1.4"/>
+      </g>
+    </svg>`;
+  }
+
+  function dogSVG(guest, idx){
+    const id = 'dog' + idx;
+    const acc = guest.accessory;
+    const cap = acc === 'cap' ? `
+      <g transform="rotate(-6 88 38)">
+        <path d="M58 39c-2-13 10-24 27-24 16 0 27 9 28 20-19 4-37 6-55 4z" fill="${guest.cap || '#4E8CC9'}" stroke="#2F6096" stroke-width="1.5"/>
+        <path d="M55 39c2-5 9-6 17-4l22 4c-3 6-11 8-20 7l-16-3z" fill="${guest.cap || '#4E8CC9'}" stroke="#2F6096" stroke-width="1.4"/>
+        <path d="M84 20c5 2 8 7 8 13" fill="none" stroke="#7EB3E4" stroke-width="2" stroke-linecap="round" opacity=".7"/>
+      </g>` : '';
+    const glasses = acc === 'glasses' ? `
+      <g fill="none" stroke="#5B3D24" stroke-width="1.8">
+        <circle cx="62" cy="65" r="9.2" fill="rgba(255,255,255,.13)"/>
+        <circle cx="84" cy="61" r="9.2" fill="rgba(255,255,255,.13)"/>
+        <path d="M71 64l4-1M53 64l-7-2M93 60l6-2"/>
+      </g>` : '';
+    return `
+    <svg class="guest-svg" viewBox="0 0 160 200" role="img" aria-label="瀹汉 ${guest.name}">
+      <defs>
+        <radialGradient id="${id}Body" cx="38%" cy="28%" r="80%">
+          <stop offset="0" stop-color="${guest.body}"/><stop offset=".68" stop-color="${guest.body}"/><stop offset="1" stop-color="${guest.bodyDark}"/>
+        </radialGradient>
+        <linearGradient id="${id}Belly" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="${guest.belly}"/><stop offset="1" stop-color="#FFE3A5"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="78" cy="192" rx="49" ry="6" fill="#3A2410" opacity=".12"/>
+      <g class="dog-bob">
+        <g class="dog-tail"><path d="M114 143c20-4 33-16 31-33-1-9-7-14-12-13-6 1-7 8-4 13 5 9-1 17-17 21z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.2"/></g>
+        <path d="M78 96c-22 0-36 21-34 45 2 32 12 47 37 47s37-16 38-45c1-24-15-47-41-47z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.4"/>
+        <ellipse cx="80" cy="158" rx="25" ry="24" fill="url(#${id}Belly)" opacity=".9"/>
+        <path d="M57 175c-1 9 6 13 14 13M99 177c0 8-6 12-14 12" fill="none" stroke="${guest.bodyDark}" stroke-width="6" stroke-linecap="round"/>
+        <path d="M56 181c-4 1-6 5-4 8 2 2 6 2 10 1l10-2-1-5-8-3z" fill="${guest.bodyDark}"/>
+        <path d="M100 181c4 1 6 5 4 8-2 2-7 2-11 1l-9-2 1-5 8-3z" fill="${guest.bodyDark}"/>
+        <path d="M84 94c-16 0-28 11-29 26-1 14 9 25 25 25 16 0 26-10 26-24 0-17-8-27-22-27z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.3"/>
+        <path d="M62 42c-8-17-22-25-31-16-10 10 1 27 18 36 7 4 14 4 17 0 3-4 1-11-4-20z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.2"/>
+        <path d="M105 40c7-17 21-25 31-16 11 9 1 27-16 37-7 4-14 4-18 0-3-4-2-11 3-21z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.2"/>
+        <path d="M89 34c-20 0-37 15-38 36-1 20 15 35 37 35 20 0 37-15 37-34 0-21-16-37-36-37z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.4"/>
+        <path d="M52 60c-14 0-25 8-27 20-2 13 9 22 24 22 11 0 20-6 24-14 2-5 1-10-2-14-5-7-11-14-19-14z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.3"/>
+        <ellipse cx="31" cy="79" rx="13" ry="10.5" fill="#B13A17" stroke="#8C2D11" stroke-width="1.2"/>
+        <ellipse cx="27" cy="75" rx="4.1" ry="2.6" fill="#D96A42" opacity=".6" transform="rotate(-18 27 75)"/>
+        <g><ellipse cx="64" cy="62" rx="6.7" ry="7.3" fill="#3B2413"/><ellipse cx="86" cy="58" rx="6.7" ry="7.3" fill="#3B2413"/>
+          <circle cx="61.8" cy="59" r="2.1" fill="#FFF8E8"/><circle cx="83.8" cy="55" r="2.1" fill="#FFF8E8"/>
+          <circle cx="66.5" cy="65" r="1" fill="#FFF8E8" opacity=".55"/><circle cx="88.5" cy="61" r="1" fill="#FFF8E8" opacity=".55"/></g>
+        <g class="brow-sad" stroke="#5A3A22" stroke-width="1.6" stroke-linecap="round"><path d="M56 50l10 4M93 46l-10 4"/></g>
+        <path class="mouth-happy" d="M34 94c5 5 12 5 17 0" fill="none" stroke="#5B3820" stroke-width="2" stroke-linecap="round"/>
+        <path class="mouth-sad" d="M33 99c6-5 13-5 18 0" fill="none" stroke="#5B3820" stroke-width="2" stroke-linecap="round"/>
+        <ellipse class="cheek" cx="52" cy="79" rx="7" ry="3.5" fill="#FF9B79" opacity=".3"/>
+        <ellipse class="cheek" cx="95" cy="75" rx="7" ry="3.5" fill="#FF9B79" opacity=".3"/>
+        <path d="M56 104c12 7 30 7 42-1" fill="none" stroke="#2E8B57" stroke-width="5" stroke-linecap="round" opacity=".95"/>
+        <path d="M95 106c8 3 11 9 9 15" fill="none" stroke="#2E8B57" stroke-width="3.5" stroke-linecap="round" opacity=".8"/>
+        ${cap}${glasses}
+      </g>
+    </svg>`;
+  }
+
+  function peachLayout(n){
+    const out = [];
+    if(!n) return out;
+    const cols = n <= 3 ? n : n <= 5 ? 3 : n <= 8 ? 4 : 5;
+    const rows = Math.ceil(n / cols);
+    for(let i=0;i<n;i++){
+      const row = Math.floor(i / cols);
+      const inRow = Math.min(cols, n - row * cols);
+      const col = i % cols;
+      const x = 70 - (inRow - 1) * 13 + col * 26;
+      const y = 100 - row * 15;
+      out.push([clamp(x, 28, 112), clamp(y, 44, 106)]);
+    }
+    return out;
+  }
+  function toppingDecor(c){
+    if(!c.topping || c.topping === 'none') return '';
+    const n = clamp(c.toppingQty || 1, 1, 3);
+    const spots = [[70,45],[60,51],[81,49],[54,39],[87,41],[70,57]];
+    let out = '';
+    for(let i=0;i<n;i++){
+      const [x,y] = spots[i];
+      if(c.topping === 'mint'){
+        out += `<g transform="translate(${x} ${y}) rotate(${i%2?-14:12}) scale(${1-i*.08})">
+          <path d="M0 0c-10-2-15-9-13-16 9-1 15 6 13 16z" fill="#4F9C60" stroke="#347243" stroke-width=".8"/>
+          <path d="M3 1c8-4 16-2 19 5-6 6-14 6-19-5z" fill="#64AF70" stroke="#347243" stroke-width=".8"/></g>`;
+      }else if(c.topping === 'osmanthus'){
+        out += `<g fill="#FFD45A" stroke="#E59C1A" stroke-width=".45"><circle cx="${x}" cy="${y}" r="2.1"/><circle cx="${x+5}" cy="${y-4}" r="1.6"/><circle cx="${x-4}" cy="${y+4}" r="1.5"/></g>`;
+      }else if(c.topping === 'dates'){
+        out += `<g transform="translate(${x} ${y}) rotate(${i%2?-16:14})"><ellipse cx="0" cy="0" rx="6" ry="8.5" fill="#9E2F23" stroke="#6E1A13" stroke-width=".8"/><path d="M-2-6c2 3 2 8 0 11" stroke="#D06A4B" stroke-width="1.1" fill="none" opacity=".8"/></g>`;
+      }else if(c.topping === 'goji'){
+        out += `<g transform="translate(${x} ${y}) rotate(${i%2?-18:18})"><ellipse cx="0" cy="0" rx="4" ry="7" fill="#E34A32" stroke="#A92A1B" stroke-width=".7"/><path d="M0-7c1-3 3-4 5-4" stroke="#6C8D3A" stroke-width="1.2" fill="none" stroke-linecap="round"/></g>`;
+      }else if(c.topping === 'rock'){
+        out += `<g transform="translate(${x} ${y}) rotate(${i%3*12-12})"><rect x="-5" y="-5" width="10" height="10" rx="2.5" fill="#F8FDFF" fill-opacity=".86" stroke="#A6D4DF" stroke-width=".9"/><path d="M-2-3l5 2" stroke="#FFFFFF" stroke-width="1.2"/></g>`;
+      }else if(c.topping === 'honeysuckle'){
+        out += `<g transform="translate(${x} ${y})"><path d="M0 0c-6-2-9-7-6-11 4-1 7 2 8 6 2-5 6-6 9-4 2 4-3 8-8 9z" fill="#FFF4C8" stroke="#D8B94A" stroke-width=".7"/><circle cx="2" cy="1" r="1.6" fill="#F2C94C"/></g>`;
+      }
+    }
+    return out;
+  }
+  function renderCan(){
+    const c = state.can;
+    const sizeScale = c.size === 'small' ? .84 : c.size === 'large' ? 1.05 : .95;
+    const jarScale = (JARS[c.jar] && JARS[c.jar].scale) || 1;
+    els.canWrap.className = 'can-wrap ' + (c.size ? 'size-' + c.size : 'empty') + ' jar-' + (c.jar || 'classic') + (c.sealed ? ' sealed' : '');
+    els.canWrap.style.setProperty('--canScale', (sizeScale * jarScale).toFixed(3));
+    if(!c.size){
+      els.canWrap.innerHTML = `<div class="empty-can"><div class="outline"></div><div class="lid-line"></div><span>閫変釜缃愬瀷<br>寮€濮嬭缃?/span></div>`;
+      return;
+    }
+    const pieces = c.pieces.slice(0, 24);
+    const positions = peachLayout(pieces.length);
+    const peachG = positions.map((p,i) => {
+      const large = pieces[i] === 'large';
+      const rx = large ? 17 : 11.5, ry = large ? 12 : 8.2;
+      return `<g transform="translate(${p[0]} ${p[1]}) rotate(${i % 2 ? 5 : -6})">
+        <ellipse cx="0" cy="0" rx="${rx}" ry="${ry}" fill="url(#canPeachGrad)" stroke="#DA7422" stroke-width=".8"/>
+        <path d="M-9-4c4-4 11-5 16-2" fill="none" stroke="#FFE2A1" stroke-width="${large?1.8:1.3}" stroke-linecap="round" opacity=".75"/>
+        <path d="M-4 0c3 3 8 4 12 2" fill="none" stroke="#DD7B28" stroke-width="1.1" stroke-linecap="round" opacity=".6"/>
+      </g>`;
+    }).join('');
+
+    const syrupY = 132 - clamp(c.syrup,0,100) * 0.9;
+    const syrupH = Math.max(0, 132 - syrupY);
+    const hasSyrup = c.syrup > 0;
+    const iceCubes = c.temp === 'ice' ? `<g class="ice-shine">
+      <rect x="43" y="57" width="13" height="13" rx="3" transform="rotate(-12 49 63)" fill="#E6FAFF" stroke="#A9D8E5" stroke-width="1" opacity=".8"/>
+      <rect x="76" y="51" width="11" height="11" rx="3" transform="rotate(14 81 56)" fill="#E6FAFF" stroke="#A9D8E5" stroke-width="1" opacity=".75"/>
+      <rect x="62" y="44" width="9" height="9" rx="2.5" transform="rotate(-8 66 48)" fill="#F2FDFF" stroke="#A9D8E5" stroke-width=".9" opacity=".7"/></g>` : '';
+    const steam = c.temp === 'warm' ? `<g fill="none" stroke="#FFF7E7" stroke-width="2.2" stroke-linecap="round" opacity=".7">
+      <path class="steam" d="M53 35c-4-7 4-10 0-17"/><path class="steam s2" d="M83 34c4-7-4-10 0-17"/></g>` : '';
+    const topping = toppingDecor(c);
+    const lid = c.sealed ? `<g class="lid-group">
+      <ellipse cx="70" cy="36" rx="41.5" ry="12.5" fill="#DCD6C9" stroke="#8B8375" stroke-width="1.6"/>
+      <ellipse cx="70" cy="34" rx="37" ry="9.6" fill="#F4F0E5" stroke="#AAA295" stroke-width="1.2"/>
+      <ellipse cx="70" cy="34" rx="30" ry="6.4" fill="none" stroke="#D0C9BB" stroke-width="1"/>
+      <path d="M84 33c7 0 12 2 12 3.5s-5 3-12 3" fill="none" stroke="#8B8375" stroke-width="2.2" stroke-linecap="round"/>
+      <circle cx="80" cy="36" r="1.4" fill="#8F887B"/>
+      <g transform="translate(99 139) rotate(8)"><circle cx="0" cy="0" r="11" fill="#FFF5D8" stroke="#D9B76F" stroke-width="1.2"/>
+        <circle cx="0" cy="0" r="8.2" fill="#FFD23F" stroke="#D6A00E" stroke-width=".8"/>
+        <circle cx="-3" cy="-2" r="1.5" fill="#5B3D1D"/><circle cx="3" cy="-2" r="1.5" fill="#5B3D1D"/>
+        <path d="M-2 2c1.5 1.5 3.5 1.5 5 0" fill="none" stroke="#5B3D1D" stroke-width="1" stroke-linecap="round"/></g></g>` : '';
+
+    els.canWrap.innerHTML = `
+      <svg viewBox="0 0 140 185" role="img" aria-label="${SIZES[c.size].name}榛勬缃愬ご">
+        <defs>
+          <linearGradient id="canMetalDyn" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#B9B3A6"/><stop offset=".18" stop-color="#F5F1E6"/><stop offset=".5" stop-color="#D5CEC0"/><stop offset=".8" stop-color="#F4EFE4"/><stop offset="1" stop-color="#AFA99C"/></linearGradient>
+          <linearGradient id="canLabelDyn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3C8C5D"/><stop offset="1" stop-color="#226242"/></linearGradient>
+          <radialGradient id="canPeachGrad" cx="38%" cy="30%" r="80%"><stop offset="0" stop-color="#FFD56F"/><stop offset=".5" stop-color="#FFB245"/><stop offset="1" stop-color="#EE7C28"/></radialGradient>
+          <linearGradient id="syrupGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD76B" stop-opacity=".82"/><stop offset="1" stop-color="#F19A2D" stop-opacity=".9"/></linearGradient>
+          <clipPath id="canOpenClip"><path d="M29 37c0 6 18 10 41 10s41-4 41-10l-3 94c-9 6-23 9-38 9s-29-3-38-9z"/></clipPath>
+        </defs>
+        <ellipse cx="70" cy="178" rx="46" ry="6.5" fill="#3A2410" opacity=".13"/>
+        <path d="M27 35l-3 124c0 10 20 17 46 17s46-7 46-17l-3-124z" fill="url(#canMetalDyn)" stroke="#8B8375" stroke-width="1.5"/>
+        <ellipse cx="70" cy="35" rx="43" ry="13" fill="#EFEADD" stroke="#8B8375" stroke-width="1.4"/>
+        <g clip-path="url(#canOpenClip)">
+          <rect x="24" y="35" width="92" height="115" fill="#F8E5B3"/>
+          <rect id="canSyrupRect" x="24" y="${syrupY}" width="92" height="${syrupH}" fill="url(#syrupGrad)"/>
+          <ellipse id="canSyrupSurface" cx="70" cy="${syrupY}" rx="44" ry="9" fill="#FFE08A" opacity="${hasSyrup ? .75 : 0}"/>
+          ${peachG}${iceCubes}${topping}${steam}
+        </g>
+        <path d="M26 93h88v53c0 13-19 19-44 19s-44-6-44-19z" fill="url(#canLabelDyn)"/>
+        <path d="M28 84h84v11H28z" fill="#F6DD78" opacity=".92"/>
+        <path d="M35 97h70" stroke="rgba(255,255,255,.22)" stroke-width="1"/>
+        <text x="70" y="116" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="12.5" font-weight="900" letter-spacing=".9" fill="#FFFFFF">YELLOW</text>
+        <text x="70" y="130" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="12.5" font-weight="900" letter-spacing=".9" fill="#FFFFFF">PEACH</text>
+        <text x="70" y="147" text-anchor="middle" font-family="'Microsoft YaHei',sans-serif" font-size="10" font-weight="900" letter-spacing="1.3" fill="#FFE672">榛勬缃愬ご</text>
+        <path d="M51 154c4 0 6 2 6 5s-3 5-7 5c-5 0-9-3-8-7 1-4 5-6 9-3z" fill="#F7D24B"/>
+        <path d="M55 151c0-2 1-3 3-4 0 2-1 3-3 4z" fill="#B7D990"/>
+        <ellipse cx="70" cy="35" rx="43" ry="13" fill="none" stroke="#FAF6EB" stroke-width="4"/>
+        <ellipse cx="70" cy="35" rx="43" ry="13" fill="none" stroke="#8A8273" stroke-width="1.2"/>
+        ${lid}
+      </svg>`;
+  }
+  function updateSyrupVisual(){
+    const c = state.can;
+    const rect = document.getElementById('canSyrupRect');
+    const surf = document.getElementById('canSyrupSurface');
+    if(!rect || !surf) return;
+    const y = 132 - clamp(c.syrup,0,100) * .9;
+    const h = Math.max(0,132-y);
+    rect.setAttribute('y', y); rect.setAttribute('height', h);
+    surf.setAttribute('cy', y);
+    surf.setAttribute('opacity', c.syrup > 0 ? .75 : 0);
+  }
+  function bumpCan(){
+    els.canWrap.classList.remove('bump');
+    void els.canWrap.offsetWidth;
+    els.canWrap.classList.add('bump');
+  }
+
+  function renderPatience(ratio){
+    if(!els.patienceFill) return;
+    const r = clamp(ratio == null ? state.patience : ratio, 0, 1);
+    els.patienceFill.style.width = (r * 100).toFixed(1) + '%';
+    els.patience.classList.toggle('low', r < .25);
+    const remain = Math.max(0, state.deadline - performance.now());
+    const sec = Math.ceil(remain / 1000);
+    els.patienceTime.textContent = state.phase === 'intro' ? '1:40' : `${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`;
+  }
+
+  function renderDesk(){
+    if(!state.guest) return;
+    els.deskAvatar.innerHTML = guestSVG(state.guest, state.guestIndex);
+    els.deskGuestName.innerHTML = `${state.guest.name}${guestTag(state.guest)}`;
+    const remain = Math.max(0, state.deadline - performance.now());
+    els.deskGuestMood.textContent = state.guest.tier === 'boss'
+      ? (state.can.sealed ? '妫€鏌ヤ腑鈥﹁繖娆¤兘涓嶈兘閫氳繃锛? : '璁ょ湡妫€鏌ヤ腑 路 鑰愬績寰堢煭')
+      : state.guest.tier === 'elite'
+        ? (state.can.sealed ? '绮捐嫳瀹汉姝ｅ湪楠岃揣' : '绮捐嫳瀹汉 路 瑕佹眰鏇翠弗')
+        : state.can.sealed ? '鐪嬪埌缃愬ご锛岀溂鐫涢兘浜簡' : remain < 25000 ? '鏈夌偣鐫€鎬ヤ簡鈥? : '姝ｅ湪绛変綘鍑洪';
+    let text = '';
+    if(state.can.sealed) text = `<b>缃愬ご宸茬粡灏佸ソ鍟︼紒</b>鐩存帴鐐逛笅闈㈢殑銆屼氦缁欏浜恒€嶅氨琛屻€俙;
+    else if(!state.can.size) text = `杩樻病寮€濮嬭缃愩€傚厛鍘?b>鍘ㄦ埧</b>鍒囬粍妗冦€佺啲绯栨按锛屽啀鍥?b>宸ヤ綔鍙?/b>銆俙;
+    else{
+      const miss = [];
+      if(!state.can.pieces.length) miss.push('榛勬');
+      if(!state.can.syrup) miss.push('绯栨按');
+      if(!state.can.temp) miss.push('娓╁害');
+      if(!state.can.topping) miss.push('鍔犳枡');
+      text = miss.length ? `杩樺樊锛?b>${miss.join('銆?)}</b>銆傚洖宸ヤ綔鍙扮户缁缃愬惂銆俙 : `閮介厤榻愪簡锛屽幓宸ヤ綔鍙扮偣銆屽皝鐩栥€嶏紝鍐嶅洖鏉ュ嚭椁愩€俙;
+    }
+    els.deskStatus.innerHTML = text;
+  }
+
+  function renderWork(){
+    if(!state.order) return;
+    const c = state.can;
+    els.sizeBtns.forEach(b => {
+      const on = c.size === b.dataset.size;
+      b.classList.toggle('active', on);
+      b.disabled = c.sealed;
+    });
+    const counts = countPieces(c.pieces);
+    els.canLarge.textContent = counts.large;
+    els.canSmall.textContent = counts.small;
+    if(els.bowlWorkLarge) els.bowlWorkLarge.textContent = state.bowl.large;
+    if(els.bowlWorkSmall) els.bowlWorkSmall.textContent = state.bowl.small;
+    els.tempChips.forEach(b => { b.classList.toggle('active', c.temp === b.dataset.temp); b.disabled = c.sealed; });
+    const toppingIds = ['none'].concat(unlockedToppings());
+    if(!c.sealed) c.topping = toppingIds.includes(c.topping) ? c.topping : null;
+    els.toppingChips.innerHTML = toppingIds.map(id => {
+      const t = TOPPINGS[id];
+      return `<button class="chip ${c.topping === id ? 'active' : ''}" type="button" data-topping="${id}" ${c.sealed ? 'disabled' : ''}>
+        <svg class="icon"><use href="#i-${t.icon}"></use></svg>${t.name}</button>`;
+    }).join('');
+    if(els.toppingQtyRow){
+      const showQty = !!c.topping && c.topping !== 'none';
+      els.toppingQtyRow.hidden = !showQty;
+      els.toppingQtyVal.textContent = c.toppingQty || 1;
+      if(els.toppingMinus) els.toppingMinus.disabled = c.sealed || (c.toppingQty || 1) <= 1;
+      if(els.toppingPlus) els.toppingPlus.disabled = c.sealed || (c.toppingQty || 1) >= 3;
+    }
+    if(els.jarSwitchBtn){
+      const jar = JARS[c.jar] || JARS.classic;
+      els.jarSwitchBtn.querySelector('span').textContent = jar.name;
+      els.jarSwitchBtn.disabled = c.sealed || unlockedJars().length < 2;
+      els.jarSwitchBtn.querySelector('small').textContent = unlockedJars().length < 2 ? '鍘绘嫇灞曞簵瑙ｉ攣鏇村' : '鐐规鍒囨崲缃愬瓙';
+    }
+
+    if(!state.batches.length){
+      els.batchStrip.innerHTML = `<span class="batch-empty">杩樻病鏈夌硸姘达紝鍏堝幓鍘ㄦ埧鐔竴閿呫€?/span>`;
+    }else{
+      els.batchStrip.innerHTML = state.batches.map(b => {
+        const q = b.quality === 'perfect' ? '鐏€欏畬缇? : b.quality === 'thin' ? '鍋忕敓锛堜篃鑳界敤锛? : '鐒﹁嫤锛堜篃鑳界敤锛?;
+        return `<button class="batch-chip ${b.quality || ''} ${state.selectedBatch === b.id ? 'active' : ''}" type="button" data-batch="${b.id}" ${c.sealed || b.used ? 'disabled' : ''}>
+          ${b.sugar} 鍕?路 ${q}<span class="q">绯栨按 #${b.id}${b.used ? ' 路 宸茬敤' : b.sugar === state.order.sugar ? ' 路 瀵瑰懗' : ''}</span>
+        </button>`;
+      }).join('');
+    }
+    const sb = SUGAR[state.order.sugar];
+    const tol = state.order.tol || sb.tol;
+    els.syrupTarget.style.left = (sb.target - tol) + '%';
+    els.syrupTarget.style.width = (tol * 2) + '%';
+    els.syrupFill.style.width = clamp(c.syrup,0,100) + '%';
+    const inZone = Math.abs(c.syrup - sb.target) <= tol;
+    els.syrupFill.classList.toggle('in-zone', inZone);
+    els.syrupReadout.textContent = Math.round(c.syrup) + '%';
+    els.syrupNote.textContent = findBatch() ? `宸查€夛細${findBatch().sugar} 鍕虹硸姘碻 : '閫変竴閿呯啲濂界殑绯栨按';
+    els.pourBtn.disabled = c.sealed || !findBatch() || c.syrup >= 100;
+    els.pourBtn.classList.toggle('pouring', state.pouring);
+    updateFooter();
+  }
+
+  function renderKitchen(){
+    if(!state.order) return;
+    const o = state.order;
+    els.kitchenOrder.innerHTML = `璁㈠崟锛?b>${SIZES[o.size].name}路${JARS[o.jar].name}</b> 路 榛勬 <b>${peachText(o.peaches)}</b> 路 ${SUGAR[o.sugar].name}锛?{o.sugar} 鍕猴級`;
+    els.cutStock.textContent = '涓嶉檺';
+    els.bowlLarge.textContent = state.bowl.large;
+    els.bowlSmall.textContent = state.bowl.small;
+    els.cutStage.classList.remove('knife-mint','knife-sakura','knife-gold');
+    if(state.upgrade.knife !== 'wood') els.cutStage.classList.add('knife-' + state.upgrade.knife);
+    els.alarmNote.textContent = state.upgrade.alarm
+      ? '闂归挓宸插紑鍚細杩涘叆鐏€欏尯鍓嶄細鍝嶉搩鎻愰啋銆?
+      : '娌℃湁闂归挓锛氱洴鐫€缁胯壊鐏€欏尯锛岃嚜宸辨暟绉掑叧鐏€?;
+    els.potNote.textContent = `缁胯壊鍖?${BOIL_MIN}%鈥?{BOIL_MAX}% 路 澶棭澶櫄閮戒細澶辫触`;
+    renderPots();
+  }
+
+  function potStatusText(p){
+    if(p.status === 'heating') return '鐔埗涓?;
+    if(p.status === 'failed') return p.quality === 'thin' ? '鐔お鐭紝绯栨病鍖栧紑' : '鐔繃澶达紝鍙戣嫤浜?;
+    if(!p.sugar) return '鍏堝姞绯?;
+    return `宸插姞 ${p.sugar} 鍕虹硸`;
+  }
+  function renderPots(){
+    let html = '';
+    for(let i=0;i<4;i++){
+      if(i >= state.upgrade.pots){
+        html += `<div class="pot-empty">閿呬綅 ${i+1}<br>鍘婚噾甯佸晢搴楄В閿?/div>`;
+        continue;
+      }
+      const p = state.pots[i];
+      const dots = [1,2,3].map(n => `<i class="sugar-dot ${p.sugar >= n ? 'on' : ''}"></i>`).join('');
+      let actions = '';
+      if(p.status === 'heating'){
+        actions = `<button class="primary" type="button" data-pot-stop="${i}">鍏崇伀</button>`;
+      }else if(p.status === 'failed'){
+        actions = `<button type="button" data-pot-dump="${i}">鍊掓帀閲嶇啲</button>`;
+      }else{
+        actions = `<button type="button" data-pot-sugar="-1" data-pot="${i}" ${p.sugar<=0?'disabled':''}>鈭?/button>
+          <button type="button" data-pot-sugar="1" data-pot="${i}" ${p.sugar>=3?'disabled':''}>绯?</button>
+          <button class="primary" type="button" data-pot-start="${i}" ${p.sugar<1?'disabled':''}>寮€鐏?/button>`;
+      }
+      html += `<div class="pot-card" data-status="${p.status}">
+        <div class="pot-head"><b>鐔硸閿?${i+1}</b><span class="pot-sugar">${dots}</span></div>
+        <div class="pot-gauge"><div class="pot-zone"></div><div class="pot-fill" id="potFill${i}" style="width:${p.progress}%"></div></div>
+        <div class="pot-meta"><span>${potStatusText(p)}</span><b id="potPct${i}">${Math.round(p.progress)}%</b></div>
+        <div class="pot-actions">${actions}</div>
+      </div>`;
+    }
+    els.potGrid.innerHTML = html;
+  }
+  function updatePotVisuals(){
+    state.pots.forEach(p => {
+      if(p.status !== 'heating') return;
+      const fill = document.getElementById('potFill'+p.id);
+      const pct = document.getElementById('potPct'+p.id);
+      if(fill) fill.style.width = clamp(p.progress,0,100) + '%';
+      if(pct) pct.textContent = Math.round(p.progress) + '%';
+    });
+  }
+
+  function renderHint(){
+    if(state.phase === 'intro'){ els.hintText.textContent = '鍏堢湅鐪嬩粖澶╃殑璁㈠崟鍚?; return; }
+    if(state.phase !== 'playing') return;
+    let text = '';
+    if(state.stage === 'desk'){
+      text = state.can.sealed ? '灏佸ソ鍟︼紝鐐逛笅闈㈢殑銆屼氦缁欏浜恒€? : '鏈嶅姟鍙帮細瀹汉姝ｅ湪绛夛紝鍘诲伐浣滃彴鎴栧帹鎴垮噯澶?;
+    }else if(state.stage === 'work'){
+      const c = state.can, o = state.order;
+      if(!c.size) text = '绗?1 姝ワ細鎸夎鍗曟寫涓€涓綈鍨?;
+      else if(countPieces(c.pieces).large + countPieces(c.pieces).small === 0) text = '绗?2 姝ワ細鎶婂垏濂界殑榛勬鏀捐繘缃愬瓙';
+      else if(!findBatch()) text = '绗?3 姝ワ細鍘诲帹鎴跨啲涓€閿呯硸姘?;
+      else if(c.syrup <= 0) text = '閫変竴閿呯硸姘达紝鎸変綇鍊掑埌缁胯壊鐩爣鍖?;
+      else if(!c.temp) text = '绗?4 姝ワ細鎸夎鍗曢€夋俯搴?;
+      else if(!c.topping) text = '绗?5 姝ワ細鎸夎鍗曢€夊姞鏂?;
+      else text = c.sealed ? '灏佺洊瀹屾垚锛屽幓鏈嶅姟鍙颁氦缁欏浜哄惂' : '閮介厤濂藉暒锛岀偣銆屽皝鐩栥€嶏紝鍐嶅洖鏈嶅姟鍙?;
+    }else{
+      const o = state.order;
+      const need = peachTotal(o.peaches);
+      const have = state.bowl.large + state.bowl.small;
+      if(state.batches.length && have >= need) text = '绯栨按鍜岄粍妗冮兘澶囧ソ浜嗭紝鍥炲伐浣滃彴瑁呯綈鍚?;
+      else if(have >= need) text = '榛勬澶熶簡锛屾帴涓嬫潵鍔犵硸鐔硸姘?;
+      else text = `鍏堝垏榛勬锛氳鍗曡 ${peachText(o.peaches)}`;
+    }
+    els.hintText.textContent = text;
+    els.hint.classList.toggle('pulse', state.stage === 'desk' && state.can.sealed);
+  }
+
+  function updateFooter(){
+    const sealed = state.can.sealed;
+    const show = (el,on) => { el.style.display = on ? '' : 'none'; };
+    show(els.resetBtn, state.stage === 'work' && !sealed);
+    show(els.sealBtn, state.stage === 'work' && !sealed);
+    show(els.serveBtn, true);
+    if(state.stage === 'desk'){
+      els.footer.style.gridTemplateColumns = '1fr';
+      els.serveBtn.innerHTML = `${icon('arrow')}${sealed ? '浜ょ粰瀹汉' : '杩樻病鍋氬ソ'}`;
+      els.serveBtn.disabled = !sealed;
+    }else if(state.stage === 'work'){
+      els.footer.style.gridTemplateColumns = sealed ? '1fr' : '0.8fr 1.2fr 1fr';
+      els.resetBtn.innerHTML = `${icon('refresh')}閲嶅仛`;
+      els.sealBtn.innerHTML = `${icon('lid')}灏佺洊`;
+      els.sealBtn.disabled = false;
+      els.serveBtn.innerHTML = `${icon('arrow')}${sealed ? '鍘绘湇鍔″彴' : '鍑洪'}`;
+      els.serveBtn.disabled = !sealed;
+    }else{
+      els.footer.style.gridTemplateColumns = '1fr';
+      els.serveBtn.innerHTML = `${icon('arrow')}鍘诲伐浣滃彴`;
+      els.serveBtn.disabled = false;
+    }
+  }
+
+  function updateTabBadges(){
+    els.stageTabs.forEach(t => t.classList.remove('alert'));
+    if(state.can.sealed) $('.stage-tab[data-stage="desk"]').classList.add('alert');
+    if(state.batches.length && state.stage !== 'work') $('.stage-tab[data-stage="work"]').classList.add('alert');
+  }
+
+  function renderAll(){
+    updateHud();
+    renderOrderTicket();
+    renderGuest();
+    renderCan();
+    renderPatience(state.patience);
+    setStage(state.stage, true);
+    updateTabBadges();
+  }
+
+  /* -------------------- 娓告垙娴佺▼ -------------------- */
+  function pickGuest(index){
+    const special = specialForDay(state.day);
+    if(special && special.slot === index) return special.guest;
+    const pool = GUESTS.filter(g => !state.todayGuests.includes(g.name));
+    return pool.length ? pool[randInt(0, pool.length - 1)] : GUESTS[randInt(0, GUESTS.length - 1)];
+  }
+
+  function newCustomer(index){
+    if(index === 0) state.todayGuests = [];
+    state.guestIndex = index;
+    state.guest = pickGuest(index);
+    state.todayGuests.push(state.guest.name);
+    state.patienceMs = Math.round(PATIENCE_MS * (state.guest.patience || 1));
+    state.order = makeOrder(index, state.guest);
+    state.can = emptyCan();
+    state.selectedBatch = null;
+    state.pouring = false;
+    state.patience = 1;
+    state.deadline = performance.now() + state.patienceMs;
+    state.phase = 'playing';
+    state.stage = 'desk';
+    els.game.dataset.stage = 'desk';
+    setGuestMood('idle');
+    renderAll();
+    renderDesk();
+    renderWork();
+    renderKitchen();
+    updateFooter();
+    renderHint();
+    updateTabBadges();
+    showSpeech(state.guest.greet);
+    sfx.guest();
+    const special = specialForDay(state.day);
+    if(special && special.slot === index){
+      setTimeout(() => toast(special.type === 'boss'
+        ? `鍛ㄦ湯 BOSS銆?{state.guest.name}銆嶅埌搴楋細鑰愬績 ${Math.round(state.patienceMs/1000)} 绉掞紝濂栧姳 脳${state.guest.coin}锛乣
+        : `绮捐嫳瀹汉銆?{state.guest.name}銆嶅埌搴楋細璁㈠崟鏇村鏉傦紝濂栧姳 脳${state.guest.coin}锛乣), 420);
+    }
+    cueMusic();
+  }
+
+  function setIntroMode(mode){
+    if(!MODES[mode]) return;
+    state.introMode = mode;
+    els.modeCards.forEach(card => card.classList.toggle('active', card.dataset.mode === mode));
+    els.startBtn.innerHTML = `${mode === 'normal' ? '寮€濮?14 澶╄惀涓? : '寮€濮嬫棤灏借惀涓?}${icon('arrow')}`;
+    const best = mode === 'normal' ? state.bestNormal : state.bestEndless;
+    const bestText = mode === 'normal'
+      ? (best ? ` 路 鏈€浣冲懆鐩?${best} 閲戝竵` : '')
+      : (best ? ` 路 鏈€杩滅 ${best} 鍛╜ : '');
+    els.introNote.textContent = (mode === 'normal'
+      ? '鏅€氭ā寮?路 14 澶╁悗缁撶畻鎬昏惀涓氶'
+      : '鏃犲敖妯″紡 路 姣忓懆涓氱哗閫掑 路 涓嶈揪鏍囧氨鍏抽棬') + bestText;
+    sfx.tap();
+  }
+  function startGame(){
+    if(state.phase !== 'intro') return;
+    beginRun(state.introMode || 'normal');
+  }
+  function beginRun(mode){
+    ensureAudio();
+    state.mode = MODES[mode] ? mode : 'normal';
+    state.day = 1;
+    state.coins = 0;
+    state.dayCoins = 0;
+    state.dayStars = 0;
+    state.runEarned = 0;
+    state.week = 1;
+    state.weekEarned = 0;
+    state.weekTarget = weekTargetFor(1);
+    state.summaryKind = 'day';
+    state.metaAwarded = false;
+    state.reviews = [];
+    state.guestIndex = 0;
+    state.bowl = {large:0, small:0};
+    state.stock = Infinity;
+    state.batches = [];
+    state.selectedBatch = null;
+    state.pots = makePots();
+    state.upgrade = {pots:1, alarm:false, knife:'wood', knives:['wood']};
+    batchSeq = 0;
+    lastOrderSig = '';
+    els.introOverlay.classList.remove('show');
+    els.summaryOverlay.classList.remove('show');
+    els.summaryOverlay.setAttribute('aria-hidden','true');
+    els.shopOverlay.classList.remove('show');
+    els.shopOverlay.setAttribute('aria-hidden','true');
+    els.canWrap.classList.remove('serving');
+    els.startBtn.blur();
+    newCustomer(0);
+    applySkins();
+    saveGame();
+  }
+  function goHome(){
+    state.phase = 'intro';
+    state.stage = 'desk';
+    state.guest = null;
+    state.order = null;
+    state.can = emptyCan();
+    state.pouring = false;
+    els.reviewOverlay.classList.remove('show');
+    els.reviewOverlay.setAttribute('aria-hidden','true');
+    els.summaryOverlay.classList.remove('show');
+    els.summaryOverlay.setAttribute('aria-hidden','true');
+    els.shopOverlay.classList.remove('show');
+    els.shopOverlay.setAttribute('aria-hidden','true');
+    els.introOverlay.classList.add('show');
+    if(els.homeOverlay) els.homeOverlay.classList.remove('show');
+    if(els.leaderboardOverlay) els.leaderboardOverlay.classList.remove('show');
+    renderPlayerBar();
+    els.game.dataset.stage = 'desk';
+    updateHud();
+    renderOrderTicket();
+    renderGuest();
+    renderCan();
+    renderDesk();
+    renderWork();
+    renderKitchen();
+    renderPatience(1);
+    updateFooter();
+    renderHint();
+    cueMusic();
+  }
+
+  function selectSize(size){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    if(state.can.size === size) return;
+    state.can.size = size;
+    state.can.pieces = [];
+    state.can.syrup = 0;
+    state.selectedBatch = null;
+    renderCan();
+    bumpCan();
+    renderWork();
+    updateFooter();
+    renderHint();
+    updateTabBadges();
+    sfx.tap();
+  }
+
+  function addPiece(size){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    if(!state.can.size){ toast('鍏堟寫涓€涓綈鍨?); return; }
+    if(!state.bowl[size]){ toast(`纰楅噷娌℃湁${size === 'large' ? '澶у潡' : '灏忓潡'}锛屽厛鍘诲帹鎴垮垏`); return; }
+    state.bowl[size]--;
+    state.can.pieces.push(size);
+    renderCan();
+    updateSyrupVisual();
+    bumpCan();
+    renderWork();
+    sfx.add();
+    renderHint();
+    updateTabBadges();
+    updateFooter();
+  }
+  function removePiece(size){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    const idx = state.can.pieces.lastIndexOf(size);
+    if(idx < 0) return;
+    state.can.pieces.splice(idx,1);
+    state.bowl[size]++;
+    renderCan();
+    updateSyrupVisual();
+    bumpCan();
+    renderWork();
+    sfx.remove();
+    renderHint();
+    updateFooter();
+  }
+  function setTemp(temp){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    state.can.temp = state.can.temp === temp ? null : temp;
+    renderCan();
+    renderWork();
+    renderHint();
+    sfx.tap();
+  }
+  function setTopping(topping){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    if(!['none'].concat(unlockedToppings()).includes(topping)) return;
+    state.can.topping = state.can.topping === topping ? null : topping;
+    state.can.toppingQty = state.can.topping && state.can.topping !== 'none' ? (state.can.toppingQty || 1) : 0;
+    renderCan();
+    renderWork();
+    renderHint();
+    sfx.tap();
+  }
+  function changeToppingQty(delta){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    if(!state.can.topping || state.can.topping === 'none') return;
+    state.can.toppingQty = clamp((state.can.toppingQty || 1) + delta, 1, 3);
+    renderCan();
+    renderWork();
+    renderHint();
+    sfx.tap();
+  }
+  function cycleJar(){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    const jars = unlockedJars();
+    if(jars.length < 2){ toast('鎷撳睍搴楅摵鍙互瑙ｉ攣鏂扮綈瀛?); return; }
+    const i = jars.indexOf(state.can.jar || 'classic');
+    state.can.jar = jars[(i + 1) % jars.length];
+    renderCan();
+    bumpCan();
+    renderWork();
+    renderHint();
+    sfx.tap();
+  }
+
+  function cutPeach(size){
+    if(state.phase !== 'playing' || state.stage !== 'kitchen') return;
+    state.bowl[size]++;
+    els.cutStage.classList.add('chop');
+    setTimeout(() => els.cutStage.classList.remove('chop'), 160);
+    sfx.chop();
+    renderKitchen();
+    renderHint();
+  }
+
+  function addSugar(potId, delta){
+    if(state.phase !== 'playing' || state.stage !== 'kitchen') return;
+    const p = state.pots[potId];
+    if(!p || p.status !== 'idle') return;
+    p.sugar = clamp(p.sugar + delta, 0, 3);
+    sfx.tap();
+    renderPots();
+  }
+  function startBoil(potId){
+    if(state.phase !== 'playing' || state.stage !== 'kitchen') return;
+    const p = state.pots[potId];
+    if(!p || p.status !== 'idle') return;
+    if(p.sugar < 1){ toast('鍏堝姞绯栧啀寮€鐏?); return; }
+    p.status = 'heating';
+    p.progress = 0;
+    p.startedAt = performance.now();
+    p.alarmFired = false;
+    renderPots();
+    sfx.tap();
+    updateTabBadges();
+  }
+  function stopBoil(potId){
+    if(state.phase !== 'playing') return;
+    const p = state.pots[potId];
+    if(!p || p.status !== 'heating') return;
+    const elapsed = performance.now() - p.startedAt;
+    const pct = clamp(elapsed / BOIL_MS * 100, 0, 100);
+    p.progress = pct;
+    if(pct < BOIL_MIN){
+      failPot(p, 'thin');
+    }else if(pct > BOIL_MAX){
+      failPot(p, 'burnt');
+    }else{
+      completePot(p);
+    }
+  }
+  function failPot(p, quality){
+    p.status = 'failed';
+    p.quality = quality;
+    p.progress = clamp(p.progress, 0, 100);
+    sfx.error(); buzz(60);
+    toast(quality === 'thin' ? '鐔お鐭簡锛岀硸杩樻病鍖栧紑锛岄噸鐔竴閿呭惂' : '鐔繃澶翠簡锛岀硸姘村彂鑻︼紝鍊掓帀閲嶇啲鍚?);
+    renderPots();
+    updateTabBadges();
+  }
+  function completePot(p){
+    const batch = {id:++batchSeq, sugar:p.sugar, quality:'perfect'};
+    state.batches.push(batch);
+    state.selectedBatch = batch.id;
+    p.status = 'idle'; p.sugar = 0; p.progress = 0; p.quality = null;
+    sfx.ding();
+    toast('绯栨按鍑洪攨锛佸凡缁忔斁鍒板伐浣滃彴鍟?);
+    renderPots();
+    renderWork();
+    updateTabBadges();
+    renderHint();
+  }
+  function dumpPot(potId){
+    const p = state.pots[potId];
+    if(!p) return;
+    p.status = 'idle'; p.sugar = 0; p.progress = 0; p.quality = null;
+    sfx.remove();
+    renderPots();
+  }
+  function updateBoils(now){
+    state.pots.forEach(p => {
+      if(p.status !== 'heating') return;
+      p.progress = clamp((now - p.startedAt) / BOIL_MS * 100, 0, 100);
+      if(state.upgrade.alarm && !p.alarmFired && p.progress >= 50){
+        p.alarmFired = true;
+        sfx.alarm(); buzz(35);
+      }
+      if(p.progress >= 100){
+        failPot(p, 'burnt');
+      }
+    });
+    updatePotVisuals();
+  }
+
+  function selectBatch(id){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    const batch = state.batches.find(b => b.id === id);
+    if(!batch || batch.used) return;
+    if(state.can.syrup > 0){ toast('宸茬粡鍊掕繘鍘讳簡锛屾兂鎹㈢硸姘村厛鐐广€岄噸鍋氥€?); return; }
+    state.selectedBatch = id;
+    state.can.batchId = id;
+    renderWork();
+    renderHint();
+    sfx.tap();
+  }
+
+  function startPour(){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.pouring || state.can.sealed) return;
+    if(!state.can.size){ toast('鍏堟寫涓€涓綈鍨?); return; }
+    if(!findBatch()){ toast('鍏堝幓鍘ㄦ埧鐔竴閿呯硸姘达紝鍐嶅洖鏉ュ€?); return; }
+    if(state.can.syrup >= 100) return;
+    state.pouring = true;
+    state.can.batchId = state.selectedBatch;
+    ensureAudio();
+    els.pourBtn.classList.add('pouring');
+  }
+  function stopPour(){
+    if(!state.pouring) return;
+    state.pouring = false;
+    if(els.pourBtn) els.pourBtn.classList.remove('pouring');
+    renderWork();
+    renderHint();
+  }
+  function tickPour(now){
+    if(!state.pouring) return;
+    const c = state.can;
+    c.syrup = clamp(c.syrup + POUR_RATE * 16.7, 0, 100);
+    updateSyrupVisual();
+    els.syrupFill.style.width = c.syrup + '%';
+    els.syrupReadout.textContent = Math.round(c.syrup) + '%';
+    const sb = SUGAR[state.order.sugar];
+    els.syrupFill.classList.toggle('in-zone', Math.abs(c.syrup - sb.target) <= (state.order.tol || sb.tol));
+    if(now - state.lastPourSfx > 110){ state.lastPourSfx = now; sfx.pour(); }
+    if(c.syrup >= 100){ stopPour(); toast('鍊掓弧鍟︼紝鏉炬墜鍚?); }
+  }
+
+  function resetCan(){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    state.can.pieces.forEach(s => state.bowl[s]++);
+    state.can = emptyCan();
+    state.selectedBatch = null;
+    state.pouring = false;
+    renderCan();
+    renderWork();
+    renderHint();
+    updateFooter();
+    updateTabBadges();
+    sfx.remove();
+  }
+
+  function sealCan(){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    const c = state.can;
+    if(!c.size){ toast('杩樻病鎸戠綈鍨?); return; }
+    if(!c.pieces.length){ toast('缃愬瓙閲岃繕娌℃湁榛勬'); return; }
+    if(!findBatch() || c.syrup <= 0){ toast('杩樻病鍊掔硸姘?); return; }
+    if(!c.temp){ toast('杩樻病閫夋俯搴?); return; }
+    if(!c.topping){ toast('杩樻病閫夊姞鏂?); return; }
+    c.sealed = true;
+    const batch = findBatch();
+    if(batch){
+      if(!state.can.batchId) state.can.batchId = batch.id;
+      batch.used = true;
+    }
+    state.pouring = false;
+    renderCan();
+    els.canWrap.classList.remove('bump');
+    els.canWrap.classList.add('sealing');
+    setTimeout(() => els.canWrap.classList.remove('sealing'), 650);
+    sfx.seal();
+    toast('灏佺洊瀹屾垚锛佸幓鏈嶅姟鍙颁氦缁欏浜哄惂');
+    renderWork();
+    updateFooter();
+    renderHint();
+    updateTabBadges();
+  }
+
+  function serveOrder(){
+    if(state.phase !== 'playing') return;
+    if(state.stage !== 'desk'){
+      if(state.can.sealed) setStage('desk');
+      return;
+    }
+    if(!state.can.sealed){ toast('缃愬ご杩樻病灏佸ソ锛屽厛鍘诲伐浣滃彴'); setStage('work'); return; }
+    state.phase = 'serving';
+    state.pouring = false;
+    stopAllHeating();
+    setGuestMood('happy');
+    sfx.serve();
+    els.canWrap.classList.add('serving');
+    setTimeout(() => finishOrder(false), 680);
+  }
+  function stopAllHeating(){
+    state.pots.forEach(p => { if(p.status === 'heating'){ p.status = 'idle'; p.progress = 0; p.sugar = 0; p.alarmFired = false; } });
+    if(state.stage === 'kitchen') renderPots();
+  }
+  function timeoutOrder(){
+    if(state.phase !== 'playing') return;
+    state.phase = 'serving';
+    state.pouring = false;
+    stopAllHeating();
+    setGuestMood('sad');
+    sfx.sad();
+    setTimeout(() => finishOrder(true), 420);
+  }
+
+  function scoreOrder(timedOut){
+    const c = state.can, o = state.order;
+    const counts = countPieces(c.pieces);
+    const total = c.pieces.length;
+    const need = peachTotal(o.peaches);
+    const sizeOk = c.size === o.size;
+    const countDiff = Math.abs(total - need);
+    const sizeDiff = Math.abs(counts.large - o.peaches.large) + Math.abs(counts.small - o.peaches.small);
+    const sizeScore = sizeOk ? 15 : 0;
+    const countScore = countDiff === 0 ? 10 : countDiff === 1 ? 5 : 0;
+    const pieceSizeScore = sizeDiff === 0 ? 10 : Math.max(0, 10 - sizeDiff * 5);
+    const peachScore = countScore + pieceSizeScore;
+    const batch = state.batches.find(b => b.id === c.batchId);
+    const sugarScore = batch && batch.sugar === o.sugar ? 5 : 0;
+    const qualityScore = batch ? 5 : 0;
+    const target = SUGAR[o.sugar].target, tol = o.tol || SUGAR[o.sugar].tol;
+    const fillDiff = Math.abs(c.syrup - target);
+    const fillScore = fillDiff <= tol ? 10 : Math.max(0, 10 - (fillDiff - tol) * .45);
+    const syrupScore = sugarScore + qualityScore + fillScore;
+    const tempScore = c.temp === o.temp ? 15 : 0;
+    const toppingScore = c.topping === o.topping ? 15 : 0;
+    const remain = Math.max(0, state.deadline - performance.now());
+    const speedScore = remain >= state.patienceMs * .5 ? 15 : remain >= state.patienceMs * .25 ? 10 : remain > 0 ? 5 : 0;
+    const score = timedOut ? 0 : Math.round(sizeScore + peachScore + syrupScore + tempScore + toppingScore + speedScore);
+    const perfect = !timedOut && score >= 100;
+    const stars = score >= 90 ? 3 : score >= 70 ? 2 : score >= 45 ? 1 : 0;
+    const baseCoins = timedOut ? 0 : 8 + Math.round(score * .12) + (perfect ? 5 : 0);
+    const coins = Math.round(baseCoins * ((state.guest && state.guest.coin) || 1));
+    const details = [];
+    details.push({ok:sizeScore===15, label:'缃愬瀷', text: sizeOk ? SIZES[c.size].name + ' 鉁? : `瑕?{SIZES[o.size].name} 路 鐢ㄤ簡${c.size ? SIZES[c.size].name : '绌虹綈'}`});
+    details.push({ok:peachScore===20, label:'榛勬', text: `${counts.large}澶?{counts.small}灏?路 鍏?{total}鍧?{peachScore===20 ? ' 鉁? : ` / 瑕?{peachText(o.peaches)}`}`});
+    details.push({ok:syrupScore===20, label:'绯栨按', text: batch ? `${SUGAR[batch.sugar].name} 路 鐏€欏畬缇?路 ${Math.round(c.syrup)}%${syrupScore===20 ? ' 鉁? : ''}` : '娌℃湁鍙敤绯栨按'});
+    details.push({ok:tempScore===15, label:'娓╁害', text: c.temp ? `${TEMPS[c.temp]}${tempScore===15 ? ' 鉁? : ` / 瑕?{TEMPS[o.temp]}`}` : '娌￠€夋俯搴?});
+    details.push({ok:toppingScore===15, label:'鍔犳枡', text: c.topping ? `${TOPPINGS[c.topping]}${toppingScore===15 ? ' 鉁? : ` / 瑕?{TOPPINGS[o.topping]}`}` : '娌￠€夊姞鏂?});
+    details.push({ok:speedScore===15, label:'鍑洪閫熷害', text: timedOut ? '瓒呮椂浜嗏€? : speedScore===15 ? '鎵嬮€熻秴蹇? : speedScore===10 ? '绋嶅井鏈夌偣鎱? : '瀹汉绛夋€ヤ簡'});
+    return {score, stars, perfect, coins, details, timedOut, guest:state.guest};
+  }
+
+  function commentFor(result){
+    if(result.timedOut) return `绛夊お涔呭暒锛屾垜鐨勯粍妗冪綈澶磋繕娌″ソ鍚楋紵涓嬫瑕佸揩涓€鐐瑰摝鈥︹€;
+    if(result.perfect) return result.guest.happy;
+    if(result.score >= 80) return '鏁翠綋寰堜笉閿欙紒濡傛灉缁嗚妭鍐嶅噯涓€鐐癸紝灏辨槸婊″垎缃愬ご鍟︼綖';
+    if(result.score >= 55) return '鍛抽亾杩樿锛屼笉杩囨湁浜涘湴鏂瑰拰璁㈠崟涓嶅お涓€鏍凤紝涓嬫娉ㄦ剰鍝︺€?;
+    return '杩欐鐨勭綈澶村拰鎴戞兂鐨勪笉澶竴鏍封€︹€﹀啀浠旂粏鐪嬬湅璁㈠崟鍚с€?;
+  }
+
+  function finishOrder(timedOut){
+    if(state.phase === 'reviewing') return;
+    state.phase = 'reviewing';
+    state.pouring = false;
+    stopAllHeating();
+    const result = scoreOrder(timedOut);
+    result.comment = commentFor(result);
+    state.scoreResult = result;
+    state.reviews.push(result);
+    state.dayStars += result.stars;
+    state.dayCoins += result.coins;
+    state.coins += result.coins;
+    state.runEarned += result.coins;
+    state.weekEarned += result.coins;
+    saveGame();
+    renderReview(result);
+    updateHud();
+    updateTabBadges();
+    cueMusic();
+  }
+
+  function renderReview(result){
+    const starsHtml = [0,1,2].map(i => `<svg class="icon star ${i < result.stars ? 'on' : ''}" style="transition-delay:${i*.08}s"><use href="#i-star"></use></svg>`).join('');
+    els.reviewStars.innerHTML = starsHtml;
+    els.reviewTitle.textContent = result.timedOut ? '瀹汉绛変笉鍙婁簡鈥? : result.perfect ? '瀹岀編鍑洪锛? : result.stars === 3 ? '瀹汉瓒呮弧鎰忥紒' : result.stars === 2 ? '杩樹笉閿欏摝锝? : result.stars === 1 ? '鍕夊己杩囧叧鈥? : '瀹汉鏈夌偣澶辨湜鈥?;
+    els.reviewScore.textContent = result.score;
+    if(els.reviewSpecial){
+      const g = result.guest;
+      els.reviewSpecial.hidden = !g.badge;
+      if(g.badge){
+        els.reviewSpecial.className = `review-special ${g.tier}`;
+        els.reviewSpecial.textContent = g.tier === 'boss' ? '鍛ㄦ湯 BOSS 鎸戞垬 路 濂栧姳 脳2' : '绮捐嫳瀹汉鎸戞垬 路 濂栧姳 脳1.35';
+      }
+    }
+    els.reviewQuote.innerHTML = `<b>${result.guest.name}锛?/b>${result.comment}`;
+    els.reviewCoins.textContent = result.coins;
+    els.perfectStamp.style.display = result.perfect ? 'grid' : 'none';
+    els.scoreGrid.innerHTML = result.details.map(d => `
+      <div class="score-item ${d.ok ? 'ok' : 'bad'}">
+        <span class="status">${icon(d.ok ? 'check' : 'x')}</span>
+        <span class="copy"><b>${d.label}</b><small>${d.text}</small></span>
+      </div>`).join('');
+    els.nextBtn.innerHTML = state.guestIndex >= GUEST_COUNT - 1 ? `鏌ョ湅浠婃棩缁撶畻${icon('arrow')}` : `涓嬩竴浣嶅浜?{icon('arrow')}`;
+    els.reviewOverlay.classList.add('show');
+    els.reviewOverlay.setAttribute('aria-hidden','false');
+    setTimeout(() => {
+      Array.from(els.reviewStars.querySelectorAll('.star.on')).forEach((star,i) => {
+        star.style.animationDelay = (i * .1) + 's';
+        star.classList.add('pop');
+      });
+    }, 160);
+    if(result.stars >= 2) sfx.star(); else sfx.sad();
+  }
+
+  function nextGuest(){
+    if(state.phase !== 'reviewing') return;
+    els.reviewOverlay.classList.remove('show');
+    els.reviewOverlay.setAttribute('aria-hidden','true');
+    sfx.tap();
+    if(state.guestIndex >= GUEST_COUNT - 1){
+      setTimeout(showSummary, 300);
+    }else{
+      newCustomer(state.guestIndex + 1);
+    }
+  }
+
+  function summaryKindForDay(){
+    if(state.mode === 'normal' && state.day >= NORMAL_DAYS) return 'runEnd';
+    if(state.mode === 'endless' && state.day % WEEK_DAYS === 0){
+      return state.weekEarned >= state.weekTarget ? 'weekPass' : 'gameOver';
+    }
+    return 'day';
+  }
+
+  function showSummary(){
+    state.phase = 'summary';
+    state.pouring = false;
+    const kind = summaryKindForDay();
+    state.summaryKind = kind;
+    const total = state.reviews.length;
+    const stars = state.reviews.reduce((s,r) => s + r.stars, 0);
+    const perfect = state.reviews.filter(r => r.perfect).length;
+    const avg = total ? Math.round(state.reviews.reduce((s,r) => s + r.score, 0) / total) : 0;
+    const isEnd = kind === 'runEnd' || kind === 'gameOver';
+    const metaBonus = awardProfile(kind);
+    let ribbon = '浠婃棩钀ヤ笟缁撴潫';
+    let title = `绗?${state.day} 澶?路 鎵撶儕鍟;
+    let sub = '';
+    let comment = '';
+
+    if(kind === 'runEnd'){
+      ribbon = '14 澶╁懆鐩畬鎴?;
+      title = '鍛ㄧ洰缁撴潫 路 鎵撶儕鍟?;
+      sub = `14 澶╂€昏惀涓氶 <b>${state.runEarned}</b> 閲戝竵 路 褰撳墠浣欓 ${state.coins}`;
+      comment = `<b>14 澶╁懆鐩畬鎴愶紒</b>鏈疆涓€鍏辫禋鍒?${state.runEarned} 閲戝竵銆傛櫘閫氭ā寮忕殑涔愯叮灏辨槸涓嶆柇鍒锋柊鑷繁鐨勬渶楂樿惀涓氶锛屽啀寮€涓€灞€璇曡瘯鑳戒笉鑳芥洿涓婁竴灞傛ゼ锛乣;
+      if(state.runEarned > state.bestNormal){ state.bestNormal = state.runEarned; saveGame(); }
+    }else if(kind === 'weekPass'){
+      ribbon = `绗?${state.week} 鍛ㄨ揪鏍嘸;
+      title = `绗?${state.week} 鍛?路 缁х画钀ヤ笟锛乣;
+      sub = `鏈懆涓氱哗 <b>${state.weekEarned}</b> / ${state.weekTarget} 閲戝竵 路 涓嬪懆鐩爣 ${weekTargetFor(state.week+1)}`;
+      comment = `<b>绗?${state.week} 鍛ㄤ笟缁╄揪鏍囷紒</b>鏈懆璧氬埌 ${state.weekEarned} 閲戝竵锛屽ザ铔欑殑灏忓簵鏆傛椂淇濅綇浜嗐€備笅鍛ㄧ洰鏍囦細鏇撮珮锛岃寰楀厛鍥ゅソ绯栨按鍜屽崌绾у帹鎴裤€俙;
+      if(state.week > state.bestEndless){ state.bestEndless = state.week; saveGame(); }
+    }else if(kind === 'gameOver'){
+      ribbon = '鏈懆涓氱哗鏈揪鏍?;
+      title = `绗?${state.week} 鍛?路 钀ヤ笟澶辫触`;
+      sub = `鏈懆鍙禋鍒?<b>${state.weekEarned}</b> / ${state.weekTarget} 閲戝竵`;
+      comment = `<b>涓氱哗娌¤揪鏍囷紝濂惰洐鐨勫簵琚埧涓滄敹璧颁簡鈥︹€?/b>鏈懆鐩爣 ${state.weekTarget} 閲戝竵锛屽彧瀹屾垚浜?${state.weekEarned}銆傚啀璇曚竴娆★紝浼樺厛淇濊瘉姣忓崟鐨勭硸姘村拰鐏€欙紝鍒瀹汉绛夊お涔呫€俙;
+    }else{
+      sub = state.mode === 'normal'
+        ? `绗?${state.day} / ${NORMAL_DAYS} 澶?路 鏈疆绱 <b>${state.runEarned}</b> 閲戝竵`
+        : `绗?${state.week} 鍛?路 鏈懆涓氱哗 <b>${state.weekEarned}</b> / ${state.weekTarget}`;
+      if(stars >= 9) comment = '<b>濂惰洐浠婂ぉ澶ф垚鍔燂紒</b>涓変綅瀹汉閮界粰鍑轰簡婊℃槦璇勪环锛岄粍妗冪綈澶村簵鐨勬嫑鐗岃秺鏉ヨ秺浜暒锛?;
+      else if(stars >= 7) comment = `<b>濂惰洐杈涜嫤鍟︼紒</b>浠婂ぉ鎷垮埌浜?${stars} 棰楁槦锛屽浜轰滑閮藉緢鍠滄浣犵殑榛勬缃愬ご銆俙;
+      else if(stars >= 4) comment = `<b>杩樹笉閿欏摝锝?/b>鍐嶄粩缁嗙湅鐪嬭鍗曪紝鎶婄硸姘村拰鍔犳枡閮介厤瀵癸紝瀹汉浼氭洿寮€蹇冦€俙;
+      else comment = `<b>鏄庡ぉ缁х画鍔犳补锛?/b>鍏堢湅娓呰鍗曞啀鍔ㄦ墜锛屽ザ铔欎竴瀹氳兘鍋氬嚭瀹岀編鐨勯粍妗冪綈澶淬€俙;
+    }
+    if(metaBonus > 0) comment += `<br><b>灏忓閲戝竵 +${metaBonus}</b> 宸插瓨鍏ャ€屽ザ铔欑殑灏忓銆嶏紝鍙互鍘讳拱瀹跺叿鍜岃。鏈嶅暒銆俙;
+
+    els.summaryRibbon.textContent = ribbon;
+    els.summaryTitle.textContent = title;
+    els.summarySub.innerHTML = sub;
+    els.summaryStars.textContent = stars;
+    els.summaryCoins.textContent = kind === 'runEnd' ? state.runEarned : (kind === 'weekPass' || kind === 'gameOver') ? state.weekEarned : state.dayCoins;
+    els.summaryCoinsLabel.textContent = kind === 'runEnd' ? '鏈疆钀ヤ笟棰? : (kind === 'weekPass' || kind === 'gameOver') ? '鏈懆鏀跺叆' : '浠婃棩鏀跺叆';
+    els.summaryPerfect.textContent = perfect;
+    els.summaryAvg.textContent = avg;
+    els.summaryComment.innerHTML = comment;
+    els.summaryBest.textContent = state.mode === 'normal'
+      ? `鏈€浣冲懆鐩細${state.bestNormal || 0} 閲戝竵`
+      : `鏈€杩滅邯褰曪細绗?${state.bestEndless || 0} 鍛╜;
+    els.shopBtn.hidden = isEnd;
+    els.shopBtn.style.display = isEnd ? 'none' : '';
+    els.homeBtn.style.display = isEnd ? '' : 'none';
+    if(els.summaryRankBtn){
+      els.summaryRankBtn.style.display = kind === 'gameOver' ? '' : 'none';
+      if(kind === 'gameOver') renderLeaderboard();
+    }
+    els.replayBtn.className = isEnd ? 'primary-btn' : 'ghost-btn';
+    els.replayBtn.innerHTML = kind === 'runEnd' ? `鍐嶅紑涓€灞€鏅€氭ā寮?{icon('arrow')}`
+      : kind === 'gameOver' ? `閲嶆柊鎸戞垬鏃犲敖妯″紡${icon('arrow')}`
+      : kind === 'weekPass' ? `寮€濮嬬 ${state.week + 1} 鍛?{icon('arrow')}`
+      : `鐩存帴寮€濮嬩笅涓€澶ー;
+    els.summaryOverlay.classList.add('show');
+    els.summaryOverlay.setAttribute('aria-hidden','false');
+    spawnConfetti(kind === 'gameOver' ? 8 : stars >= 7 ? 28 : 14);
+    if(kind === 'gameOver') sfx.sad(); else if(stars >= 7 || kind !== 'day') sfx.star(); else sfx.coin();
+    cueMusic();
+  }
+  function spawnConfetti(count){
+    const colors = ['#FFD23F','#EF6758','#4C9D69','#FFF0C0','#FF9B42','#7EB3E4'];
+    els.confetti.innerHTML = '';
+    for(let i=0;i<count;i++){
+      const s = document.createElement('i');
+      s.style.cssText = `position:absolute;left:${Math.random()*100}%;top:-16px;width:${5+Math.random()*5}px;height:${8+Math.random()*8}px;background:${colors[i%colors.length]};transform:rotate(${Math.random()*360}deg);opacity:${.55+Math.random()*.4};animation:confettiFall ${2.4+Math.random()*2}s ${Math.random()*.8}s linear forwards;border-radius:2px;`;
+      els.confetti.appendChild(s);
+    }
+  }
+
+  function startNextDay(){
+    state.day += 1;
+    state.dayCoins = 0;
+    state.dayStars = 0;
+    state.reviews = [];
+    state.guestIndex = 0;
+    state.bowl = {large:0, small:0};
+    state.stock = Infinity;
+    state.batches = [];
+    state.selectedBatch = null;
+    state.pots = makePots();
+    batchSeq = 0;
+    if(state.mode === 'endless' && (state.day - 1) % WEEK_DAYS === 0){
+      state.week = Math.ceil(state.day / WEEK_DAYS);
+      state.weekEarned = 0;
+      state.weekTarget = weekTargetFor(state.week);
+    }
+    els.summaryOverlay.classList.remove('show');
+    els.summaryOverlay.setAttribute('aria-hidden','true');
+    els.shopOverlay.classList.remove('show');
+    els.shopOverlay.setAttribute('aria-hidden','true');
+    els.canWrap.classList.remove('serving');
+    newCustomer(0);
+    saveGame();
+  }
+  function onReplay(){
+    if(state.summaryKind === 'runEnd' || state.summaryKind === 'gameOver') beginRun(state.mode);
+    else startNextDay();
+  }
+
+  /* -------------------- 鍟嗗簵 -------------------- */
+  function potPrice(){ return POT_PRICES[state.upgrade.pots] || 999; }
+  function shopItems(){
+    const items = [];
+    items.push({id:'pot', name:'澶囩敤鐔硸閿?, desc:`褰撳墠 ${state.upgrade.pots} 鍙?路 鏈€澶?4 鍙ｏ紝鍙互鍚屾椂鐔閿卄, price:potPrice(),
+      owned:state.upgrade.pots >= 4, label:state.upgrade.pots >= 4 ? '宸叉弧 4 鍙? : `涔?${potPrice()}`,
+      icon:`<svg class="icon" style="width:28px;height:28px;color:#B67F1A"><use href="#i-heat"></use></svg>`});
+    items.push({id:'alarm', name:'鐔硸閿呴椆閽?, desc:'杩涘叆鐏€欏尯鍓嶅搷閾冩彁閱掞紝涓嶇敤涓€鐩寸洴鐫€閿?, price:35,
+      owned:state.upgrade.alarm, label:state.upgrade.alarm ? '宸叉嫢鏈? : '涔?35',
+      icon:`<svg class="icon" style="width:28px;height:28px;color:#8A6842"><use href="#i-clock"></use></svg>`});
+    Object.keys(KNIVES).forEach(id => {
+      if(id === 'wood') return;
+      const k = KNIVES[id];
+      const owned = state.upgrade.knives.includes(id);
+      const equipped = state.upgrade.knife === id;
+      items.push({id:'knife:'+id, name:k.name, desc: equipped ? '姝ｅ湪浣跨敤 路 鍒囨鏃舵崲涓€绉嶆墜鎰? : '鍒€鍏风毊鑲?路 鍒囨鏃舵樉绀?,
+        price:k.price, owned:equipped, label:equipped ? '浣跨敤涓? : owned ? '瑁呭' : `涔?${k.price}`,
+        icon:`<i class="knife-swatch" style="--sw:${k.color}"></i>`});
+    });
+    return items;
+  }
+  function renderShop(){
+    els.shopCoins.textContent = state.coins;
+    els.shopStartBtn.innerHTML = state.summaryKind === 'weekPass'
+      ? `寮€濮嬬 ${state.week + 1} 鍛?{icon('arrow')}`
+      : `寮€濮嬬 ${state.day + 1} 澶?{icon('arrow')}`;
+    const nextDay = state.day + 1;
+    const nextSpecial = specialForDay(nextDay);
+    const nextValid = state.mode !== 'normal' || nextDay <= NORMAL_DAYS;
+    if(els.shopEvent){
+      els.shopEvent.hidden = !(nextValid && nextSpecial);
+      if(nextValid && nextSpecial){
+        els.shopEvent.className = `shop-event ${nextSpecial.type}`;
+        const sg = nextSpecial.guest;
+        const secs = Math.round(PATIENCE_MS * (sg.patience || 1) / 1000);
+        els.shopEvent.innerHTML = nextSpecial.type === 'boss'
+          ? `<b>鏄庢棩 BOSS 路 ${sg.name}</b><span>绗?${nextDay} 澶╁懆鏈鏌ワ細鑰愬績鍙湁 ${secs} 绉掞紝瀹归敊鏇村皬锛屽鍔?脳${sg.coin}銆傚厛鎶婄硸姘寸啲绋筹紒</span>`
+          : `<b>鏄庢棩绮捐嫳 路 ${sg.name}</b><span>绗?${nextDay} 澶╃簿鑻变笂闂細璁㈠崟鏇村鏉傦紝鑰愬績 ${secs} 绉掞紝濂栧姳 脳${sg.coin}銆?/span>`;
+      }
+    }
+    els.shopGrid.innerHTML = shopItems().map(item => {
+      const disabled = item.owned || (!item.id.startsWith('knife:') && state.coins < item.price) || (item.id.startsWith('knife:') && !state.upgrade.knives.includes(item.id.split(':')[1]) && state.coins < item.price);
+      return `<div class="shop-item">
+        <div class="shop-icon">${item.icon}</div>
+        <div class="shop-copy"><b>${item.name}</b><small>${item.desc}</small></div>
+        <button class="buy-btn ${item.owned ? 'equipped' : ''}" type="button" data-buy="${item.id}" ${disabled ? 'disabled' : ''}>${item.label}</button>
+      </div>`;
+    }).join('');
+  }
+  function buyItem(itemId){
+    ensureAudio();
+    if(itemId === 'pot'){
+      if(state.upgrade.pots >= 4) return;
+      const price = potPrice();
+      if(state.coins < price){ toast('閲戝竵涓嶅锛屽啀鍗栧嚑缃愬惂'); return; }
+      state.coins -= price;
+      state.upgrade.pots++;
+      sfx.coin(); toast('鏂伴攨鍒版墜锛佸帹鎴块噷澶氫簡涓€鍙ｇ啲绯栭攨');
+    }else if(itemId === 'alarm'){
+      if(state.upgrade.alarm) return;
+      if(state.coins < 35){ toast('閲戝竵涓嶅'); return; }
+      state.coins -= 35;
+      state.upgrade.alarm = true;
+      sfx.coin(); toast('闂归挓瑁呭ソ浜嗭紒鐔硸鏃朵細鎻愬墠鎻愰啋');
+    }else if(itemId.startsWith('knife:')){
+      const id = itemId.split(':')[1];
+      const k = KNIVES[id];
+      if(!k) return;
+      if(state.upgrade.knives.includes(id)){
+        state.upgrade.knife = id;
+        sfx.tap(); toast(`鎹笂浜?{k.name}`);
+      }else{
+        if(state.coins < k.price){ toast('閲戝竵涓嶅'); return; }
+        state.coins -= k.price;
+        state.upgrade.knives.push(id);
+        state.upgrade.knife = id;
+        sfx.coin(); toast(`涔颁笅骞惰澶囦簡${k.name}`);
+      }
+    }
+    saveGame();
+    renderShop();
+    updateHud();
+    if(state.stage === 'kitchen') renderKitchen();
+  }
+  function openShop(){
+    sfx.tap();
+    renderShop();
+    els.shopOverlay.classList.add('show');
+    els.shopOverlay.setAttribute('aria-hidden','false');
+  }
+  function closeShop(){
+    els.shopOverlay.classList.remove('show');
+    els.shopOverlay.setAttribute('aria-hidden','true');
+    sfx.tap();
+  }
+
+  /* -------------------- 涓诲惊鐜?-------------------- */
+  let lastFrame = 0;
+  function tick(now){
+    requestAnimationFrame(tick);
+    const dt = Math.min(now - lastFrame, 120);
+    lastFrame = now;
+    if(state.phase === 'playing'){
+      const remain = Math.max(0, state.deadline - now);
+      state.patience = remain / state.patienceMs;
+      renderPatience(state.patience);
+      if(remain <= 0){ timeoutOrder(); return; }
+      if(state.pouring) tickPour(now);
+      updateBoils(now);
+    }
+  }
+
+  /* -------------------- 浜嬩欢 -------------------- */
+  function bindEvents(){
+    els.startBtn.addEventListener('click', startGame);
+    els.modeCards.forEach(card => card.addEventListener('click', () => setIntroMode(card.dataset.mode)));
+    els.soundBtn.addEventListener('click', () => {
+      ensureAudio();
+      state.sound = !state.sound;
+      try{ localStorage.setItem('naiwa_sound', state.sound ? '1' : '0'); }catch(e){}
+      updateSoundButton();
+      if(!bgmEl) bgmEl = els.bgm;
+      if(!state.sound && bgmEl) bgmEl.pause();
+      if(state.sound) cueMusic();
+      sfx.tap();
+    });
+    els.stageTabs.forEach(t => t.addEventListener('click', () => setStage(t.dataset.stage)));
+    $$('[data-go]').forEach(b => b.addEventListener('click', () => setStage(b.dataset.go)));
+    els.sizeBtns.forEach(b => b.addEventListener('click', () => selectSize(b.dataset.size)));
+    $$('[data-piece-plus]').forEach(b => b.addEventListener('click', () => addPiece(b.dataset.piecePlus)));
+    $$('[data-piece-minus]').forEach(b => b.addEventListener('click', () => removePiece(b.dataset.pieceMinus)));
+    els.tempChips.forEach(b => b.addEventListener('click', () => setTemp(b.dataset.temp)));
+    els.toppingChips.addEventListener('click', e => {
+      const b = e.target.closest('[data-topping]');
+      if(b && !b.disabled) setTopping(b.dataset.topping);
+    });
+    if(els.toppingMinus) els.toppingMinus.addEventListener('click', () => changeToppingQty(-1));
+    if(els.toppingPlus) els.toppingPlus.addEventListener('click', () => changeToppingQty(1));
+    if(els.jarSwitchBtn) els.jarSwitchBtn.addEventListener('click', cycleJar);
+    $$('[data-cut]').forEach(b => b.addEventListener('click', () => cutPeach(b.dataset.cut)));
+    els.batchStrip.addEventListener('click', e => {
+      const b = e.target.closest('[data-batch]');
+      if(b) selectBatch(Number(b.dataset.batch));
+    });
+    els.potGrid.addEventListener('click', e => {
+      const sugar = e.target.closest('[data-pot-sugar]');
+      if(sugar){ addSugar(Number(sugar.dataset.pot), Number(sugar.dataset.potSugar)); return; }
+      const start = e.target.closest('[data-pot-start]');
+      if(start){ startBoil(Number(start.dataset.potStart)); return; }
+      const stop = e.target.closest('[data-pot-stop]');
+      if(stop){ stopBoil(Number(stop.dataset.potStop)); return; }
+      const dump = e.target.closest('[data-pot-dump]');
+      if(dump){ dumpPot(Number(dump.dataset.potDump)); return; }
+    });
+    els.resetBtn.addEventListener('click', resetCan);
+    els.sealBtn.addEventListener('click', sealCan);
+    els.serveBtn.addEventListener('click', () => {
+      if(state.stage === 'kitchen'){ setStage('work'); return; }
+      if(state.stage === 'work'){ if(state.can.sealed) setStage('desk'); else toast('鍏堝皝鐩栵紝鍐嶅幓鏈嶅姟鍙?); return; }
+      serveOrder();
+    });
+    els.nextBtn.addEventListener('click', nextGuest);
+    els.shopBtn.addEventListener('click', openShop);
+    els.replayBtn.addEventListener('click', onReplay);
+    els.homeBtn.addEventListener('click', goHome);
+    els.shopBackBtn.addEventListener('click', closeShop);
+    els.shopStartBtn.addEventListener('click', startNextDay);
+    els.shopGrid.addEventListener('click', e => {
+      const b = e.target.closest('[data-buy]');
+      if(b && !b.disabled) buyItem(b.dataset.buy);
+    });
+
+    if(els.savePlayerBtn) els.savePlayerBtn.addEventListener('click', savePlayerName);
+    if(els.playerName) els.playerName.addEventListener('keydown', e => {
+      if(e.key === 'Enter'){ e.preventDefault(); savePlayerName(); els.playerName.blur(); }
+    });
+    if(els.homeEntryBtn) els.homeEntryBtn.addEventListener('click', () => openHome('room'));
+    if(els.rankEntryBtn) els.rankEntryBtn.addEventListener('click', openLeaderboard);
+    if(els.summaryRankBtn){
+      els.summaryRankBtn.addEventListener('click', () => {
+        els.summaryOverlay.classList.remove('show');
+        els.summaryOverlay.setAttribute('aria-hidden','true');
+        openLeaderboard();
+      });
+    }
+    if(els.homeClose) els.homeClose.addEventListener('click', closeHome);
+    if(els.homePlayBtn) els.homePlayBtn.addEventListener('click', () => { closeHome(); startGame(); });
+    if(els.homeRankBtn) els.homeRankBtn.addEventListener('click', () => { closeHome(); openLeaderboard(); });
+    if(els.leaderboardClose) els.leaderboardClose.addEventListener('click', closeLeaderboard);
+    [els.earlyBtn, els.reviewEarlyBtn, els.summaryEarlyBtn, els.shopEarlyBtn].forEach(btn => {
+      if(btn) btn.addEventListener('click', askEarlyLeave);
+    });
+    if(els.confirmCancel) els.confirmCancel.addEventListener('click', closeConfirm);
+    if(els.confirmOk) els.confirmOk.addEventListener('click', doEarlyLeave);
+    if(els.homeOverlay) els.homeOverlay.addEventListener('click', e => { if(e.target === els.homeOverlay) closeHome(); });
+    if(els.leaderboardOverlay) els.leaderboardOverlay.addEventListener('click', e => { if(e.target === els.leaderboardOverlay) closeLeaderboard(); });
+    els.homeTabs.forEach(t => t.addEventListener('click', () => setHomeTab(t.dataset.homeTab)));
+    if(els.furnitureGrid) els.furnitureGrid.addEventListener('click', e => {
+      const b = e.target.closest('[data-furniture]');
+      if(b && !b.disabled) handleFurniture(b.dataset.furniture);
+    });
+    if(els.closetGrid) els.closetGrid.addEventListener('click', e => {
+      const b = e.target.closest('[data-clothes]');
+      if(b && !b.disabled) handleClothes(b.dataset.clothes);
+    });
+    if(els.skinShop) els.skinShop.addEventListener('click', e => {
+      const apply = e.target.closest('[data-skin-apply]');
+      if(apply && !apply.disabled){
+        const [area,id] = apply.dataset.skinApply.split(':');
+        handleSkin(area,id);
+        return;
+      }
+      const b = e.target.closest('[data-skin-area]');
+      if(b){
+        state.skinPreview = {area:b.dataset.skinArea, id:b.dataset.skinId};
+        renderSkins();
+        sfx.tap();
+      }
+    });
+
+    if(window.PointerEvent){
+      els.pourBtn.addEventListener('pointerdown', e => { e.preventDefault(); startPour(); });
+      window.addEventListener('pointerup', stopPour);
+      window.addEventListener('pointercancel', stopPour);
+    }else{
+      els.pourBtn.addEventListener('touchstart', e => { e.preventDefault(); startPour(); }, {passive:false});
+      window.addEventListener('touchend', stopPour);
+      window.addEventListener('touchcancel', stopPour);
+    }
+  }
+
+  function init(){
+    cacheEls();
+    lockViewport();
+    loadSave();
+    loadProfiles();
+    try{
+      const savedSound = localStorage.getItem('naiwa_sound');
+      if(savedSound === '0') state.sound = false;
+    }catch(e){}
+    state.pots = makePots();
+    state.introMode = 'normal';
+    els.game.dataset.stage = 'desk';
+    bgmEl = els.bgm;
+    updateSoundButton();
+    renderPlayerBar();
+    applySkins();
+    setIntroMode('normal');
+    updateHud();
+    renderPatience(1);
+    renderOrderTicket();
+    renderDesk();
+    renderWork();
+    renderKitchen();
+    updateFooter();
+    renderHint();
+    bindEvents();
+    requestAnimationFrame(tick);
+    if(location.search.includes('debug=1')){
+      window.__naiwa = {state, setStage, newCustomer, startGame, beginRun, setIntroMode, makeOrder, scoreOrder, finishOrder, showSummary, addSugar, startBoil, stopBoil, cutPeach, addPiece, sealCan, serveOrder, startNextDay, onReplay, renderShop, buyItem, goHome,
+        loadProfiles, switchProfile, openHome, closeHome, setHomeTab, handleFurniture, handleClothes, handleSkin, applySkins, openLeaderboard, awardProfile, askEarlyLeave, doEarlyLeave,
+        getProfile:() => activeProfile, getProfiles:() => profiles};
+    }
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+
