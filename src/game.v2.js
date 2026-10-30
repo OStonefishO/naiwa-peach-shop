@@ -135,6 +135,8 @@
   const GIST_TOKEN_KEY = 'naiwa_gist_token';
   const GIST_ID_KEY = 'naiwa_gist_id';
   const GIST_FILE = 'naiwa-cloud-save.json';
+  const SB_URL_KEY = 'naiwa_sb_url';
+  const SB_KEY_KEY = 'naiwa_sb_key';
   const FURNITURE = {
     rug:{name:'黄桃地毯', price:60, icon:'🟨', desc:'软乎乎，踩上去像踩在黄桃上'},
     plant:{name:'薄荷盆栽', price:45, icon:'🌿', desc:'让小家闻起来清清凉凉'},
@@ -582,6 +584,11 @@
     if(els.saveExport) els.saveExport.value = encodeSaveCode();
     if(els.gistToken) els.gistToken.value = gistToken();
     if(els.saveImport) els.saveImport.value = '';
+    const cfg = sbConfig();
+    if(els.sbUrl) els.sbUrl.value = cfg.url;
+    if(els.sbKey) els.sbKey.value = cfg.key;
+    if(els.sbPin) els.sbPin.value = '';
+    sbStatus(cfg.url && cfg.key ? '已配置 · 输入 PIN 后上传/读取' : '未配置 · 先填 Project URL 和 anon key', cfg.url && cfg.key ? 'ok' : '');
     renderSaveStatus(gistToken() ? '已填写 Token · 点“同步到 GitHub”验证并上传' : '未连接 · 存档只在本机浏览器', gistToken() ? 'ok' : '');
     els.saveOverlay.classList.add('show');
     els.saveOverlay.setAttribute('aria-hidden','false');
@@ -620,6 +627,104 @@
     try{ localStorage.removeItem(GIST_TOKEN_KEY); }catch(e){}
     if(els.gistToken) els.gistToken.value = '';
     renderSaveStatus('已断开 · 本机存档仍然保留');
+  }
+  function sbConfig(){
+    try{
+      return {
+        url: (localStorage.getItem(SB_URL_KEY) || '').trim(),
+        key: (localStorage.getItem(SB_KEY_KEY) || '').trim()
+      };
+    }catch(e){ return { url:'', key:'' }; }
+  }
+  function sbStatus(text, kind = ''){
+    if(!els.sbStatus) return;
+    els.sbStatus.textContent = text;
+    els.sbStatus.className = 'save-status' + (kind ? ' ' + kind : '');
+  }
+  async function sbRpc(fn, body){
+    const cfg = sbConfig();
+    if(!cfg.url || !cfg.key) throw new Error('请先填写 Supabase Project URL 和 anon key');
+    const url = cfg.url.replace(/\/+$/, '');
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000);
+    let res;
+    try{
+      res = await fetch(url + '/rest/v1/rpc/' + fn, {
+        method: 'POST',
+        signal: ctrl.signal,
+        headers: {
+          'apikey': cfg.key,
+          'Authorization': 'Bearer ' + cfg.key,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+    }catch(err){
+      clearTimeout(timer);
+      throw new Error(err.name === 'AbortError' ? '连接 Supabase 超时' : '无法连接 Supabase，请检查 URL 和网络');
+    }
+    clearTimeout(timer);
+    let data = null;
+    try{ data = await res.json(); }catch(e){}
+    if(!res.ok){
+      const msg = (data && (data.message || data.hint || data.details)) || ('Supabase ' + res.status);
+      if(/wrong pin|invalid pin/i.test(msg)) throw new Error('PIN 不正确');
+      if(/not found|no save/i.test(msg)) throw new Error('云端没有找到这个店长的存档');
+      if(/invalid name/i.test(msg)) throw new Error('店长名字不合法');
+      if(/pin too short/i.test(msg)) throw new Error('PIN 至少 4 位');
+      if(res.status === 404) throw new Error('Supabase 函数不存在，请先运行 schema.sql');
+      throw new Error(msg);
+    }
+    return data;
+  }
+  function sbCheckPin(){
+    const pin = (els.sbPin && els.sbPin.value || '').trim();
+    if(!/^\d{4,8}$/.test(pin)) throw new Error('同步密码请填 4–8 位数字');
+    return pin;
+  }
+  function sbSaveConfig(){
+    const url = (els.sbUrl && els.sbUrl.value || '').trim();
+    const key = (els.sbKey && els.sbKey.value || '').trim();
+    if(!/^https:\/\/.+\.supabase\.co\/?$/.test(url)) throw new Error('Project URL 格式应为 https://xxx.supabase.co');
+    if(key.length < 20) throw new Error('anon key 看起来不完整');
+    try{
+      localStorage.setItem(SB_URL_KEY, url);
+      localStorage.setItem(SB_KEY_KEY, key);
+    }catch(e){}
+  }
+  async function doSbSave(){
+    let pin;
+    try{
+      if(!activeProfile) throw new Error('没有店长存档');
+      sbSaveConfig();
+      pin = sbCheckPin();
+      sbStatus('正在上传到 Supabase…');
+      const r = await sbRpc('save_player', {
+        p_name: activeProfile.name,
+        p_pin: pin,
+        p_data: cloudPayload()
+      });
+      sbStatus('已上传 · ' + new Date().toLocaleTimeString() + (r && r.updated_at ? '' : ''), 'ok');
+      toast('Supabase 云存档已上传');
+      if(els.sbPin) els.sbPin.value = '';
+    }catch(err){ sbStatus(err.message, 'err'); }
+  }
+  async function doSbLoad(){
+    let pin;
+    try{
+      if(!activeProfile) throw new Error('没有店长存档');
+      sbSaveConfig();
+      pin = sbCheckPin();
+      sbStatus('正在读取 Supabase…');
+      const data = await sbRpc('load_player', { p_name: activeProfile.name, p_pin: pin });
+      const payload = Array.isArray(data) ? data[0] : data;
+      if(!payload || !payload.profiles) throw new Error('云端存档格式不正确');
+      const n = importCloudPayload(payload);
+      sbStatus('已恢复 ' + n + ' 个店长存档', 'ok');
+      toast('Supabase 云存档已恢复');
+      if(els.saveExport) els.saveExport.value = encodeSaveCode();
+      if(els.sbPin) els.sbPin.value = '';
+    }catch(err){ sbStatus(err.message, 'err'); }
   }
   function doExportCopy(){
     const code = encodeSaveCode();
@@ -1042,7 +1147,8 @@
       'shopTabs','shopWallet','shopExpandGrid','dressEntryBtn','dressOverlay','dressCoins','dressDoll','dressSlots',
       'dressClose','dressDoneBtn','frogWear','orderRod',
       'saveEntryBtn','saveOverlay','saveClose','saveExport','saveImport','copySaveBtn','downloadSaveBtn',
-      'importSaveBtn','gistToken','gistSyncBtn','gistRestoreBtn','gistClearBtn','saveStatus'];
+      'importSaveBtn','gistToken','gistSyncBtn','gistRestoreBtn','gistClearBtn','saveStatus',
+      'sbUrl','sbKey','sbPin','sbSaveBtn','sbLoadBtn','sbStatus'];
     ids.forEach(id => els[id] = document.getElementById(id));
     els.panel = $('#panel');
     els.footer = $('.footer');
@@ -2907,6 +3013,8 @@
     if(els.copySaveBtn) els.copySaveBtn.addEventListener('click', doExportCopy);
     if(els.downloadSaveBtn) els.downloadSaveBtn.addEventListener('click', doExportDownload);
     if(els.importSaveBtn) els.importSaveBtn.addEventListener('click', doImportCode);
+    if(els.sbSaveBtn) els.sbSaveBtn.addEventListener('click', doSbSave);
+    if(els.sbLoadBtn) els.sbLoadBtn.addEventListener('click', doSbLoad);
     if(els.gistSyncBtn) els.gistSyncBtn.addEventListener('click', doGistSync);
     if(els.gistRestoreBtn) els.gistRestoreBtn.addEventListener('click', doGistRestore);
     if(els.gistClearBtn) els.gistClearBtn.addEventListener('click', doGistClear);
