@@ -1545,6 +1545,11 @@
   .save-card::-webkit-scrollbar{display:none}
   .save-title{font-size:22px;margin:3px 0 2px;color:#4A3113}
   .save-sub{font-size:8px;line-height:1.5;color:#8A6842;margin:0 0 12px}
+  .save-guide{background:#EEF7EC;border:1.5px dashed #9CC7A0;border-radius:12px;padding:8px 10px;margin:0 0 10px;color:#3E5D3A}
+  .save-guide b{display:block;font-size:8.5px;margin-bottom:3px;color:#2F6B3C}
+  .save-guide ol{margin:0;padding-left:14px;font-size:7.4px;line-height:1.55}
+  .save-guide li{margin-bottom:1px}
+  .save-guide small{display:block;margin-top:4px;font-size:6.8px;line-height:1.45;color:#8A6842}
   .save-section{background:#FFF8E7;border:1.5px solid #E8CFA0;border-radius:13px;padding:9px;margin-bottom:9px}
   .save-label{font-size:8px;font-weight:900;color:#6B4A1B;margin-bottom:5px;display:flex;align-items:center;gap:5px}
   .save-badge{font-size:6px;background:#E7F4E9;color:#357A49;border-radius:99px;padding:2px 5px}
@@ -2166,6 +2171,16 @@
       <div class="home-eyebrow">NAIWA SAVE FILE</div>
       <h2 class="save-title" id="saveTitle">存档与云同步</h2>
       <p class="save-sub">店长名字是本机存档 · Supabase 用名字 + PIN 跨设备 · GitHub Gist 可选</p>
+
+      <div class="save-guide">
+        <b>第一次存档？按这 3 步</b>
+        <ol>
+          <li>在标题页输入店长名字，点「保存」。</li>
+          <li>在下面设置 4–8 位数字 PIN，点「上传到 Supabase」。</li>
+          <li>换设备时输入同名店长 + 同一 PIN，点「从 Supabase 读取」。</li>
+        </ol>
+        <small>PIN 只用于云端校验，忘了无法找回；建议不要用 1234 这类简单数字。</small>
+      </div>
 
       <div class="save-section save-cloud sb-cloud">
         <div class="save-label">Supabase 云存档 <span class="save-badge">推荐 · 名字 + PIN</span></div>
