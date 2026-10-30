@@ -21,15 +21,15 @@ wechat-qq/
 
 ## 手机试玩
 
-**公网直玩（当前可用）**
+**永久直玩（GitHub Pages）**
 
-https://ends-fig-aurora-mainstream.trycloudflare.com/wechat-qq/
+https://ostonefisho.github.io/naiwa-peach-shop/
 
 手机微信 / QQ 里直接点开；也可以扫描 `wechat-qq/qr.png`。
 
-> 这是临时的 Cloudflare 快速隧道，电脑关机、休眠或隧道进程结束后会失效。想长期分享，请按下面的“永久发布”部署。
+> 这是永久地址，电脑关机也能玩。仓库每次更新后，GitHub Actions 会自动重新部署，等一两分钟刷新即可。
 
-**同一 Wi-Fi 局域网**
+**同一 Wi-Fi 局域网（仅调试）**
 
 电脑上保持本地服务器运行，手机浏览器访问：
 
@@ -37,14 +37,13 @@ http://10.18.167.201:8099/wechat-qq/
 
 （`10.18.167.201` 是这台电脑当前的局域网 IP，换网络后可能变化。）
 
-## 永久发布（推荐）
+## 更新与部署
 
-1. 打开 [Netlify Drop](https://app.netlify.com/drop)。
-2. 把 `wechat-qq` 文件夹（或本目录的 `naiwa-wechat-qq.zip`）拖进去。
-3. 得到一个 `https://....netlify.app` 地址，微信 / QQ 里直接打开。
-4. 想用自己的域名，在 Netlify / Cloudflare Pages 里绑定即可。
-
-也可以上传到 GitHub Pages、Vercel、Cloudflare Pages、对象存储静态网站等任何静态托管。**注意要连同 `music/` 文件夹一起上传**，否则没有背景音乐。
+- GitHub 仓库：https://github.com/OStonefishO/naiwa-peach-shop
+- 源码在 `src/`，构建脚本 `src/build.cjs`。
+- 修改源码后运行 `node src/build.cjs`，提交并推送 `main`，GitHub Actions 会自动构建并发布到 Pages。
+- 也可以手动在仓库 Actions 里运行 `Deploy to GitHub Pages`。
+- **注意要连同 `music/` 文件夹一起上传**，否则没有背景音乐。
 
 ## 玩法
 
