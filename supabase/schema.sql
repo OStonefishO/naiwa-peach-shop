@@ -2,6 +2,7 @@
 -- 在 Supabase Dashboard → SQL Editor 中整段运行一次。
 -- 存档按“店长名字 + PIN”保存；PIN 只以 bcrypt 哈希存在数据库里。
 
+create schema if not exists extensions;
 create extension if not exists pgcrypto with schema extensions;
 
 create table if not exists public.player_saves (
