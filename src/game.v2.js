@@ -434,7 +434,7 @@
     mode:'normal', introMode:'normal', runEarned:0, week:1, weekEarned:0, weekTarget:weekTargetFor(1),
     summaryKind:'day', bestNormal:0, bestEndless:0,
     dayCoins:0, dayStars:0, guestIndex:0, guest:null, personality:null, order:null, todayGuests:[],
-    dayGuests:[], orders:[], activeOrderId:null, orderSeq:0, queueInfo:null,
+    dayGuests:[], orders:[], activeOrderId:null, orderSeq:0, queueInfo:null, rackOrderId:null,
     can:emptyCan(), bowl:{large:0,small:0}, stock:Infinity,
     pots:makePots(), batches:[], selectedBatch:null,
     upgrade:{pots:1, alarms:0, knife:'wood', knives:['wood']},
@@ -1896,14 +1896,16 @@
     const show = (state.mode === 'endless' || state.mode === 'rogue') && state.phase !== 'intro';
     els.weekBanner.hidden = !show;
     if(!show) return;
-    const pct = state.weekTarget ? clamp(state.weekEarned / state.weekTarget * 100, 0, 100) : 0;
+    const devPass = !!state.devMode;
+    const shownEarned = devPass ? Math.max(state.weekEarned, state.weekTarget) : state.weekEarned;
+    const pct = state.weekTarget ? clamp(shownEarned / state.weekTarget * 100, 0, 100) : 0;
     const ev = state.mode === 'rogue' ? rogueEventToday() : null;
     els.weekLabel.textContent = state.mode === 'rogue' ? `肉鸽第 ${state.week} 周目标${ev ? ` · 今日：${ev.name}` : ''}` : `第 ${state.week} 周业绩`;
     els.weekValue.textContent = `${state.weekEarned} / ${state.weekTarget}`;
     els.weekFill.style.width = pct + '%';
-    els.weekFill.classList.toggle('met', state.weekEarned >= state.weekTarget);
+    els.weekFill.classList.toggle('met', shownEarned >= state.weekTarget);
     const left = WEEK_DAYS - ((state.day - 1) % WEEK_DAYS);
-    els.weekLeft.textContent = state.weekEarned >= state.weekTarget ? '已达标' : `还剩 ${left} 天`;
+    els.weekLeft.textContent = shownEarned >= state.weekTarget ? (devPass ? '开发者模式 · 已达标' : '已达标') : `还剩 ${left} 天`;
   }
 
   function renderOrderTicket(){
@@ -2612,7 +2614,8 @@
         ? (state.can.sealed ? '精英客人正在验货' : '精英客人 · 要求更严')
         : state.can.sealed ? '看到罐头，眼睛都亮了' : remain < 25000 ? '有点着急了…' : '正在等你出餐';
     let text = '';
-    if(state.can.sealed) text = `<b>罐头已经封好啦！</b>直接点下面的「交给客人」就行。`;
+    if(state.can.sealed && !orderOnRack()) text = `<b>罐头已经封好啦！</b>把上面的订单拖到下面的「订单架」，再点「交给客人」。`;
+    else if(state.can.sealed) text = `<b>订单已经放上订单架。</b>点下面的「交给客人」出餐吧。`;
     else if(!state.can.size) text = `还没开始装罐。先去<b>厨房</b>切黄桃、熬糖水，再回<b>工作台</b>。`;
     else{
       const miss = [];
@@ -2885,8 +2888,11 @@
     show(els.sealBtn, state.stage === 'work' && !sealed);
     show(els.serveBtn, true);
     if(state.stage === 'desk'){
+      const racked = orderOnRack();
       els.footer.style.gridTemplateColumns = '1fr';
-      els.serveBtn.innerHTML = `${icon('arrow')}${sealed ? '交给客人' : '还没做好'}`;
+      els.serveBtn.innerHTML = sealed
+        ? (racked ? `${icon('arrow')}交给客人` : `${icon('ticket')}先放订单架`)
+        : `${icon('arrow')}还没做好`;
       els.serveBtn.disabled = !sealed;
     }else if(state.stage === 'work'){
       els.footer.style.gridTemplateColumns = sealed ? '1fr' : '0.8fr 1.2fr 1fr';
@@ -2952,6 +2958,14 @@
     const mini = o => `<button class="order-mini ${o.id === state.activeOrderId ? 'active' : ''}" data-order-id="${o.id}" type="button">${o.guest.name}<br>${o.id.toString().padStart(2,'0')}</button>`;
     wrapL.innerHTML = open.filter((_,i) => i % 2 === 0).slice(0,4).map(mini).join('');
     wrapR.innerHTML = open.filter((_,i) => i % 2 === 1).slice(0,4).map(mini).join('');
+    if(els.submitRack){
+      const racked = orderOnRack();
+      els.submitRack.classList.toggle('has-order', racked);
+      els.submitRack.classList.remove('drop');
+      els.submitRack.innerHTML = racked
+        ? `<svg class="icon"><use href="#i-ticket"></use></svg><b>${state.guest ? state.guest.name : '订单'} · ${String(state.activeOrderId).padStart(2,'0')}</b><em>订单已就位 · 点此出餐</em>`
+        : `<svg class="icon"><use href="#i-ticket"></use></svg><b>订单架</b><em>把订单拖到这里出餐</em>`;
+    }
   }
 
   function renderDoubaoHelper(){
@@ -2996,6 +3010,7 @@
     state.todayGuests = [];
     state.orders = [];
     state.activeOrderId = null;
+    state.rackOrderId = null;
     state.orderSeq = 0;
     state.queueInfo = null;
     const extra = rogueActive() ? Math.min(3, shrimpLevel('influencer')) : 0;
@@ -3035,6 +3050,7 @@
     if(!rec || rec.served) return;
     saveActiveOrder();
     state.activeOrderId = id;
+    if(state.rackOrderId !== id) state.rackOrderId = null;
     state.guestIndex = rec.guestIndex;
     state.guest = rec.guest;
     state.personality = rec.personality;
@@ -3098,7 +3114,7 @@
       week:state.week, weekEarned:state.weekEarned, weekTarget:state.weekTarget,
       guestIndex:state.guestIndex, reviews:state.reviews,
       dayGuests:state.dayGuests, orders:state.orders,
-      activeOrderId:state.activeOrderId, orderSeq:state.orderSeq,
+      activeOrderId:state.activeOrderId, orderSeq:state.orderSeq, rackOrderId:state.rackOrderId,
       stage:state.stage, bowl:state.bowl, batches:state.batches,
       selectedBatch:state.selectedBatch, batchSeq,
       pots:state.pots.map(p => ({...p, startedAt:null})),
@@ -3152,6 +3168,7 @@
     state.phase = 'playing';
     state.stage = run.stage || 'desk';
     state.activeOrderId = null;
+    state.rackOrderId = null;
     state.queueInfo = null;
     state.orderTipShown = true;
     state.pouring = false;
@@ -3174,6 +3191,9 @@
     }
     activeProfile.run = run;
     activateOrder(fallback.id, {quiet:true, keepStage:true});
+    state.rackOrderId = run.rackOrderId != null && run.rackOrderId === fallback.id ? run.rackOrderId : null;
+    renderOrderStack();
+    updateFooter();
     updateHud();
     saveRunToProfile();
     restoringRun = false;
@@ -3254,7 +3274,7 @@
       if(rogueActive()) setTimeout(showRogueEventPopup, 350);
       if(!state.orderTipShown){
         state.orderTipShown = true;
-        setTimeout(() => toast('小提示：订单可以拖到订单架出餐，也可以先收进置物棍'), 1800);
+        setTimeout(() => toast('小提示：先把订单拖到下面的「订单架」，才能交给客人'), 1800);
       }
       return;
     }
@@ -3493,6 +3513,7 @@
     else state.rogue = null;
     state.day = 1;
     state.coins = state.mode === 'rogue' ? state.rogue.coins : (activeProfile ? activeProfile.wallet : 0);
+    state.rackOrderId = null;
     state.dayCoins = 0;
     state.dayStars = 0;
     state.runEarned = 0;
@@ -3844,7 +3865,7 @@
     els.canWrap.classList.add('sealing');
     setTimeout(() => els.canWrap.classList.remove('sealing'), 650);
     sfx.seal();
-    toast('封盖完成！去服务台交给客人吧');
+    toast('封盖完成！去服务台把订单拖到订单架吧');
     renderWork();
     updateFooter();
     renderHint();
@@ -3863,9 +3884,14 @@
     });
   }
 
+  function orderOnRack(){
+    return state.activeOrderId != null && state.rackOrderId === state.activeOrderId;
+  }
+
   function submitActive(){
     if(state.phase !== 'playing') return;
     if(!state.can.sealed){ toast('还没有封盖，封好后再放到订单架'); setStage('work'); return; }
+    if(!orderOnRack()){ toast('先把订单拖到下面的「订单架」，再交给客人'); return; }
     const ev = rogueEventToday();
     if(ev && ev.id === 'thief' && Math.random() < .5){
       state.can = emptyCan();
@@ -3886,6 +3912,7 @@
       return;
     }
     if(!state.can.sealed){ toast('罐头还没封好，先去工作台'); setStage('work'); return; }
+    if(!orderOnRack()){ toast('先把订单拖到下面的「订单架」，再交给客人'); return; }
     computeQueue();
     state.phase = 'serving';
     state.pouring = false;
@@ -4102,6 +4129,7 @@
     const servedRec = (state.orders || []).find(o => o.id === state.activeOrderId);
     if(servedRec){ servedRec.served = true; servedRec.result = result; }
     state.queueInfo = null;
+    state.rackOrderId = null;
     state.scoreResult = result;
     state.reviews.push(result);
     state.dayStars += result.stars;
@@ -4211,10 +4239,10 @@
   function summaryKindForDay(){
     if(state.mode === 'normal' && state.day >= NORMAL_DAYS) return 'runEnd';
     if(state.mode === 'rogue' && state.day % WEEK_DAYS === 0){
-      return state.weekEarned >= state.weekTarget ? 'weekPass' : 'gameOver';
+      return (state.devMode || state.weekEarned >= state.weekTarget) ? 'weekPass' : 'gameOver';
     }
     if(state.mode === 'endless' && state.day % WEEK_DAYS === 0){
-      return state.weekEarned >= state.weekTarget ? 'weekPass' : 'gameOver';
+      return (state.devMode || state.weekEarned >= state.weekTarget) ? 'weekPass' : 'gameOver';
     }
     return 'day';
   }
@@ -4292,8 +4320,8 @@
       : `最远纪录：第 ${state.bestEndless || 0} 周`;
     els.shopBtn.hidden = isEnd || rogueEnd;
     els.shopBtn.style.display = (isEnd || rogueEnd) ? 'none' : '';
-    if(state.mode === 'rogue') els.shopBtn.innerHTML = `逛肉鸽夜市${icon('arrow')}`;
-    if(els.summaryPauseBtn) els.summaryPauseBtn.style.display = (state.mode === 'rogue' && !isEnd && !rogueEnd) ? '' : 'none';
+    els.shopBtn.innerHTML = state.mode === 'rogue' ? `逛肉鸽夜市${icon('arrow')}` : `逛金币商店${icon('arrow')}`;
+    if(els.summaryPauseBtn) els.summaryPauseBtn.style.display = (!isEnd && !rogueEnd) ? '' : 'none';
     if(els.summaryEarlyBtn) els.summaryEarlyBtn.style.display = (isEnd || rogueEnd) ? 'none' : '';
     els.homeBtn.style.display = (isEnd || rogueEnd) ? '' : 'none';
     if(els.summaryRankBtn){
@@ -4783,42 +4811,74 @@
     state.orderStored = false;
     sfx.tap();
   }
+  function placeOrderOnRack(){
+    if(state.activeOrderId == null) return;
+    if(state.rackOrderId === state.activeOrderId){ sfx.tap(); submitActive(); return; }
+    state.rackOrderId = state.activeOrderId;
+    sfx.tap();
+    renderOrderStack();
+    renderDesk();
+    updateFooter();
+    toast(state.can.sealed ? '订单已放上订单架，点「交给客人」出餐' : '订单已放上订单架，封好罐就能出餐');
+  }
   function bindOrderDrag(){
     if(!els.orderTicket || !els.orderRod) return;
     const ticket = els.orderTicket;
     let drag = null;
+    const rackHitAt = (x, y) => {
+      const rack = els.submitRack ? els.submitRack.getBoundingClientRect() : null;
+      return !!rack && x > rack.left && x < rack.right && y > rack.top && y < rack.bottom;
+    };
     ticket.addEventListener('pointerdown', e => {
       if(state.phase !== 'playing' || state.stage !== 'desk') return;
       if(state.orderStored){ e.preventDefault(); expandOrder(); return; }
       e.preventDefault();
-      drag = {x:e.clientX, y:e.clientY, dx:0, dy:0, moved:false};
+      const rect = ticket.getBoundingClientRect();
+      const ghost = ticket.cloneNode(true);
+      ghost.removeAttribute('id');
+      ghost.classList.add('order-ghost');
+      ghost.classList.remove('stored','dragging');
+      ghost.style.left = rect.left + 'px';
+      ghost.style.top = rect.top + 'px';
+      ghost.style.width = rect.width + 'px';
+      document.body.appendChild(ghost);
+      drag = {
+        sx:e.clientX, sy:e.clientY,
+        ox:e.clientX - rect.left, oy:e.clientY - rect.top,
+        lastX:e.clientX, lastY:e.clientY, moved:false, ghost
+      };
       ticket.classList.add('dragging');
       try{ ticket.setPointerCapture(e.pointerId); }catch(err){}
     });
     ticket.addEventListener('pointermove', e => {
       if(!drag) return;
-      drag.dx = e.clientX - drag.x;
-      drag.dy = e.clientY - drag.y;
-      if(Math.abs(drag.dx) + Math.abs(drag.dy) > 4) drag.moved = true;
-      if(drag.moved) ticket.style.transform = `translate(${drag.dx}px,${drag.dy}px)`;
+      drag.lastX = e.clientX;
+      drag.lastY = e.clientY;
+      const dx = e.clientX - drag.sx;
+      const dy = e.clientY - drag.sy;
+      if(!drag.moved && Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
+      if(!drag.moved) return;
+      drag.ghost.style.left = (e.clientX - drag.ox) + 'px';
+      drag.ghost.style.top = (e.clientY - drag.oy) + 'px';
+      const g = drag.ghost.getBoundingClientRect();
+      const over = rackHitAt(g.left + g.width / 2, g.top + g.height / 2);
+      if(els.submitRack) els.submitRack.classList.toggle('drop', over);
     });
-    const finish = () => {
+    const finish = e => {
       if(!drag) return;
-      const moved = drag.moved;
+      const {moved, ghost, lastX, lastY} = drag;
       drag = null;
+      ghost.remove();
       ticket.classList.remove('dragging');
+      if(els.submitRack) els.submitRack.classList.remove('drop');
       if(!moved) return;
-      const tr = ticket.getBoundingClientRect();
+      if(rackHitAt(lastX, lastY)){ placeOrderOnRack(); return; }
       const rr = els.orderRod.getBoundingClientRect();
-      const rack = els.submitRack ? els.submitRack.getBoundingClientRect() : null;
-      const rackHit = rack && tr.left + tr.width / 2 > rack.left && tr.left + tr.width / 2 < rack.right
-        && tr.top + tr.height / 2 > rack.top && tr.top + tr.height / 2 < rack.bottom;
-      const dist = Math.hypot(tr.left + tr.width / 2 - (rr.left + rr.width / 2), tr.top + tr.height / 2 - (rr.top + rr.height / 2));
-      ticket.style.transform = '';
-      if(rackHit){
-        if(state.can.sealed) submitActive();
-        else toast('订单还没封盖，先去工作台');
-      }else if(dist < 110) storeOrder();
+      const dist = Math.hypot(lastX - (rr.left + rr.width / 2), lastY - (rr.top + rr.height / 2));
+      if(dist < 110){
+        if(orderOnRack()){ state.rackOrderId = null; renderOrderStack(); renderDesk(); updateFooter(); }
+        storeOrder();
+      }
     };
     ticket.addEventListener('pointerup', finish);
     ticket.addEventListener('pointercancel', finish);
@@ -4930,7 +4990,10 @@
       });
     });
     if(els.submitRack) els.submitRack.addEventListener('click', () => {
-      if(state.can.sealed) submitActive();
+      if(orderOnRack()){
+        if(state.can.sealed) submitActive();
+        else { toast('订单已经就位，罐头还没封盖，先去工作台'); setStage('work'); }
+      }else if(state.can.sealed) toast('先把订单拖到下面的「订单架」，再交给客人');
       else { toast('订单还没封盖，先去工作台'); setStage('work'); }
     });
     $$('[data-go]').forEach(b => b.addEventListener('click', () => setStage(b.dataset.go)));
