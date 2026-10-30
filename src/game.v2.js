@@ -22,7 +22,8 @@
   const JARS = {
     classic:{name:'经典罐', price:0, free:true, scale:1},
     narrow:{name:'窄口罐', price:80, scale:.84},
-    wide:{name:'广口罐', price:100, scale:1.12}
+    wide:{name:'广口罐', price:100, scale:1.12},
+    gold:{name:'大金罐', price:0, scale:1.02}
   };
   const TOPPINGS = {
     none:{name:'不加', icon:'x'},
@@ -184,6 +185,7 @@
     return null;
   }
   function personalityFor(guest){
+    if(rogueActive() && rogueEventToday() && rogueEventToday().id === 'harmony') return PERSONALITIES.generous;
     if(guest && guest.personality && PERSONALITIES[guest.personality]) return PERSONALITIES[guest.personality];
     if(guest && guest.tier !== 'normal') return PERSONALITIES[PERSONALITY_IDS[randInt(0, PERSONALITY_IDS.length - 1)]];
     // 普通客人：一半概率没有特殊性格，按普通耐心/订单处理
@@ -202,9 +204,13 @@
     return '评分更宽松';
   }
   function personalityPatience(p, guest){
-    const base = PATIENCE_MS * (guest.patience || 1);
+    let base = PATIENCE_MS * (guest.patience || 1);
+    const ev = rogueEventToday();
+    if(ev && ev.id === 'eager') base *= .5;
+    if(ev && ev.id === 'calm') base *= 1.5;
+    if(shrimpLevel('slowClock')) base += 60000;
     const delta = p && p.delta ? randInt(p.delta[0], p.delta[1]) : 0;
-    return clamp(Math.round(base + delta), 90000, 360000);
+    return clamp(Math.round(base + delta), 90000, 420000);
   }
   function markSeen(guest){
     if(!activeProfile || !guest || (guest.tier !== 'elite' && guest.tier !== 'boss')) return;
@@ -218,7 +224,8 @@
 
   const MODES = {
     normal:{name:'普通模式', days:28, desc:'4 周 · 28 天 · 尽可能多赚钱'},
-    endless:{name:'无尽模式', weekDays:7, desc:'每周完成业绩 · 不达标就关门'}
+    endless:{name:'无尽模式', weekDays:7, desc:'每周完成业绩 · 不达标就关门'},
+    rogue:{name:'肉鸽模式', weekDays:7, desc:'每周业绩 · 辣虾 · 随机事件 · 肉鸽商店'}
   };
   const NORMAL_DAYS = 28;
   const WEEK_DAYS = 7;
@@ -327,6 +334,54 @@
       {id:'campus', name:'校园食堂', price:80}
     ]
   };
+  const ROGUE_TARGET = week => 400 + (week - 1) * 200;
+  const SHRIMPS = [
+    {id:'goodReview',name:'好评价',rarity:'normal',desc:'客人评分 +4%（每级），上限 3 级',max:3,key:'score'},
+    {id:'mercy',name:'手下留情！',rarity:'normal',desc:'降分时少扣 5% 小费，上限 1 级',max:1,key:'mercy'},
+    {id:'fortune',name:'来财',rarity:'normal',desc:'小费 +7%（每级），上限 5 级',max:5,key:'tip'},
+    {id:'fireMaster',name:'火候控制师傅',rarity:'normal',desc:'熬糖完美区 +6.7%（每级），上限 3 级',max:3,key:'boil'},
+    {id:'overScore',name:'超满分！',rarity:'normal',desc:'满分线 +10（每级），上限 5 级',max:5,key:'max'},
+    {id:'moreComplex',name:'更复杂！',rarity:'normal',desc:'复杂订单率 +10%（每级），上限 2 级',max:2,key:'complex'},
+    {id:'lessComplex',name:'别复杂！',rarity:'normal',desc:'复杂订单率 -10%（每级），上限 2 级',max:2,key:'simple'},
+    {id:'caliper',name:'游标卡尺',rarity:'rare',desc:'加糖完美区 +6.7%（每级），上限 3 级',max:3,key:'sugarTol'},
+    {id:'labMaster',name:'实验室巨匠',rarity:'rare',desc:'高复杂订单额外金币 +30%（每级），上限 3 级',max:3,key:'lab'},
+    {id:'memberCard',name:'商店会员卡',rarity:'rare',desc:'所有商店 -25%，上限 1 级；不与白金叠加',max:1,key:'discount25'},
+    {id:'influencer',name:'网红门店',rarity:'rare',desc:'每天多 1 名客人（每级），上限 3 级',max:3,key:'guests'},
+    {id:'alarmPtsd',name:'闹钟PSTD',rarity:'rare',desc:'闹钟响时 33% 自动捞出完美糖，上限 1 级',max:1,key:'alarmAuto'},
+    {id:'luckyHorseshoe',name:'金马掌',rarity:'legend',desc:'幸运事件概率 +25%，上限 1 级',max:1,key:'luck'},
+    {id:'goldJar',name:'大金罐',rarity:'legend',desc:'可选金罐，所有客人接受，金币 +20%',max:1,key:'goldJar'},
+    {id:'slowClock',name:'缓慢时钟',rarity:'legend',desc:'所有客人耐心 +1 分钟',max:1,key:'patience'},
+    {id:'platinumCard',name:'白金会员卡',rarity:'legend',desc:'所有商店 -50%，上限 1 级；不与会员卡叠加',max:1,key:'discount50'},
+    {id:'bigPot',name:'大糖锅',rarity:'curse',desc:'一次熬糖产 3 份；33% 概率全是过/生糖',max:1,key:'triple'},
+    {id:'bloodCross',name:'血色十字架',rarity:'curse',desc:'事件概率 +67%；但 33% 为霉运事件',max:1,key:'badLuck'},
+    {id:'redEye',name:'红眼',rarity:'curse',desc:'精英/BOSS 金币 ×5，但要求 +75%',max:1,key:'redEye'},
+    {id:'challenger',name:'挑战者',rarity:'curse',desc:'金币 +33%，但精英日 +1',max:1,key:'challenger'},
+    {id:'plusScore',name:'PLUS！',rarity:'curse',desc:'满分 +100；≤70% 时扣更多小费',max:1,key:'plus'}
+  ];
+  const ROGUE_RARITY = {
+    normal:{name:'普通',color:'#B9B2A7',rate:53.33},
+    rare:{name:'稀有',color:'#4D8FD6',rate:16.70},
+    legend:{name:'传奇',color:'#D8A62A',rate:4.90},
+    curse:{name:'诅咒',color:'#C8433B',rate:10.00}
+  };
+  const ROGUE_ITEMS = [
+    {id:'doubao',name:'帮手豆包',price:300,max:1,desc:'糖到完美时自动收获，并站在服务台'},
+    {id:'reroll',name:'再来一份！',price:100,max:9,desc:'刷新精英/BOSS日的辣虾选择'},
+    {id:'cashback',name:'好评返现福利',price:50,max:3,desc:'客人至少得到 80 分（消耗）'},
+    {id:'goldPot',name:'黄金锅',price:250,max:4,desc:'一次熬糖产出 2 份'},
+    {id:'personality',name:'性格改造器',price:100,max:2,desc:'把客人性格改成随机（消耗）'},
+    {id:'sugarOwl',name:'糖枭',price:300,max:1,desc:'本局所有材料、罐子、糖浆解锁'}
+  ];
+  const ROGUE_EVENTS = [
+    {id:'eager',name:'急切的客人',type:'bad',desc:'所有客人耐心 -50%'},
+    {id:'picky',name:'小心眼',type:'bad',desc:'50% 概率只给 60 分以下'},
+    {id:'thief',name:'偷订单的贼',type:'bad',desc:'提交订单 50% 失败，需要重做'},
+    {id:'naishu',name:'奶鼠来袭',type:'bad',desc:'奶鼠作为 BOSS 登场，会偷小费'},
+    {id:'goldRush',name:'淘金热',type:'good',desc:'所有小费 ×3'},
+    {id:'calm',name:'平静的客人',type:'good',desc:'所有客人耐心 +50%'},
+    {id:'harmony',name:'世纪大和解',type:'good',desc:'所有客人变为大方'}
+  ];
+  const NAISHU_GUEST = {name:'奶鼠',kind:'naishu',tier:'boss',badge:'BOSS',personality:'petty',patience:.8,coin:3,tolDelta:-1,happy:'嘿嘿，小费我就收下啦～'};
   function defaultProfile(name){
     return {
       name:name || '奶蛙店长', wallet:200, bestNormal:0, bestEndless:0, totalRuns:0,
@@ -340,6 +395,7 @@
       syrups:{honey:false, maple:false, honeysuckle:false},
       seen:{elite:[], boss:[]},
       rogueUnlocked:false,
+      roguePlayed:false,
       run:null,
       lastRun:null
     };
@@ -357,10 +413,13 @@
   }
   function coinText(){
     if(state.devMode) return '∞';
+    if(state.mode === 'rogue' && state.rogue) return String(state.rogue.coins);
     return String(activeProfile ? activeProfile.wallet : state.coins);
   }
   function canAfford(n){
-    return !!state.devMode || !!(activeProfile && activeProfile.wallet >= n);
+    if(state.devMode) return true;
+    if(state.mode === 'rogue' && state.rogue) return state.rogue.coins >= n;
+    return !!(activeProfile && activeProfile.wallet >= n);
   }
 
   function emptyCan(){
@@ -382,7 +441,8 @@
     reviews:[], patience:1, patienceMs:PATIENCE_MS, deadline:0, pouring:false,
     sound:true, lastPourSfx:0, speechTimer:null, toastTimer:null, scoreResult:null,
     metaAwarded:false, homeTab:'room', skinPreview:{area:'desk', id:'classic'}, shopTab:'run',
-    devMode:loadDevMode()
+    devMode:loadDevMode(),
+    rogue:null
   };
   let bgmEl = null, bgmKey = null, bgmToken = 0, musicWanted = false, alarmEl = null, bgmRetryTimer = 0;
 
@@ -591,19 +651,32 @@
     p.seen.elite = Array.isArray(p.seen.elite) ? Array.from(new Set(p.seen.elite.filter(n => typeof n === 'string'))) : [];
     p.seen.boss = Array.isArray(p.seen.boss) ? Array.from(new Set(p.seen.boss.filter(n => typeof n === 'string'))) : [];
     p.rogueUnlocked = !!p.rogueUnlocked;
-    p.run = (p.run && typeof p.run === 'object' && (p.run.mode === 'normal' || p.run.mode === 'endless') && Number(p.run.day) >= 1)
+    p.roguePlayed = !!p.roguePlayed;
+    p.run = (p.run && typeof p.run === 'object' && (p.run.mode === 'normal' || p.run.mode === 'endless' || p.run.mode === 'rogue') && Number(p.run.day) >= 1)
       ? p.run : null;
     return p;
   }
+  function rogueActive(){ return state.mode === 'rogue' && !!state.rogue; }
+  function rogueHas(id){ return !!(state.rogue && state.rogue.items && state.rogue.items[id] > 0); }
+  function shrimpLevel(id){
+    return state.rogue ? state.rogue.shrimp.filter(x => x === id).length : 0;
+  }
   function availableSyrups(){
+    if(rogueActive()) return ['classic'].concat(SYRUP_IDS.filter(id => id !== 'classic' && state.rogue.syrups.includes(id)));
     const owned = activeProfile && activeProfile.syrups ? activeProfile.syrups : {};
     return ['classic'].concat(['honey','maple','honeysuckle'].filter(id => owned[id]));
   }
   function unlockedToppings(){
+    if(rogueActive()) return BASE_TOPPINGS.concat(state.rogue.toppings);
     const extra = activeProfile && activeProfile.unlocks ? activeProfile.unlocks.toppings : [];
     return BASE_TOPPINGS.concat(extra);
   }
   function unlockedJars(){
+    if(rogueActive()){
+      const jars = ['classic'].concat(state.rogue.jars);
+      if(shrimpLevel('goldJar')) jars.push('gold');
+      return Array.from(new Set(jars));
+    }
     const extra = activeProfile && activeProfile.unlocks ? activeProfile.unlocks.jars : [];
     return ['classic'].concat(extra);
   }
@@ -1000,7 +1073,17 @@
     }catch(err){ renderSaveStatus(err.message, 'err'); }
   }
   function addWallet(n){
-    if(!activeProfile || !Number.isFinite(n) || n <= 0) return;
+    if(!Number.isFinite(n) || n <= 0) return;
+    if(rogueActive()){
+      state.rogue.coins += n;
+      state.rogue.totalCoins += n;
+      state.rogue.weekEarned += n;
+      state.weekEarned += n;
+      state.coins = state.rogue.coins;
+      if(els.coins) els.coins.textContent = coinText();
+      return;
+    }
+    if(!activeProfile) return;
     activeProfile.wallet += n;
     state.coins = activeProfile.wallet;
     saveProfiles();
@@ -1011,6 +1094,13 @@
   }
   function spendCoins(n){
     if(state.devMode) return true;
+    if(rogueActive()){
+      if(state.rogue.coins < n) return false;
+      state.rogue.coins -= n;
+      state.coins = state.rogue.coins;
+      if(els.coins) els.coins.textContent = coinText();
+      return true;
+    }
     if(!activeProfile || !Number.isFinite(n) || activeProfile.wallet < n) return false;
     activeProfile.wallet -= n;
     state.coins = activeProfile.wallet;
@@ -1437,6 +1527,7 @@
       'setMaster','setMusic','setAlarm','setMasterVal','setMusicVal','setAlarmVal',
       'redeemInput','redeemBtn','redeemStatus','devExitBtn',
       'reviewPersonality','codexEntryBtn','codexOverlay','codexClose','codexTabs','codexBody','codexFromSettings','batchStrip','batchScrollWrap','batchScroll',
+      'rogueShopOverlay','rogueShopCoins','rogueShopList','rogueShopNext','shrimpOverlay','shrimpTitle','shrimpSub','shrimpChoices','shrimpSkip','shrimpReroll',
       'startActions','continueBtn','continueMeta','rogueModeCard','rogueBadge','rogueNote',
       'playerMenuToggle','playerMenu',
       'settingsPauseBtn','rogueOverlay','rogueTitle','rogueStayBtn','rogueHomeBtn','confirmTitle','confirmCopy'];
@@ -1502,6 +1593,12 @@
       if(state.devMode) localStorage.setItem(DEV_MODE_KEY, '1');
       else localStorage.removeItem(DEV_MODE_KEY);
     } catch(e){}
+    if(state.devMode && activeProfile){
+      activeProfile.rogueUnlocked = true;
+      activeProfile.roguePlayed = true;
+      saveProfiles();
+      renderRogueMode();
+    }
     syncDevModeUI();
     if(els.redeemStatus){
       els.redeemStatus.textContent = state.devMode ? '开发者模式已开启 · 金币无限' : '已退出开发者模式';
@@ -1589,6 +1686,10 @@
     if(!els.codexBody) return;
     const profile = activeProfile || defaultProfile('奶蛙店长');
     const tabs = els.codexTabs ? [...els.codexTabs.querySelectorAll('[data-codex-tab]')] : [];
+    const rogueTab = tabs.find(t => t.dataset.codexTab === 'rogue');
+    if(rogueTab) rogueTab.hidden = !profile.roguePlayed;
+    if(els.codexTabs) els.codexTabs.classList.toggle('five', !!profile.roguePlayed);
+    if(!profile.roguePlayed && codexTab === 'rogue') codexTab = 'personality';
     tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.codexTab === codexTab));
     let html = '';
     if(codexTab === 'personality'){
@@ -1603,6 +1704,16 @@
         const info = GUEST_CODEX[g.name] || {icon:'🐾',bio:'奶蛙小店里的常客。'};
         return codexItem(info.icon, g.name, `${info.bio}<br>50% 无特殊性格 · 50% 随机性格`, '常客', false);
       }).join('');
+    } else if(codexTab === 'rogue'){
+      html = `<div class="codex-note">肉鸽模式独占内容。辣虾、道具、随机事件与奶鼠都会记录在这里。</div>`;
+      html += `<div class="codex-section-title">辣虾</div>`;
+      html += SHRIMPS.map(s => codexItem(s.rarity === 'curse' ? '🌶️' : '🦐', s.name, s.desc, ROGUE_RARITY[s.rarity].name, false)).join('');
+      html += `<div class="codex-section-title">肉鸽道具</div>`;
+      html += ROGUE_ITEMS.map(i => codexItem('🎁', i.name, i.desc, `${i.price} 肉鸽金币`, false)).join('');
+      html += `<div class="codex-section-title">随机事件</div>`;
+      html += ROGUE_EVENTS.map(e => codexItem(e.type === 'good' ? '🍀' : '☠️', e.name, e.desc, e.type === 'good' ? '幸运' : '霉运', false)).join('');
+      html += `<div class="codex-section-title">肉鸽 BOSS</div>`;
+      html += codexItem('🐭', '奶鼠', '抱着爱心的小老鼠，肉鸽专属 BOSS，会偷走其他客人的小费。', 'BOSS', false);
     } else if(codexTab === 'items'){
       html = `<div class="codex-note">食材和罐子买过一次就永久解锁，会出现在后续订单里。</div>`;
       const topIcons = {mint:'🌿',osmanthus:'🌼',dates:'🫘',goji:'🍒',rock:'🍬',honeysuckle:'🌾'};
@@ -1764,6 +1875,9 @@
       else if(state.mode === 'endless'){
         const d = ((state.day - 1) % WEEK_DAYS) + 1;
         els.daySub.textContent = `无尽 W${state.week} · DAY ${d}/${WEEK_DAYS}${mark} · ${label}`;
+      }else if(state.mode === 'rogue'){
+        const d = ((state.day - 1) % WEEK_DAYS) + 1;
+        els.daySub.textContent = `肉鸽 W${state.week} · DAY ${d}/${WEEK_DAYS}${mark} · ${label}`;
       }else{
         els.daySub.textContent = `普通 · DAY ${state.day}/${NORMAL_DAYS}${mark} · ${label}`;
       }
@@ -1773,11 +1887,12 @@
 
   function updateWeekBanner(){
     if(!els.weekBanner) return;
-    const show = state.mode === 'endless' && state.phase !== 'intro';
+    const show = (state.mode === 'endless' || state.mode === 'rogue') && state.phase !== 'intro';
     els.weekBanner.hidden = !show;
     if(!show) return;
     const pct = state.weekTarget ? clamp(state.weekEarned / state.weekTarget * 100, 0, 100) : 0;
-    els.weekLabel.textContent = `第 ${state.week} 周业绩`;
+    const ev = state.mode === 'rogue' ? rogueEventToday() : null;
+    els.weekLabel.textContent = state.mode === 'rogue' ? `肉鸽第 ${state.week} 周目标${ev ? ` · 今日：${ev.name}` : ''}` : `第 ${state.week} 周业绩`;
     els.weekValue.textContent = `${state.weekEarned} / ${state.weekTarget}`;
     els.weekFill.style.width = pct + '%';
     els.weekFill.classList.toggle('met', state.weekEarned >= state.weekTarget);
@@ -1961,6 +2076,10 @@
   }
   function guestSVG(guest, idx){
     if(guest.kind === 'author') return `<img class="guest-svg author-photo" src="${authorPhotoSrc()}" alt="${guest.name}">`;
+    if(guest.kind === 'naishu'){
+      const n = document.querySelector('#naishuAsset');
+      return `<img class="guest-svg naishu-photo" src="${n ? n.src : ''}" alt="奶鼠">`;
+    }
     if(guest.kind === 'cat') return catSVG(guest, idx);
     if(guest.kind === 'pig') return pigSVG(guest, idx);
     if(guest.kind === 'bird') return birdSVG(guest, idx);
@@ -2829,8 +2948,23 @@
     wrapR.innerHTML = open.filter((_,i) => i % 2 === 1).slice(0,4).map(mini).join('');
   }
 
+  function renderDoubaoHelper(){
+    const scene = els.game ? els.game.querySelector('.scene') : null;
+    if(!scene) return;
+    let helper = scene.querySelector('.helper-doubao');
+    if(rogueHas('doubao')){
+      if(!helper){
+        helper = document.createElement('div');
+        helper.className = 'helper-doubao';
+        const n = document.querySelector('#doubaoAsset');
+        helper.innerHTML = `<img src="${n ? n.src : ''}" alt="帮手豆包">`;
+        scene.appendChild(helper);
+      }
+    }else if(helper){ helper.remove(); }
+  }
   function renderAll(){
     updateHud();
+    renderDoubaoHelper();
     renderOrderTicket();
     renderGuest();
     renderCan();
@@ -2857,14 +2991,26 @@
     state.activeOrderId = null;
     state.orderSeq = 0;
     state.queueInfo = null;
-    for(let i=0;i<GUEST_COUNT;i++){
-      const guest = pickGuest(i);
+    const extra = rogueActive() ? Math.min(3, shrimpLevel('influencer')) : 0;
+    const count = GUEST_COUNT + extra;
+    const naishuDay = rogueActive() && rogueEventToday() && rogueEventToday().id === 'naishu';
+    for(let i=0;i<count;i++){
+      let guest = pickGuest(i);
+      if(naishuDay && i === count - 1) guest = {...NAISHU_GUEST};
       state.todayGuests.push(guest.name);
       const p = personalityFor(guest);
       markSeen(guest);
       const patienceMs = personalityPatience(p, guest);
       const order = makeOrder(i, guest, p);
       state.dayGuests.push({index:i, guest, personality:p, patienceMs, order, accepted:false, served:false, queuePenalty:0, orderId:null});
+    }
+    if(rogueActive() && (state.rogue.items.personality || 0) > 0 && state.dayGuests[0]){
+      state.rogue.items.personality -= 1;
+      const dg = state.dayGuests[0];
+      dg.personality = PERSONALITIES[PERSONALITY_IDS[randInt(0, PERSONALITY_IDS.length - 1)]];
+      dg.patienceMs = personalityPatience(dg.personality, dg.guest);
+      dg.order = makeOrder(0, dg.guest, dg.personality);
+      toast('性格改造器生效：第一位客人的性格被随机改变了');
     }
   }
 
@@ -2949,7 +3095,7 @@
       stage:state.stage, bowl:state.bowl, batches:state.batches,
       selectedBatch:state.selectedBatch, batchSeq,
       pots:state.pots.map(p => ({...p, startedAt:null})),
-      todayGuests:state.todayGuests
+      todayGuests:state.todayGuests, rogue:state.rogue
     };
     return JSON.parse(JSON.stringify(raw));
   }
@@ -2993,7 +3139,9 @@
         })
       : makePots();
     state.stock = Infinity;
-    state.coins = activeProfile ? activeProfile.wallet : 0;
+    state.rogue = run.rogue ? JSON.parse(JSON.stringify(run.rogue)) : null;
+    state.coins = state.mode === 'rogue' && state.rogue ? state.rogue.coins : (activeProfile ? activeProfile.wallet : 0);
+    if(state.mode === 'rogue' && state.rogue) state.upgrade = state.rogue.upgrades;
     state.phase = 'playing';
     state.stage = run.stage || 'desk';
     state.activeOrderId = null;
@@ -3048,17 +3196,17 @@
   function updateStartButton(){
     if(!els.startBtn) return;
     const hasRun = !!(activeProfile && activeProfile.run);
-    const label = hasRun ? '新开一局' : (state.introMode === 'normal' ? `开始 ${NORMAL_DAYS} 天营业` : '开始无尽营业');
+    const label = hasRun ? '新开一局' : state.introMode === 'normal' ? `开始 ${NORMAL_DAYS} 天营业` : state.introMode === 'rogue' ? '开始肉鸽营业' : '开始无尽营业';
     els.startBtn.innerHTML = `${label}${icon('arrow')}`;
   }
   function renderRogueMode(){
     if(!els.rogueModeCard) return;
     const unlocked = !!(activeProfile && activeProfile.rogueUnlocked);
     els.rogueModeCard.classList.toggle('locked', !unlocked);
-    if(els.rogueBadge) els.rogueBadge.textContent = unlocked ? '已解锁 · 即将开放' : '未解锁';
+    if(els.rogueBadge) els.rogueBadge.textContent = unlocked ? '已解锁' : '未解锁';
     if(els.rogueNote) els.rogueNote.innerHTML = unlocked
-      ? '普通模式两周达成<br>内容制作中，敬请期待'
-      : '普通模式完成 2 周后解锁<br>内容制作中';
+      ? '每周金币指标 · 辣虾 · 随机事件<br>每局重置'
+      : '普通模式完成 2 周后解锁<br>每周指标 · 辣虾 · 随机事件';
   }
   function pauseRun(){
     if(state.phase !== 'playing') return;
@@ -3137,21 +3285,21 @@
     sfx.tap();
   }
   function setIntroMode(mode){
-    if(mode === 'rogue'){
-      const unlocked = !!(activeProfile && activeProfile.rogueUnlocked);
-      toast(unlocked ? '肉鸽模式内容制作中，敬请期待' : '肉鸽模式未解锁：普通模式完成 2 周后开放');
+    if(mode === 'rogue' && !(activeProfile && activeProfile.rogueUnlocked)){
+      toast('肉鸽模式未解锁：普通模式完成 2 周后开放');
       return;
     }
     if(!MODES[mode]) return;
     state.introMode = mode;
     els.modeCards.forEach(card => card.classList.toggle('active', card.dataset.mode === mode));
     if(els.modeToggleName) els.modeToggleName.textContent = MODES[mode].name;
-    const best = mode === 'normal' ? state.bestNormal : state.bestEndless;
+    const best = mode === 'normal' ? state.bestNormal : mode === 'endless' ? state.bestEndless : 0;
     const bestText = mode === 'normal'
       ? (best ? ` · 最佳周目 ${best} 金币` : '')
-      : (best ? ` · 最远第 ${best} 周` : '');
+      : mode === 'endless' ? (best ? ` · 最远第 ${best} 周` : '') : ' · 辣虾 / 随机事件 / 肉鸽夜市';
     els.introNote.textContent = (mode === 'normal'
       ? `普通模式 · ${NORMAL_DAYS} 天后结算总营业额`
+      : mode === 'rogue' ? '肉鸽模式 · 每周完成金币指标 · 每局重置'
       : '无尽模式 · 每周业绩递增 · 不达标就关门') + bestText;
     setMenuGroup(els.modeToggle, els.modePanel, false);
     updateStartButton();
@@ -3172,18 +3320,63 @@
     }
     beginRun(state.introMode || 'normal');
   }
+  function rogueWeekEvents(){
+    const out = {};
+    const count = 1 + Math.floor(Math.random() * 3);
+    const days = [1,2,3,4,5,6,7].sort(() => Math.random() - .5).slice(0, count);
+    const luckyBoost = shrimpLevel('luckyHorseshoe') ? .25 : 0;
+    const badBias = shrimpLevel('bloodCross') ? .33 : 0;
+    days.forEach(day => {
+      const lucky = Math.random() < .5 + luckyBoost;
+      const pool = ROGUE_EVENTS.filter(e => (lucky ? e.type === 'good' : e.type === 'bad'));
+      const ev = pool[Math.floor(Math.random() * pool.length)];
+      if(ev) out[day] = ev.id;
+    });
+    return out;
+  }
+  function rogueEventToday(){
+    if(!rogueActive()) return null;
+    const id = state.rogue.events[state.day];
+    return ROGUE_EVENTS.find(e => e.id === id) || null;
+  }
+  function startRogueRun(){
+    state.rogue = {
+      coins:0, totalCoins:0, week:1, weekEarned:0, weekTarget:ROGUE_TARGET(1),
+      toppings:[], jars:[], syrups:[], items:{}, shrimp:[], events:{}, shopStock:null,
+      pendingShop:null, pendingShrimp:null, rerolls:0,
+      upgrades:{pots:1, alarms:0, knife:'wood', knives:['wood']}
+    };
+    state.rogue.events = rogueWeekEvents();
+    if(activeProfile){ activeProfile.roguePlayed = true; saveProfiles(); }
+    state.upgrade = state.rogue.upgrades;
+    state.coins = 0;
+  }
+  function rogueMaxScore(){ return 100 + 10 * shrimpLevel('overScore') + 100 * shrimpLevel('plusScore'); }
+  function rogueTipMultiplier(){
+    let m = 1 + .07 * shrimpLevel('fortune');
+    if(rogueHas('doubao')) m *= 1;
+    return m;
+  }
+  function rogueCoinMultiplier(){
+    let m = 1;
+    if(shrimpLevel('challenger')) m *= 1.33;
+    if(shrimpLevel('goldJar')) m *= 1.2;
+    return m;
+  }
   function beginRun(mode){
     ensureAudio();
     if(activeProfile) activeProfile.run = null;
     state.mode = MODES[mode] ? mode : 'normal';
+    if(state.mode === 'rogue') startRogueRun();
+    else state.rogue = null;
     state.day = 1;
-    state.coins = activeProfile ? activeProfile.wallet : 0;
+    state.coins = state.mode === 'rogue' ? state.rogue.coins : (activeProfile ? activeProfile.wallet : 0);
     state.dayCoins = 0;
     state.dayStars = 0;
     state.runEarned = 0;
     state.week = 1;
     state.weekEarned = 0;
-    state.weekTarget = weekTargetFor(1);
+    state.weekTarget = state.mode === 'rogue' ? ROGUE_TARGET(1) : weekTargetFor(1);
     state.summaryKind = 'day';
     state.metaAwarded = false;
     state.orderTipShown = false;
@@ -3193,7 +3386,7 @@
     state.batches = [];
     state.selectedBatch = null;
     state.pots = makePots();
-    if(activeProfile && activeProfile.upgrades) state.upgrade = activeProfile.upgrades;
+    if(state.mode !== 'rogue' && activeProfile && activeProfile.upgrades) state.upgrade = activeProfile.upgrades;
     state.stock = Infinity;
     batchSeq = 0;
     lastOrderSig = '';
@@ -3394,16 +3587,26 @@
     const elapsed = performance.now() - p.startedAt;
     const pct = clamp(elapsed / BOIL_MS * 100, 0, 100);
     p.progress = pct;
-    const quality = pct < BOIL_MIN ? 'thin' : pct > BOIL_MAX ? 'burnt' : 'perfect';
+    const widen = rogueActive() ? 2.2 * shrimpLevel('fireMaster') : 0;
+    const quality = pct < (BOIL_MIN - widen) ? 'thin' : pct > (BOIL_MAX + widen) ? 'burnt' : 'perfect';
     bottlePot(p, quality);
   }
   function bottlePot(p, quality){
-    const batch = {id:++batchSeq, sugar:p.sugar, quality, types:(p.types || ['classic']).slice()};
-    state.batches.push(batch);
-    state.selectedBatch = batch.id;
+    const types = (p.types || ['classic']).slice();
+    let count = 1;
+    if(rogueActive() && rogueHas('goldPot')) count *= 2;
+    if(rogueActive() && shrimpLevel('bigPot')) count *= 3;
+    let q = quality;
+    if(shrimpLevel('bigPot') && Math.random() < .33) q = Math.random() < .5 ? 'thin' : 'burnt';
+    let last = null;
+    for(let i=0;i<count;i++){
+      const batch = {id:++batchSeq, sugar:p.sugar, quality:q, types:types.slice()};
+      state.batches.push(batch); last = batch;
+    }
+    state.selectedBatch = last.id;
     p.status = 'idle'; p.sugar = 0; p.progress = 0; p.quality = null;
-    if(quality === 'perfect'){ sfx.ding(); toast('火候完美！糖水已经放到工作台啦'); }
-    else{ sfx.error(); buzz(50); toast(quality === 'thin' ? '偏生了点，不过也能用，已经装瓶' : '有点焦苦，不过也能用，已经装瓶'); }
+    if(q === 'perfect'){ sfx.ding(); toast('火候完美！糖水已经放到工作台啦'); }
+    else{ sfx.error(); buzz(50); toast(q === 'thin' ? '偏生了点，不过也能用，已经装瓶' : '有点焦苦，不过也能用，已经装瓶'); }
     renderPots();
     renderWork();
     updateTabBadges();
@@ -3423,6 +3626,11 @@
       if(p.alarm && !p.alarmFired && p.progress >= 50){
         p.alarmFired = true;
         sfx.alarm(); buzz(35);
+        if(rogueActive() && shrimpLevel('alarmAuto') && Math.random() < .33) bottlePot(p, 'perfect');
+      }
+      if(rogueActive() && rogueHas('doubao') && p.progress >= BOIL_MIN && p.status === 'heating'){
+        bottlePot(p, 'perfect');
+        return;
       }
       if(p.progress >= 100){
         bottlePot(p, 'burnt');
@@ -3536,6 +3744,16 @@
   function submitActive(){
     if(state.phase !== 'playing') return;
     if(!state.can.sealed){ toast('还没有封盖，封好后再放到订单架'); setStage('work'); return; }
+    const ev = rogueEventToday();
+    if(ev && ev.id === 'thief' && Math.random() < .5){
+      state.can = emptyCan();
+      state.selectedBatch = null;
+      saveActiveOrder();
+      renderAll();
+      toast('偷订单的贼！这份订单被偷走了，再做一份吧');
+      setStage('work');
+      return;
+    }
     serveOrder();
   }
 
@@ -3627,7 +3845,7 @@
         : batchTypes.every(t => t.length === 1);
     const kindScore = Math.max(0, 7 * matched.length / wantIds.length - extra * 3) + (styleOk ? 3 : 0);
 
-    const target = SUGAR[o.sugar].target, tol = o.tol || SUGAR[o.sugar].tol;
+    const target = SUGAR[o.sugar].target, tol = (o.tol || SUGAR[o.sugar].tol) + (rogueActive() ? 1.5 * shrimpLevel('caliper') : 0);
     let maxRatioDiff = 0;
     wantSyrups.forEach(s => {
       const want = target * s.ratio / 100;
@@ -3674,14 +3892,43 @@
     const queuePenalty = (!timedOut && dg) ? (dg.queuePenalty || 0) : 0;
     const queueDelta = queueBonus - queuePenalty;
     if(!timedOut && queueDelta) score = clamp(Math.round(score + queueDelta), 0, 100);
-    const perfect = !timedOut && score >= 100;
+    if(rogueActive() && !timedOut){
+      score += 4 * shrimpLevel('goodReview');
+      const ev = rogueEventToday();
+      if(ev && ev.id === 'picky' && Math.random() < .5) score = Math.min(score, 45);
+      if(ev && ev.id === 'naishu' && state.guest && state.guest.kind === 'naishu'){
+        if(Math.random() < .5){
+          const steal = Math.min(state.rogue.coins, 10 * (state.reviews || []).filter(r => !r.timedOut).length);
+          state.rogue.coins -= steal;
+          state.coins = state.rogue.coins;
+          toast(`奶鼠偷走了 ${steal} 肉鸽金币`);
+        }
+      }
+      if(score < 80 && (state.rogue.items.cashback || 0) > 0){
+        state.rogue.items.cashback -= 1;
+        score = 80;
+        toast('好评返现福利生效：本单按 80 分结算');
+      }
+    }
+    const maxScore = rogueActive() ? rogueMaxScore() : 100;
+    score = clamp(Math.round(score), 0, maxScore);
+    const perfect = !timedOut && score >= maxScore;
     const stars = score >= 90 ? 3 : score >= 70 ? 2 : score >= 45 ? 1 : 0;
     const tipInfo = orderTip(o);
-    const tip = timedOut ? 0 : tipInfo.tip;
+    let tip = timedOut ? 0 : tipInfo.tip;
+    if(rogueActive()){
+      tip = Math.round(tip * rogueTipMultiplier());
+      if(rogueEventToday() && rogueEventToday().id === 'goldRush') tip *= 3;
+      if(shrimpLevel('lab') && (o.syrups || []).length > 1) tip += Math.round(tip * .3 * shrimpLevel('lab'));
+    }
     const coinMul = (state.guest && state.guest.coin) || 1;
     const baseCoins = timedOut ? 0 : 8 + Math.round(score * .12) + (perfect ? 5 : 0);
     const tipCoins = Math.round(tip * coinMul);
-    const coins = Math.round(baseCoins * coinMul) + tipCoins;
+    let coins = Math.round(baseCoins * coinMul) + tipCoins;
+    if(rogueActive()){
+      coins = Math.round(coins * rogueCoinMultiplier());
+      if(shrimpLevel('redEye') && (state.guest.tier === 'elite' || state.guest.tier === 'boss')) coins *= 5;
+    }
     const details = [];
     details.push({ok:sizeScore===6, label:'罐型', text: sizeOk ? `${SIZES[c.size].name} ✓` : `要${SIZES[o.size].name}${c.size ? ` · 用了${SIZES[c.size].name}` : ''}`});
     if(jarChoice) details.push({ok:jarOk, label:'罐子', text: jarOk ? `${JARS[c.jar || 'classic'].name} ✓` : `要${JARS[o.jar || 'classic'].name}`});
@@ -3808,7 +4055,12 @@
     els.reviewOverlay.setAttribute('aria-hidden','true');
     sfx.tap();
     if((state.dayGuests || []).every(d => d.served)){
-      setTimeout(showSummary, 300);
+      if(rogueActive() && (state.day % WEEK_DAYS === 5 || state.day % WEEK_DAYS === 0)){
+        const kind = state.day % WEEK_DAYS === 0 ? 'boss' : 'elite';
+        setTimeout(() => showShrimpChoice(kind), 300);
+      }else{
+        setTimeout(showSummary, 300);
+      }
       return;
     }
     const nextOrder = (state.orders || []).filter(o => !o.served).sort((a,b) => a.guestIndex - b.guestIndex)[0];
@@ -3832,6 +4084,9 @@
 
   function summaryKindForDay(){
     if(state.mode === 'normal' && state.day >= NORMAL_DAYS) return 'runEnd';
+    if(state.mode === 'rogue' && state.day % WEEK_DAYS === 0){
+      return state.weekEarned >= state.weekTarget ? 'weekPass' : 'gameOver';
+    }
     if(state.mode === 'endless' && state.day % WEEK_DAYS === 0){
       return state.weekEarned >= state.weekTarget ? 'weekPass' : 'gameOver';
     }
@@ -3847,15 +4102,26 @@
     const stars = state.reviews.reduce((s,r) => s + r.stars, 0);
     const perfect = state.reviews.filter(r => r.perfect).length;
     const avg = total ? Math.round(state.reviews.reduce((s,r) => s + r.score, 0) / total) : 0;
-    const isEnd = kind === 'runEnd' || kind === 'gameOver';
-    awardProfile(kind);
-    if(isEnd && activeProfile){ activeProfile.run = null; saveProfiles(); }
+    const isEnd = kind === 'runEnd' || (kind === 'gameOver' && state.mode !== 'rogue');
+    if(state.mode !== 'rogue') awardProfile(kind);
+    const rogueEnd = state.mode === 'rogue' && kind === 'gameOver';
+    if((isEnd || rogueEnd) && activeProfile){ activeProfile.run = null; saveProfiles(); }
     let ribbon = '今日营业结束';
     let title = `第 ${state.day} 天 · 打烊啦`;
     let sub = '';
     let comment = '';
 
-    if(kind === 'runEnd'){
+    if(state.mode === 'rogue' && kind === 'weekPass'){
+      ribbon = `肉鸽第 ${state.week} 周达标`;
+      title = `第 ${state.week} 周 · 活下来了！`;
+      sub = `本周金币 <b>${state.weekEarned}</b> / ${state.weekTarget} · 下周目标 ${ROGUE_TARGET(state.week + 1)}`;
+      comment = `<b>第 ${state.week} 周达标！</b>辣虾和随机事件都挺过来了。下周目标更高，肉鸽夜市也在等你。`;
+    }else if(state.mode === 'rogue' && kind === 'gameOver'){
+      ribbon = '肉鸽周指标失败';
+      title = `第 ${state.week} 周 · 肉鸽结束`;
+      sub = `本周只赚到 <b>${state.weekEarned}</b> / ${state.weekTarget} 金币`;
+      comment = `<b>指标没完成，本局肉鸽结束。</b>肉鸽模式的辣虾、道具和金币都会重置，下一局重新搭配。`;
+    }else if(kind === 'runEnd'){
       ribbon = `${NORMAL_DAYS} 天周目完成`;
       title = '周目结束 · 打烊啦';
       sub = `${NORMAL_DAYS} 天总营业额 <b>${state.runEarned}</b> 金币 · 当前余额 ${state.coins}`;
@@ -3873,9 +4139,12 @@
       sub = `本周只赚到 <b>${state.weekEarned}</b> / ${state.weekTarget} 金币`;
       comment = `<b>业绩没达标，奶蛙的店被房东收走了……</b>本周目标 ${state.weekTarget} 金币，只完成了 ${state.weekEarned}。再试一次，优先保证每单的糖水和火候，别让客人等太久。`;
     }else{
-      sub = state.mode === 'normal'
+      sub = state.mode === 'rogue'
+        ? `肉鸽第 ${state.week} 周 · 第 ${state.day} 天 · 本周 <b>${state.weekEarned}</b> / ${state.weekTarget} 金币`
+        : state.mode === 'normal'
         ? `第 ${state.day} / ${NORMAL_DAYS} 天 · 本轮累计 <b>${state.runEarned}</b> 金币`
         : `第 ${state.week} 周 · 本周业绩 <b>${state.weekEarned}</b> / ${state.weekTarget}`;
+      if(state.mode === 'rogue') title = `肉鸽第 ${state.week} 周 · 第 ${state.day} 天`;
       if(stars >= 9) comment = '<b>奶蛙今天大成功！</b>三位客人都给出了满星评价，黄桃罐头店的招牌越来越亮啦！';
       else if(stars >= 7) comment = `<b>奶蛙辛苦啦！</b>今天拿到了 ${stars} 颗星，客人们都很喜欢你的黄桃罐头。`;
       else if(stars >= 4) comment = `<b>还不错哦～</b>再仔细看看订单，把糖水和加料都配对，客人会更开心。`;
@@ -3895,15 +4164,17 @@
     els.summaryBest.textContent = state.mode === 'normal'
       ? `最佳周目：${state.bestNormal || 0} 金币`
       : `最远纪录：第 ${state.bestEndless || 0} 周`;
-    els.shopBtn.hidden = isEnd;
-    els.shopBtn.style.display = isEnd ? 'none' : '';
-    els.homeBtn.style.display = isEnd ? '' : 'none';
+    els.shopBtn.hidden = isEnd || rogueEnd;
+    els.shopBtn.style.display = (isEnd || rogueEnd) ? 'none' : '';
+    if(state.mode === 'rogue') els.shopBtn.innerHTML = `逛肉鸽夜市${icon('arrow')}`;
+    els.homeBtn.style.display = (isEnd || rogueEnd) ? '' : 'none';
     if(els.summaryRankBtn){
-      els.summaryRankBtn.style.display = kind === 'gameOver' ? '' : 'none';
+      els.summaryRankBtn.style.display = (kind === 'gameOver' && state.mode !== 'rogue') ? '' : 'none';
       if(kind === 'gameOver') renderLeaderboard();
     }
-    els.replayBtn.className = isEnd ? 'primary-btn' : 'ghost-btn';
+    els.replayBtn.className = (isEnd || rogueEnd) ? 'primary-btn' : 'ghost-btn';
     els.replayBtn.innerHTML = kind === 'runEnd' ? `再开一局普通模式${icon('arrow')}`
+      : rogueEnd ? `重新挑战肉鸽模式${icon('arrow')}`
       : kind === 'gameOver' ? `重新挑战无尽模式${icon('arrow')}`
       : kind === 'weekPass' ? `开始第 ${state.week + 1} 周${icon('arrow')}`
       : `直接开始下一天`;
@@ -3939,6 +4210,19 @@
       state.week = Math.ceil(state.day / WEEK_DAYS);
       state.weekEarned = 0;
       state.weekTarget = weekTargetFor(state.week);
+    }
+    if(state.mode === 'rogue'){
+      state.week = Math.ceil(state.day / WEEK_DAYS);
+      state.rogue.shopStock = makeRogueShopStock();
+      if((state.day - 1) % WEEK_DAYS === 0){
+        state.weekEarned = 0;
+        state.weekTarget = ROGUE_TARGET(state.week);
+        state.rogue.week = state.week;
+        state.rogue.weekTarget = state.weekTarget;
+        state.rogue.events = rogueWeekEvents();
+        state.rogue.shopStock = makeRogueShopStock();
+        state.rogue.pendingShop = null;
+      }
     }
     els.summaryOverlay.classList.remove('show');
     els.summaryOverlay.setAttribute('aria-hidden','true');
@@ -4135,6 +4419,107 @@
     updateHud();
     if(state.stage === 'kitchen') renderKitchen();
   }
+  function rollShrimpChoices(){
+    const out = [];
+    for(let i=0;i<3;i++){
+      const r = Math.random() * 100;
+      let rarity = r < 53.33 ? 'normal' : r < 70.03 ? 'rare' : r < 74.93 ? 'legend' : r < 84.93 ? 'curse' : null;
+      if(!rarity) continue;
+      const pool = SHRIMPS.filter(s => s.rarity === rarity && shrimpLevel(s.id) < s.max);
+      if(!pool.length) continue;
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      if(!out.some(s => s.id === pick.id)) out.push(pick);
+    }
+    return out;
+  }
+  function renderShrimpChoice(){
+    const p = state.rogue && state.rogue.pendingShrimp;
+    if(!p || !els.shrimpChoices) return;
+    const kind = p.kind === 'boss' ? 'BOSS' : '精英';
+    if(els.shrimpTitle) els.shrimpTitle.textContent = `${kind}日 · 辣虾三选一`;
+    if(els.shrimpSub) els.shrimpSub.textContent = p.choices.length ? '挑一只辣虾带走，也可以跳过。' : '今天没有可选的辣虾，可以跳过。';
+    els.shrimpChoices.innerHTML = p.choices.map(s => {
+      const r = ROGUE_RARITY[s.rarity];
+      return `<button class="shrimp-item" data-shrimp="${s.id}" style="--rc:${r.color}"><span class="rarity" style="background:${r.color}">${r.name}</span><b>${s.name}</b><small>${s.desc}</small></button>`;
+    }).join('');
+    if(els.shrimpReroll){
+      els.shrimpReroll.disabled = !(state.rogue && state.rogue.rerolls > 0);
+      els.shrimpReroll.textContent = `再来一份（${(state.rogue && state.rogue.rerolls) || 0}）`;
+    }
+  }
+  function showShrimpChoice(kind){
+    if(!state.rogue) return showSummary();
+    state.rogue.pendingShrimp = {kind, choices:rollShrimpChoices()};
+    state.phase = 'shrimp';
+    renderShrimpChoice();
+    if(els.shrimpOverlay){
+      els.shrimpOverlay.classList.add('show');
+      els.shrimpOverlay.setAttribute('aria-hidden','false');
+    }
+  }
+  function finishShrimp(id){
+    if(!state.rogue || !state.rogue.pendingShrimp) return;
+    if(id) state.rogue.shrimp.push(id);
+    state.rogue.pendingShrimp = null;
+    if(els.shrimpOverlay){ els.shrimpOverlay.classList.remove('show'); els.shrimpOverlay.setAttribute('aria-hidden','true'); }
+    state.phase = 'reviewing';
+    showSummary();
+  }
+  function rerollShrimp(){
+    if(!state.rogue || state.rogue.rerolls <= 0) return toast('没有「再来一份」了');
+    state.rogue.rerolls -= 1;
+    state.rogue.pendingShrimp.choices = rollShrimpChoices();
+    renderShrimpChoice();
+    sfx.tap();
+  }
+  function rogueShopPrice(item){
+    let m = 1;
+    if(shrimpLevel('platinumCard')) m *= .5;
+    else if(shrimpLevel('memberCard')) m *= .75;
+    return Math.max(1, Math.round(item.price * m));
+  }
+  function makeRogueShopStock(){
+    const pool = ROGUE_ITEMS.filter(i => i.id !== 'cashback').sort(() => Math.random() - .5).slice(0, 5);
+    return ['cashback'].concat(pool.map(i => i.id));
+  }
+  function openRogueShop(){
+    if(!rogueActive()) return;
+    if(!state.rogue.shopStock) state.rogue.shopStock = makeRogueShopStock();
+    state.phase = 'rogueShop';
+    renderRogueShop();
+    if(els.rogueShopOverlay){
+      els.rogueShopOverlay.classList.add('show');
+      els.rogueShopOverlay.setAttribute('aria-hidden','false');
+    }
+  }
+  function renderRogueShop(){
+    if(!els.rogueShopList) return;
+    if(els.rogueShopCoins) els.rogueShopCoins.textContent = state.rogue.coins;
+    els.rogueShopList.innerHTML = (state.rogue.shopStock || ['cashback']).map(id => {
+      const item = ROGUE_ITEMS.find(i => i.id === id);
+      if(!item) return '';
+      const owned = state.rogue.items[id] || 0;
+      const maxed = owned >= item.max;
+      const price = rogueShopPrice(item);
+      return `<div class="rogue-shop-item"><div><b>${item.name}${owned ? ` ×${owned}` : ''}</b><small>${item.desc}</small></div><button data-rogue-buy="${id}" ${maxed || state.rogue.coins < price ? 'disabled' : ''}>${maxed ? '已满' : `${price} 金币`}</button></div>`;
+    }).join('');
+  }
+  function buyRogueItem(id){
+    const item = ROGUE_ITEMS.find(i => i.id === id);
+    if(!item || !rogueActive()) return;
+    const owned = state.rogue.items[id] || 0;
+    if(owned >= item.max) return toast('这个道具已经买满了');
+    if(!spendCoins(rogueShopPrice(item))) return toast('肉鸽金币不够');
+    state.rogue.items[id] = owned + 1;
+    if(id === 'reroll') state.rogue.rerolls += 1;
+    if(id === 'sugarOwl'){
+      state.rogue.toppings = EXPANSION.topping.map(x => x.id);
+      state.rogue.jars = EXPANSION.jar.map(x => x.id);
+      state.rogue.syrups = ['honey','maple','honeysuckle'];
+    }
+    renderRogueShop();
+    sfx.coin();
+  }
   function buySyrup(id){
     if(!activeProfile || activeProfile.syrups[id]) return;
     const s = SYRUPS[id];
@@ -4161,6 +4546,7 @@
   }
   function openShop(main=false){
     sfx.tap();
+    if(rogueActive()){ openRogueShop(); return; }
     main = main === true;
     if(main && !activeProfile) return;
     state.shopMain = main;
@@ -4504,6 +4890,21 @@
       if(b && !b.disabled){ handleFurniture(b.dataset.furniture); renderShop(); }
     });
     if(els.itemShopEntryBtn) els.itemShopEntryBtn.addEventListener('click', () => openShop(true));
+    if(els.rogueShopList) els.rogueShopList.addEventListener('click', e => {
+      const b = e.target.closest('[data-rogue-buy]');
+      if(b && !b.disabled) buyRogueItem(b.dataset.rogueBuy);
+    });
+    if(els.rogueShopNext) els.rogueShopNext.addEventListener('click', () => {
+      if(els.rogueShopOverlay){ els.rogueShopOverlay.classList.remove('show'); els.rogueShopOverlay.setAttribute('aria-hidden','true'); }
+      state.rogue.shopStock = null;
+      startNextDay();
+    });
+    if(els.shrimpSkip) els.shrimpSkip.addEventListener('click', () => finishShrimp(null));
+    if(els.shrimpReroll) els.shrimpReroll.addEventListener('click', () => rerollShrimp());
+    if(els.shrimpChoices) els.shrimpChoices.addEventListener('click', e => {
+      const b = e.target.closest('[data-shrimp]');
+      if(b) finishShrimp(b.dataset.shrimp);
+    });
 
     if(els.savePlayerBtn) els.savePlayerBtn.addEventListener('click', savePlayerName);
     if(els.playerName) els.playerName.addEventListener('keydown', e => {
@@ -4649,7 +5050,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode };
+      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday };
     }
   }
 

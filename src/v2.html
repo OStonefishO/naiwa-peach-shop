@@ -13,7 +13,7 @@
 <meta property="og:title" content="奶蛙黄桃罐头店 · 点开即玩">
 <meta property="og:description" content="接单、装罐、封盖、出餐，做一罐甜甜的黄桃罐头。微信/QQ 内直接打开。">
 <meta property="og:type" content="website">
-<title>奶蛙黄桃罐头店 · 点开即玩</title>
+<title>奶蛙黄桃罐头店 · 正式版 1.0</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23FFD23F'/%3E%3Ccircle cx='50' cy='58' r='27' fill='%23FFC42E'/%3E%3Ccircle cx='39' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='61' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='50' cy='72' r='4' fill='%23FFF3CE'/%3E%3C/svg%3E">
 <style>
   :root{
@@ -1804,9 +1804,39 @@
   .rogue-title{margin:3px 0 6px;font-size:21px;color:#4A3215;letter-spacing:.5px}
   .rogue-copy{font-size:8px;line-height:1.55;color:#8F7041;font-weight:700}
   .rogue-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:15px}
+  .rogue-shop-overlay,.shrimp-overlay{align-items:center;padding:10px;background:rgba(12,24,17,.76);z-index:340;transition:none}
+  .rogue-shop-card,.shrimp-card{
+    width:min(100%,400px);max-height:92dvh;overflow-y:auto;scrollbar-width:none;
+    padding:15px 13px calc(13px + var(--safe-bottom));border:3px solid #4C5F2B;border-radius:20px;
+    background:linear-gradient(180deg,#FFFDF1,#F0F4D9);box-shadow:0 14px 0 rgba(40,60,20,.18),0 28px 55px rgba(0,0,0,.4)
+  }
+  .rogue-shop-card h2,.shrimp-card h2{margin:2px 0 4px;font-size:21px;color:#3E4F20}
+  .rogue-shop-card::-webkit-scrollbar,.shrimp-card::-webkit-scrollbar{display:none}
+  .rogue-sub{margin:0 0 8px;font-size:7.4px;line-height:1.5;color:#71804E;font-weight:700}
+  .rogue-money{display:flex;justify-content:space-between;padding:7px 9px;border-radius:10px;background:#E8EFC8;color:#60702E;font-size:8px;font-weight:900}
+  .rogue-money b{font-size:13px;color:#4A5C1B}
+  .rogue-shop-list,.shrimp-list{display:grid;gap:6px;margin:9px 0}
+  .rogue-shop-item{display:grid;grid-template-columns:1fr auto;gap:7px;align-items:center;padding:8px 9px;border:1px solid #D9E2AE;border-radius:11px;background:#FFFDF3}
+  .rogue-shop-item b{display:block;font-size:9px;color:#3F4E22}
+  .rogue-shop-item small{display:block;margin-top:2px;font-size:7px;line-height:1.4;color:#7A8651;font-weight:700}
+  .rogue-shop-item button{min-width:62px;height:30px;border:1px solid #9FB05F;border-radius:9px;background:#DCE9A7;color:#40511B;font:900 8px/1 inherit;cursor:pointer}
+  .rogue-shop-item button:disabled{opacity:.5}
+  .shrimp-item{padding:9px;border:2px solid var(--rc,#E4D4B2);border-radius:12px;background:#FFFDF5;cursor:pointer;text-align:left;font-family:inherit}
+  .shrimp-item b{display:block;font-size:10px;color:#4A3418}
+  .shrimp-item .rarity{float:right;font-size:6.5px;padding:1px 5px;border-radius:99px;background:var(--rc,#EEE);color:#fff}
+  .shrimp-item small{display:block;margin-top:3px;font-size:7.2px;line-height:1.5;color:#7D6C4C;font-weight:700}
+  .shrimp-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .shrimp-actions .ghost-btn{height:34px;font-size:8px}
+  .helper-doubao{position:absolute;left:8px;bottom:4px;width:34px;height:34px;border-radius:50%;overflow:hidden;border:2px solid #F7D583;z-index:2;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+  .helper-doubao img{width:100%;height:100%;object-fit:cover}
+  .guest-svg.naishu-photo{object-fit:cover;background:#FFF8E5}
+  .codex-tabs.five{grid-template-columns:repeat(5,1fr)}
+  .codex-tab{font-size:6.8px}
 </style>
 </head>
 <body>
+<img id="doubaoAsset" src="rogue-assets/doubao.png" alt="" hidden>
+<img id="naishuAsset" src="rogue-assets/naishu.png" alt="" hidden>
 
 <div id="rotateTip" aria-hidden="true">
   <div class="phone"></div>
@@ -2260,7 +2290,7 @@
     <div class="intro-card">
       <div class="intro-hero">
         <span class="intro-tag">SUMMER PEACH · 2026</span>
-        <span class="intro-badge">DEMO<br>试玩版</span>
+        <span class="intro-badge">1.0<br>正式版</span>
         <svg viewBox="0 0 312 210" aria-hidden="true">
           <use href="#frog-chef" x="8" y="15" width="180" height="206"></use>
           <use href="#peach-can" x="177" y="38" width="120" height="163"></use>
@@ -2604,6 +2634,7 @@
         <button class="codex-tab" type="button" data-codex-tab="normal">普通客人</button>
         <button class="codex-tab" type="button" data-codex-tab="items">食材与罐子</button>
         <button class="codex-tab" type="button" data-codex-tab="boss">精英与BOSS</button>
+        <button class="codex-tab" type="button" data-codex-tab="rogue" id="codexRogueTab" hidden>肉鸽</button>
       </div>
       <div class="codex-body" id="codexBody"></div>
     </div>
@@ -2636,5 +2667,28 @@
 </div>
 
 <script src="game.v2.js"></script>
+  <div class="overlay rogue-shop-overlay" id="rogueShopOverlay" aria-hidden="true">
+    <div class="rogue-shop-card">
+      <div class="rogue-kicker">ROGUE MARKET</div>
+      <h2>肉鸽夜市</h2>
+      <p class="rogue-sub">每天打烊后随机进货，最多 5 件；固定「好评返现福利」。</p>
+      <div class="rogue-money">肉鸽金币 <b id="rogueShopCoins">0</b></div>
+      <div class="rogue-shop-list" id="rogueShopList"></div>
+      <button class="primary-btn" id="rogueShopNext" type="button">开始下一天</button>
+    </div>
+  </div>
+
+  <div class="overlay shrimp-overlay" id="shrimpOverlay" aria-hidden="true">
+    <div class="shrimp-card">
+      <div class="rogue-kicker">SPICY SHRIMP</div>
+      <h2 id="shrimpTitle">辣虾三选一</h2>
+      <p class="rogue-sub" id="shrimpSub">精英日结束，挑一只辣虾再继续。</p>
+      <div class="shrimp-list" id="shrimpChoices"></div>
+      <div class="shrimp-actions">
+        <button class="ghost-btn" id="shrimpSkip" type="button">跳过</button>
+        <button class="ghost-btn" id="shrimpReroll" type="button">再来一份（0）</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
