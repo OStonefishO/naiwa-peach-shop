@@ -1541,6 +1541,10 @@
   #toppingChips .chip svg{width:11px;height:11px}
   .ticket-row .row-label{white-space:nowrap}
   .ticket-row.topping b{font-size:7.6px;line-height:1.25}
+  .ticket-row.syrup{align-items:flex-start}
+  .ticket-row.syrup b{white-space:normal;word-break:break-word;font-size:8.2px;line-height:1.28;
+    text-align:right;padding-top:1px;max-width:96px}
+  @media (max-width:370px){.ticket-row.syrup b{font-size:7.8px;max-width:88px}}
   /* 存档 / 云同步 */
   .save-overlay{z-index:210}
   .save-card{width:min(94vw,402px);max-height:88dvh;overflow-y:auto;background:#FFFDF6;border:2px solid #D9B36A;
@@ -1613,8 +1617,10 @@
     display:grid;place-items:center;font-size:11px;cursor:grab;touch-action:none;box-shadow:0 2px 0 #B97E2B}
   .alarm-token.assigned{opacity:.35;filter:grayscale(.6)}
   .alarm-token.dragging{opacity:.5;transform:scale(1.08)}
-  .pot-card.alarm-drop{outline:3px dashed #E3A33B;outline-offset:-3px}
-  .pot-alarm{font-size:9px;color:#A15D12;font-weight:900}
+  .pot-card.alarm-drop,.alarm-tray.alarm-drop{outline:3px dashed #E3A33B;outline-offset:-3px;background:#FFF1CF}
+  .pot-alarm{padding:0;border:0;background:none;font:900 9px/1.2 inherit;color:#A15D12;cursor:grab;touch-action:none}
+  .pot-alarm.dragging{opacity:.45}
+  .pot-alarm:active{cursor:grabbing}
   .pot-types{display:flex;gap:6px;margin:7px 0 3px;flex-wrap:wrap}
   .pot-type{height:28px;padding:0 9px;border:1px solid #D8B47C;border-radius:8px;background:#FFF9EA;color:#8A6435;
     font:900 8.5px/28px inherit;cursor:pointer;white-space:nowrap;flex:0 0 auto}

@@ -2148,6 +2148,34 @@
     renderAlarmTray();
   }
 
+  function removeAlarm(potId, quiet){
+    const p = state.pots[potId];
+    if(!p || !p.alarm) return;
+    p.alarm = false;
+    p.alarmFired = false;
+    renderPots();
+    renderAlarmTray();
+    if(!quiet){
+      sfx.tap();
+      toast(`闹钟已从熬糖锅 ${potId+1} 收回，可以拖到其他锅或放回托盘`);
+    }
+  }
+  function moveAlarm(fromId, toId){
+    if(fromId === toId) return;
+    const from = state.pots[fromId];
+    const to = state.pots[toId];
+    if(!from || !to || !from.alarm) return;
+    if(to.alarm){ toast('那口锅已经有闹钟了'); return; }
+    from.alarm = false;
+    from.alarmFired = false;
+    to.alarm = true;
+    to.alarmFired = false;
+    sfx.ding();
+    toast(`闹钟已移到熬糖锅 ${toId+1}`);
+    renderPots();
+    renderAlarmTray();
+  }
+
   function potStatusText(p){
     if(p.status === 'heating') return '熬制中';
     if(!p.sugar) return '先加糖';
@@ -2172,7 +2200,7 @@
           <button type="button" data-pot-sugar="1" data-pot="${i}" ${p.sugar>=3?'disabled':''}>糖+</button>
           <button class="primary" type="button" data-pot-start="${i}" ${p.sugar<1?'disabled':''}>开火</button>`;
       }
-      const alarm = p.alarm ? `<span class="pot-alarm">⏰ 闹钟</span>` : '';
+      const alarm = p.alarm ? `<button class="pot-alarm" type="button" data-pot-alarm="${i}" title="点击收回闹钟，或拖到其他锅">⏰ 闹钟</button>` : '';
       html += `<div class="pot-card" data-status="${p.status}" data-pot-drop="${i}">
         <div class="pot-head"><b>熬糖锅 ${i+1}</b><span class="pot-sugar">${dots}${alarm}</span></div>
         <div class="pot-types">${types}</div>
@@ -3347,28 +3375,56 @@
       if(dump){ dumpPot(Number(dump.dataset.potDump)); return; }
     });
     if(els.alarmTrayItems){
-      let draggingAlarm = false;
+      let alarmDrag = null;
+      const clearAlarmHl = () => {
+        document.querySelectorAll('.pot-card.alarm-drop, .alarm-tray.alarm-drop')
+          .forEach(x => x.classList.remove('alarm-drop'));
+      };
+      const startAlarmDrag = (e, source, el) => {
+        e.preventDefault();
+        alarmDrag = { source, el, x: e.clientX, y: e.clientY, moved:false };
+        el.classList.add('dragging');
+        toast(source === 'tray'
+          ? '将闹钟拖拽到锅炉上以设置闹钟'
+          : '拖到其他锅可移动 · 拖回托盘或点一下可收回');
+      };
       els.alarmTrayItems.addEventListener('pointerdown', e => {
         const t = e.target.closest('.alarm-token');
-        if(!t) return;
-        e.preventDefault();
-        draggingAlarm = true;
-        t.classList.add('dragging');
-        toast('将闹钟拖拽到锅炉上以设置闹钟');
+        if(t) startAlarmDrag(e, 'tray', t);
+      });
+      els.potGrid.addEventListener('pointerdown', e => {
+        const b = e.target.closest('[data-pot-alarm]');
+        if(b) startAlarmDrag(e, Number(b.dataset.potAlarm), b);
       });
       document.addEventListener('pointermove', e => {
-        if(!draggingAlarm) return;
-        document.querySelectorAll('.pot-card.alarm-drop').forEach(x => x.classList.remove('alarm-drop'));
-        const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-pot-drop]');
-        if(el) el.classList.add('alarm-drop');
+        if(!alarmDrag) return;
+        if(Math.abs(e.clientX-alarmDrag.x) + Math.abs(e.clientY-alarmDrag.y) > 6) alarmDrag.moved = true;
+        clearAlarmHl();
+        const under = document.elementFromPoint(e.clientX, e.clientY);
+        const card = under?.closest('[data-pot-drop]');
+        if(card) card.classList.add('alarm-drop');
+        const tray = under?.closest('#alarmTray');
+        if(tray) tray.classList.add('alarm-drop');
       });
       document.addEventListener('pointerup', e => {
-        if(!draggingAlarm) return;
-        draggingAlarm = false;
-        document.querySelectorAll('.alarm-token.dragging').forEach(x => x.classList.remove('dragging'));
-        const card = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-pot-drop]');
-        document.querySelectorAll('.pot-card.alarm-drop').forEach(x => x.classList.remove('alarm-drop'));
-        if(card) assignAlarm(Number(card.dataset.potDrop));
+        if(!alarmDrag) return;
+        const { source, el, moved } = alarmDrag;
+        alarmDrag = null;
+        el.classList.remove('dragging');
+        clearAlarmHl();
+        const under = document.elementFromPoint(e.clientX, e.clientY);
+        const card = under?.closest('[data-pot-drop]');
+        const onTray = under?.closest('#alarmTray');
+        if(source === 'tray'){
+          if(card) assignAlarm(Number(card.dataset.potDrop));
+          return;
+        }
+        if(onTray){ removeAlarm(source); return; }
+        if(card && Number(card.dataset.potDrop) !== source){
+          moveAlarm(source, Number(card.dataset.potDrop));
+          return;
+        }
+        if(!moved) removeAlarm(source);
       });
       els.alarmTrayItems.addEventListener('dragstart', e => {
         const t = e.target.closest('.alarm-token');
@@ -3529,7 +3585,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, storeOrder, expandOrder, openDress, renderFrogWear };
+      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm };
     }
   }
 
