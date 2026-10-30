@@ -1870,6 +1870,7 @@
   }
 
   function updateHud(){
+    if(els.game) els.game.dataset.mode = state.mode || 'normal';
     if(els.coins) els.coins.textContent = coinText();
     if(els.devEndDayBtn) els.devEndDayBtn.hidden = !state.devMode || (state.phase !== 'playing' && state.phase !== 'event');
     if(els.daySub){
@@ -3420,13 +3421,20 @@
   function showRogueEventPopup(){
     if(!rogueActive()) return;
     const ev = rogueEventToday();
-    if(!ev || state.rogue.eventShownDay === state.day) return;
+    const special = specialForDay(state.day);
+    if((!ev && !special) || state.rogue.eventShownDay === state.day) return;
     state.rogue.eventShownDay = state.day;
     state.phase = 'event';
     state.eventStartedAt = performance.now();
-    if(els.eventIcon) els.eventIcon.textContent = ev.type === 'good' ? '🍀' : '☠️';
-    if(els.eventTitle) els.eventTitle.textContent = ev.name;
-    if(els.eventDesc) els.eventDesc.textContent = ev.desc;
+    const isBoss = state.day % WEEK_DAYS === 0;
+    const isElite = !isBoss && state.day % WEEK_DAYS === 5;
+    if(els.eventIcon) els.eventIcon.textContent = isBoss ? '👑' : isElite ? '⭐' : ev && ev.type === 'good' ? '🍀' : '☠️';
+    if(els.eventTitle) els.eventTitle.textContent = ev ? ev.name : isBoss ? '今天是 BOSS 日' : '今天是精英日';
+    if(els.eventDesc){
+      let desc = ev ? ev.desc : '';
+      if(special && special.guest) desc += `${desc ? ' · ' : ''}今日来客：${special.type === 'boss' ? 'BOSS ' : '精英 '}${special.guest.name}`;
+      els.eventDesc.textContent = desc;
+    }
     if(els.eventOverlay){ els.eventOverlay.classList.add('show'); els.eventOverlay.setAttribute('aria-hidden','false'); }
   }
   function closeRogueEventPopup(){
@@ -4375,6 +4383,7 @@
 
   /* -------------------- 商店 -------------------- */
   function potPrice(){ return POT_PRICES[state.upgrade.pots] || 999; }
+  function shopPrice(base){ return rogueActive() ? Math.round(base * 1.5) : base; }
   function shopUpgrades(){
     if(rogueActive()) return state.rogue.upgrades;
     return activeProfile ? activeProfile.upgrades : state.upgrade;
@@ -4452,6 +4461,7 @@
     if(!activeProfile) return;
     const wallet = rogueActive() ? state.rogue.coins : activeProfile.wallet;
     const main = !!state.shopMain;
+    if(els.shopOverlay) els.shopOverlay.classList.toggle('rogue-shop-theme', rogueActive());
     if(els.shopTabs) els.shopTabs.querySelectorAll('[data-shoptab]').forEach(b => {
       b.hidden = rogueActive() && b.dataset.shoptab === 'furniture';
     });
@@ -4467,21 +4477,23 @@
     setShopTab(state.shopTab || 'run');
     if(els.shopExpandGrid){
       els.shopExpandGrid.innerHTML = expansionItems().map(item => {
-        const disabled = item.owned || !canAfford(item.price);
+        const price = shopPrice(item.price);
+        const disabled = item.owned || !canAfford(price);
         return `<div class="shop-item">
           <div class="shop-icon">${item.icon}</div>
           <div class="shop-copy"><b>${item.name}</b><small>${item.desc}</small></div>
-          <button class="buy-btn ${item.owned ? 'equipped' : ''}" type="button" data-expand="${item.id}" ${disabled ? 'disabled' : ''}>${item.owned ? '已解锁' : state.devMode ? '解锁' : wallet < item.price ? `还差 ${item.price - wallet}` : `解锁 ${item.price}`}</button>
+          <button class="buy-btn ${item.owned ? 'equipped' : ''}" type="button" data-expand="${item.id}" ${disabled ? 'disabled' : ''}>${item.owned ? '已解锁' : state.devMode ? '解锁' : wallet < price ? `还差 ${price - wallet}` : `解锁 ${price}`}</button>
         </div>`;
       }).join('');
     }
     if(els.shopSyrupGrid){
       els.shopSyrupGrid.innerHTML = syrupItems().map(item => {
-        const disabled = item.owned || !canAfford(item.price);
+        const price = shopPrice(item.price);
+        const disabled = item.owned || !canAfford(price);
         return `<div class="shop-item">
           <div class="shop-icon">${item.icon}</div>
           <div class="shop-copy"><b>${item.name}</b><small>${item.desc}</small></div>
-          <button class="buy-btn ${item.owned ? 'equipped' : ''}" type="button" data-syrup="${item.id}" ${disabled ? 'disabled' : ''}>${item.owned ? '已解锁' : state.devMode ? '解锁' : wallet < item.price ? `还差 ${item.price - wallet}` : item.label}</button>
+          <button class="buy-btn ${item.owned ? 'equipped' : ''}" type="button" data-syrup="${item.id}" ${disabled ? 'disabled' : ''}>${item.owned ? '已解锁' : state.devMode ? '解锁' : wallet < price ? `还差 ${price - wallet}` : `解锁 ${price}`}</button>
         </div>`;
       }).join('');
     }
@@ -4509,11 +4521,13 @@
     els.shopGrid.innerHTML = shopItems().map(item => {
       const isKnife = item.id.startsWith('knife:');
       const knifeId = isKnife ? item.id.split(':')[1] : '';
-      const disabled = item.owned || !canAfford(item.price);
+      const price = shopPrice(item.price);
+      const disabled = item.owned || !canAfford(price);
+      const label = item.owned ? item.label : state.devMode ? '免费领取' : `买 ${price}`;
       return `<div class="shop-item">
         <div class="shop-icon">${item.icon}</div>
         <div class="shop-copy"><b>${item.name}</b><small>${item.desc}</small></div>
-        <button class="buy-btn ${item.owned ? 'equipped' : ''}" type="button" data-buy="${item.id}" ${disabled ? 'disabled' : ''}>${item.owned ? '已拥有' : state.devMode ? '免费领取' : item.label}</button>
+        <button class="buy-btn ${item.owned ? 'equipped' : ''}" type="button" data-buy="${item.id}" ${disabled ? 'disabled' : ''}>${label || item.label}</button>
       </div>`;
     }).join('');
   }
@@ -4523,13 +4537,13 @@
     const u = shopUpgrades();
     if(itemId === 'pot'){
       if(u.pots >= 4) return;
-      const price = potPrice();
+      const price = shopPrice(potPrice());
       if(!spendCoins(price)){ toast('金币不够，再卖几罐吧'); return; }
       u.pots++;
       sfx.coin(); toast('新锅到手！厨房里多了一口熬糖锅');
     }else if(itemId === 'alarm'){
       if(u.alarms >= 4) return;
-      if(!spendCoins(ALARM_PRICE)){ toast('金币不够'); return; }
+      if(!spendCoins(shopPrice(ALARM_PRICE))){ toast('金币不够'); return; }
       u.alarms++;
       sfx.coin(); toast('闹钟到手！在柜台旁边，拖到锅上就能设置');
     }else if(itemId.startsWith('knife:')){
@@ -4540,7 +4554,7 @@
         u.knife = id;
         sfx.tap(); toast(`换上了${k.name}`);
       }else{
-        if(!spendCoins(k.price)){ toast('金币不够'); return; }
+        if(!spendCoins(shopPrice(k.price))){ toast('金币不够'); return; }
         u.knives.push(id);
         u.knife = id;
         sfx.coin(); toast(`买下并装备了${k.name}`);
@@ -4670,14 +4684,14 @@
     if(!s) return;
     if(rogueActive()){
       if(state.rogue.syrups.includes(id)) return;
-      if(!spendCoins(s.price)){ toast('金币不够'); return; }
+      if(!spendCoins(shopPrice(s.price))){ toast('金币不够'); return; }
       state.rogue.syrups.push(id);
       sfx.coin(); toast(`${s.name}已解锁（本局有效）`);
       renderShop(); updateHud();
       return;
     }
     if(!activeProfile || activeProfile.syrups[id]) return;
-    if(!spendCoins(s.price)){ toast('金币不够'); return; }
+    if(!spendCoins(shopPrice(s.price))){ toast('金币不够'); return; }
     activeProfile.syrups[id] = true;
     sfx.coin(); toast(`${s.name}已解锁，熬糖时可以选择`);
     syncProfile(); saveProfiles(); renderShop(); updateHud();
@@ -4688,7 +4702,7 @@
     const [kind, id] = expandId.split(':');
     const item = expansionItems().find(x => x.id === expandId);
     if(!item || item.owned) return;
-    if(!spendCoins(item.price)){ toast('金币不够，先营业赚一点吧'); return; }
+    if(!spendCoins(shopPrice(item.price))){ toast('金币不够，先营业赚一点吧'); return; }
     if(rogueActive()){
       const arr = kind === 'topping' ? state.rogue.toppings : state.rogue.jars;
       if(!arr.includes(id)) arr.push(id);
