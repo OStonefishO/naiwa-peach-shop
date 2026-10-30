@@ -76,6 +76,15 @@
       happy:'耳朵都竖起来了！这罐真的好好吃！',
       okay:'嗯……还行吧，我没有很失望。'}
   ];
+  const GUEST_CODEX = {
+    '小黄':{icon:'🐕',bio:'街角第一个闻香而来的小黄狗，最爱冰镇薄荷。'},
+    '阿蓝':{icon:'🐶',bio:'戴蓝色小帽的熟客，点单干脆，喜欢桂花香。'},
+    '豆豆':{icon:'🐩',bio:'戴圆框眼镜的慢条斯理型客人，偏爱温热糖水。'},
+    '口水猫':{icon:'🐱',bio:'闻到黄桃味就会流口水的橘猫，抱着一罐同款罐头。'},
+    '夜莺师傅':{icon:'🐦',bio:'用耳朵品鉴糖水的音乐家，讲究“高音甜、低音沉”。'},
+    '海绵宝宝':{icon:'🧽',bio:'永远元气满满的海绵，觉得黄桃罐头比蟹黄堡还香。'},
+    '飞机耳猫':{icon:'🐈',bio:'耳朵像小飞机一样折起来，说话小声但很认真地付钱。'}
+  };
   const ELITE_GUEST = {name:'寸头猪', kind:'pig', tier:'elite', badge:'精英', personality:'strict', patience:.8, coin:1.35, tolDelta:-2,
     greet:'我从沙漠一路溜达来的。给我做罐讲究点的，别糊弄。',
     happy:'行啊，这手艺在沙漠里能开分店。',
@@ -1404,6 +1413,12 @@
       html += PERSONALITY_IDS.map(id => {
         const p = PERSONALITIES[id];
         return codexItem(p.icon, p.name, `${p.desc}<br>${p.effect}`, '', false);
+      }).join('');
+    } else if(codexTab === 'normal'){
+      html = `<div class="codex-note">每天在店里随机出现的常客。他们也可能带上不同的性格来点单。</div>`;
+      html += GUESTS.map(g => {
+        const info = GUEST_CODEX[g.name] || {icon:'🐾',bio:'奶蛙小店里的常客。'};
+        return codexItem(info.icon, g.name, `${info.bio}<br>性格随机 · 等待与订单随性格变化`, '常客', false);
       }).join('');
     } else if(codexTab === 'items'){
       html = `<div class="codex-note">食材和罐子买过一次就永久解锁，会出现在后续订单里。</div>`;

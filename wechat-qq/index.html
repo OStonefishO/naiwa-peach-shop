@@ -1664,8 +1664,8 @@
   .codex-kicker{font-size:7px;letter-spacing:1.7px;color:#B78A42;font-weight:900}
   .codex-title{margin:2px 0;font-size:22px;letter-spacing:1px;color:#4A3418}
   .codex-sub{margin:0 0 9px;font-size:7.6px;line-height:1.5;color:#98784A;font-weight:700}
-  .codex-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:3px;border-radius:11px;background:#F1E3C4;margin-bottom:9px}
-  .codex-tab{height:28px;border:0;border-radius:8px;background:transparent;color:#8D6B3A;font-family:inherit;font-size:7.4px;font-weight:900;cursor:pointer}
+  .codex-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;padding:3px;border-radius:11px;background:#F1E3C4;margin-bottom:9px}
+  .codex-tab{height:30px;border:0;border-radius:8px;background:transparent;color:#8D6B3A;font-family:inherit;font-size:7px;font-weight:900;cursor:pointer;white-space:nowrap}
   .codex-tab.active{background:#FFFDF4;color:#6B4418;box-shadow:0 1px 3px rgba(90,60,20,.12)}
   .codex-body{display:grid;gap:6px}
   .codex-item{display:grid;grid-template-columns:34px 1fr;gap:8px;align-items:start;padding:8px 9px;border:1px solid #EBD8B2;border-radius:12px;background:#FFFDF5}
@@ -2436,6 +2436,7 @@
       <p class="codex-sub">客人的性格、食材与罐子、见过的精英与 BOSS。</p>
       <div class="codex-tabs" id="codexTabs">
         <button class="codex-tab active" type="button" data-codex-tab="personality">客人性格</button>
+        <button class="codex-tab" type="button" data-codex-tab="normal">普通客人</button>
         <button class="codex-tab" type="button" data-codex-tab="items">食材与罐子</button>
         <button class="codex-tab" type="button" data-codex-tab="boss">精英与BOSS</button>
       </div>
@@ -2535,6 +2536,15 @@
       happy:'耳朵都竖起来了！这罐真的好好吃！',
       okay:'嗯……还行吧，我没有很失望。'}
   ];
+  const GUEST_CODEX = {
+    '小黄':{icon:'🐕',bio:'街角第一个闻香而来的小黄狗，最爱冰镇薄荷。'},
+    '阿蓝':{icon:'🐶',bio:'戴蓝色小帽的熟客，点单干脆，喜欢桂花香。'},
+    '豆豆':{icon:'🐩',bio:'戴圆框眼镜的慢条斯理型客人，偏爱温热糖水。'},
+    '口水猫':{icon:'🐱',bio:'闻到黄桃味就会流口水的橘猫，抱着一罐同款罐头。'},
+    '夜莺师傅':{icon:'🐦',bio:'用耳朵品鉴糖水的音乐家，讲究“高音甜、低音沉”。'},
+    '海绵宝宝':{icon:'🧽',bio:'永远元气满满的海绵，觉得黄桃罐头比蟹黄堡还香。'},
+    '飞机耳猫':{icon:'🐈',bio:'耳朵像小飞机一样折起来，说话小声但很认真地付钱。'}
+  };
   const ELITE_GUEST = {name:'寸头猪', kind:'pig', tier:'elite', badge:'精英', personality:'strict', patience:.8, coin:1.35, tolDelta:-2,
     greet:'我从沙漠一路溜达来的。给我做罐讲究点的，别糊弄。',
     happy:'行啊，这手艺在沙漠里能开分店。',
@@ -3863,6 +3873,12 @@
       html += PERSONALITY_IDS.map(id => {
         const p = PERSONALITIES[id];
         return codexItem(p.icon, p.name, `${p.desc}<br>${p.effect}`, '', false);
+      }).join('');
+    } else if(codexTab === 'normal'){
+      html = `<div class="codex-note">每天在店里随机出现的常客。他们也可能带上不同的性格来点单。</div>`;
+      html += GUESTS.map(g => {
+        const info = GUEST_CODEX[g.name] || {icon:'🐾',bio:'奶蛙小店里的常客。'};
+        return codexItem(info.icon, g.name, `${info.bio}<br>性格随机 · 等待与订单随性格变化`, '常客', false);
       }).join('');
     } else if(codexTab === 'items'){
       html = `<div class="codex-note">食材和罐子买过一次就永久解锁，会出现在后续订单里。</div>`;

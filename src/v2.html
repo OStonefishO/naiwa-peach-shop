@@ -1664,8 +1664,8 @@
   .codex-kicker{font-size:7px;letter-spacing:1.7px;color:#B78A42;font-weight:900}
   .codex-title{margin:2px 0;font-size:22px;letter-spacing:1px;color:#4A3418}
   .codex-sub{margin:0 0 9px;font-size:7.6px;line-height:1.5;color:#98784A;font-weight:700}
-  .codex-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:3px;border-radius:11px;background:#F1E3C4;margin-bottom:9px}
-  .codex-tab{height:28px;border:0;border-radius:8px;background:transparent;color:#8D6B3A;font-family:inherit;font-size:7.4px;font-weight:900;cursor:pointer}
+  .codex-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;padding:3px;border-radius:11px;background:#F1E3C4;margin-bottom:9px}
+  .codex-tab{height:30px;border:0;border-radius:8px;background:transparent;color:#8D6B3A;font-family:inherit;font-size:7px;font-weight:900;cursor:pointer;white-space:nowrap}
   .codex-tab.active{background:#FFFDF4;color:#6B4418;box-shadow:0 1px 3px rgba(90,60,20,.12)}
   .codex-body{display:grid;gap:6px}
   .codex-item{display:grid;grid-template-columns:34px 1fr;gap:8px;align-items:start;padding:8px 9px;border:1px solid #EBD8B2;border-radius:12px;background:#FFFDF5}
@@ -2436,6 +2436,7 @@
       <p class="codex-sub">客人的性格、食材与罐子、见过的精英与 BOSS。</p>
       <div class="codex-tabs" id="codexTabs">
         <button class="codex-tab active" type="button" data-codex-tab="personality">客人性格</button>
+        <button class="codex-tab" type="button" data-codex-tab="normal">普通客人</button>
         <button class="codex-tab" type="button" data-codex-tab="items">食材与罐子</button>
         <button class="codex-tab" type="button" data-codex-tab="boss">精英与BOSS</button>
       </div>
