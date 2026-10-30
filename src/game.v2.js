@@ -112,7 +112,7 @@
     work:'music/work.mp3',
     summary:'music/summary.mp3'
   };
-  const PATIENCE_MS = 100000;
+  const PATIENCE_MS = 220000;
   const GUEST_COUNT = 3;
   const POUR_RATE = 0.032;
   const BOIL_MS = 14000;
@@ -120,6 +120,13 @@
   const BOIL_MAX = 82;
   const CUT_STOCK = 14;
   const MAX_PIECES = 5;
+  const SYRUPS = {
+    classic:{name:'经典糖浆', short:'经典', color:'#F3BC45', grad:['#FFD76B','#F19A2D'], price:0, desc:'黄桃罐头的招牌糖水'},
+    honey:{name:'蜂蜜', short:'蜂蜜', color:'#E7A12B', grad:['#FFD36A','#D98812'], price:120, desc:'更浓更甜，带一点花香'},
+    maple:{name:'枫糖浆', short:'枫糖', color:'#A96532', grad:['#D79A5B','#8B4B23'], price:150, desc:'焦糖木香，和蜂蜜很搭'}
+  };
+  const SYRUP_IDS = ['classic','honey','maple'];
+  const ALARM_PRICE = 35;
   const SAVE_KEY = 'naiwa_v2_save';
   const POT_PRICES = {1:28, 2:48, 3:75};
   const KNIVES = {
@@ -211,6 +218,8 @@
       skins:{desk:['classic'], work:['classic'], kitchen:['classic']},
       equippedSkins:{desk:'classic', work:'classic', kitchen:'classic'},
       unlocks:{toppings:[], jars:[]},
+      upgrades:{pots:1, alarms:0, knife:'wood', knives:['wood']},
+      syrups:{honey:false, maple:false},
       lastRun:null
     };
   }
@@ -223,10 +232,10 @@
   let batchSeq = 0;
 
   function emptyCan(){
-    return {size:null, jar:'classic', pieces:[], syrup:0, temp:null, toppings:[], toppingTouched:false, sealed:false, batchId:null};
+    return {size:null, jar:'classic', pieces:[], syrup:0, components:{classic:0,honey:0,maple:0}, stirred:false, temp:null, toppings:[], toppingTouched:false, sealed:false, batchIds:[]};
   }
   function makePots(){
-    return Array.from({length:4}, (_,i) => ({id:i, sugar:0, progress:0, status:'idle', quality:null, startedAt:0, alarmFired:false}));
+    return Array.from({length:4}, (_,i) => ({id:i, sugar:0, types:['classic'], progress:0, status:'idle', quality:null, startedAt:0, alarm:false, alarmFired:false}));
   }
 
   const state = {
@@ -236,7 +245,7 @@
     dayCoins:0, dayStars:0, guestIndex:0, guest:null, order:null, todayGuests:[],
     can:emptyCan(), bowl:{large:0,small:0}, stock:Infinity,
     pots:makePots(), batches:[], selectedBatch:null,
-    upgrade:{pots:1, alarm:false, knife:'wood', knives:['wood']},
+    upgrade:{pots:1, alarms:0, knife:'wood', knives:['wood']},
     reviews:[], patience:1, patienceMs:PATIENCE_MS, deadline:0, pouring:false,
     sound:true, lastPourSfx:0, speechTimer:null, toastTimer:null, scoreResult:null,
     metaAwarded:false, homeTab:'room', skinPreview:{area:'desk', id:'classic'}, shopTab:'run'
@@ -400,7 +409,21 @@
     p.unlocks.jars = Array.isArray(p.unlocks.jars)
       ? Array.from(new Set(p.unlocks.jars.filter(id => EXPANSION.jar.some(x => x.id === id))))
       : [];
+    p.upgrades = p.upgrades && typeof p.upgrades === 'object' ? p.upgrades : {};
+    p.upgrades.pots = clamp(Math.round(Number(p.upgrades.pots) || 1), 1, 4);
+    p.upgrades.alarms = clamp(Math.round(Number(p.upgrades.alarms) || 0), 0, 4);
+    p.upgrades.knives = Array.isArray(p.upgrades.knives)
+      ? Array.from(new Set(['wood'].concat(p.upgrades.knives.filter(k => KNIVES[k] && k !== 'wood'))))
+      : ['wood'];
+    if(!KNIVES[p.upgrades.knife]) p.upgrades.knife = 'wood';
+    p.syrups = p.syrups && typeof p.syrups === 'object' ? p.syrups : {};
+    p.syrups.honey = !!p.syrups.honey;
+    p.syrups.maple = !!p.syrups.maple;
     return p;
+  }
+  function availableSyrups(){
+    const owned = activeProfile && activeProfile.syrups ? activeProfile.syrups : {};
+    return ['classic'].concat(['honey','maple'].filter(id => owned[id]));
   }
   function unlockedToppings(){
     const extra = activeProfile && activeProfile.unlocks ? activeProfile.unlocks.toppings : [];
@@ -442,6 +465,7 @@
     state.bestNormal = activeProfile.bestNormal || 0;
     state.bestEndless = activeProfile.bestEndless || 0;
     state.coins = activeProfile.wallet || 0;
+    if(activeProfile.upgrades) state.upgrade = activeProfile.upgrades;
     if(els.coins) els.coins.textContent = state.coins;
     if(els.homeCoins) els.homeCoins.textContent = state.coins;
     if(els.shopCoins) els.shopCoins.textContent = state.coins;
@@ -1198,7 +1222,9 @@
       'leaderboardOverlay','leaderboardList','leaderboardClose',
       'earlyBtn','reviewEarlyBtn','summaryEarlyBtn','shopEarlyBtn','confirmOverlay','confirmCancel','confirmOk',
       'jarSwitchBtn','toppingChips','toppingQtyRow','toppingMinus','toppingQtyVal','toppingPlus',
-      'shopTabs','shopWallet','shopExpandGrid','dressEntryBtn','dressOverlay','dressCoins','dressDoll','dressSlots',
+      'shopTabs','shopWallet','shopExpandGrid','shopSyrupGrid','shopFurnGrid','itemShopEntryBtn','shopTitle','shopSub',
+      'syrupComposition','stirBtn','alarmTray','alarmTrayItems',
+      'dressEntryBtn','dressOverlay','dressCoins','dressDoll','dressSlots',
       'dressClose','dressDoneBtn','frogWear','orderRod',
       'saveEntryBtn','saveOverlay','saveClose','saveExport','saveImport','copySaveBtn','downloadSaveBtn',
       'importSaveBtn','gistToken','gistSyncBtn','gistRestoreBtn','gistClearBtn','saveStatus',
@@ -1317,8 +1343,16 @@
         }
       }
       const tol = Math.max(3, SUGAR[sugar].tol + (guest && guest.tolDelta || 0));
-      order = {size, jar, peaches:{large, small:total-large}, sugar, temp, toppings:tops, tol};
-      sig = `${size}|${jar}|${large}|${total-large}|${sugar}|${temp}|${tops.map(t=>`${t.id}:${t.qty}`).join(',')}`;
+      const poolS = availableSyrups();
+      const sCount = poolS.length > 1 && Math.random() < .46 ? 2 : 1;
+      const picked = poolS.slice().sort(() => Math.random() - .5).slice(0, sCount);
+      let ratios = sCount === 2 ? [50,50] : [100];
+      if(sCount === 2 && Math.random() < .5) ratios = Math.random() < .5 ? [60,40] : [40,60];
+      const syrups = picked.map((id,i) => ({id, ratio:ratios[i]}));
+      const stirred = sCount === 2 && Math.random() < .5;
+      const boilStyle = sCount === 2 ? (Math.random() < .5 ? 'together' : 'separate') : 'single';
+      order = {size, jar, peaches:{large, small:total-large}, sugar, temp, toppings:tops, tol, syrups, stirred, boilStyle};
+      sig = `${size}|${jar}|${large}|${total-large}|${sugar}|${temp}|${tops.map(t=>`${t.id}:${t.qty}`).join(',')}|${syrups.map(s=>`${s.id}${s.ratio}`).join('+')}|${stirred}`;
       if(sig !== lastOrderSig || tries >= 12) break;
     }
     lastOrderSig = sig;
@@ -1334,6 +1368,12 @@
   function toppingText(list){
     if(!list || !list.length) return '不加';
     return list.map(t => `${(TOPPINGS[t.id] || {name:t.id}).name}×${t.qty || 1}勺`).join(' + ');
+  }
+  function syrupText(o){
+    if(!o.syrups || !o.syrups.length) return '经典糖浆';
+    const names = o.syrups.map(s => `${SYRUPS[s.id].name}${s.ratio}%`).join(' + ');
+    const style = o.syrups.length > 1 ? (o.boilStyle === 'together' ? ' · 一起熬' : ' · 分开熬') : '';
+    return `${names}${o.stirred ? ' · 搅拌' : ' · 分层'}${style}`;
   }
   function countPieces(pieces){
     return pieces.reduce((a,s) => { a[s]++; return a; }, {large:0,small:0});
@@ -1357,6 +1397,7 @@
     if(stage === 'desk') renderDesk();
     if(stage === 'work') renderWork();
     if(stage === 'kitchen') renderKitchen();
+    renderAlarmTray();
     updateFooter();
     renderHint();
     updateHud();
@@ -1410,6 +1451,7 @@
       <div class="ticket-row size">${icon('can')}<span class="row-label">罐型</span><b>${SIZES[o.size].name} · ${JARS[o.jar || 'classic'].name}</b></div>
       <div class="ticket-row peach">${icon('peach')}<span class="row-label">黄桃</span><b>${peachText(o.peaches)}</b></div>
       <div class="ticket-row sweet">${icon('drop')}<span class="row-label">糖水</span><b>${SUGAR[o.sugar].name} · ${o.sugar} 勺</b></div>
+      <div class="ticket-row syrup"><svg class="icon"><use href="#i-drop"></use></svg><span class="row-label">糖浆</span><b>${syrupText(o)}</b></div>
       <div class="ticket-row temp">${icon(o.temp === 'ice' ? 'snow' : o.temp === 'warm' ? 'heat' : 'thermo')}<span class="row-label">温度</span><b>${TEMPS[o.temp]}</b></div>
       <div class="ticket-row topping">${icon((o.toppings && o.toppings[0]) ? TOPPINGS[o.toppings[0].id].icon : TOPPINGS.none.icon)}<span class="row-label">加料</span><b>${toppingText(o.toppings)}</b></div>`;
     els.orderTicket.classList.remove('ticket-in');
@@ -1860,6 +1902,7 @@
         <g clip-path="url(#canOpenClip)">
           <rect x="24" y="35" width="92" height="115" fill="#F8E5B3"/>
           <rect id="canSyrupRect" x="24" y="${syrupY}" width="92" height="${syrupH}" fill="url(#syrupGrad)"/>
+          <g id="canSyrupLayers"></g>
           <ellipse id="canSyrupSurface" cx="70" cy="${syrupY}" rx="44" ry="9" fill="#FFE08A" opacity="${hasSyrup ? .75 : 0}"/>
           ${peachG}${iceCubes}${toppingArt}${steam}
         </g>
@@ -1876,16 +1919,47 @@
         ${lid}
       </svg>`;
   }
+  function mixSyrupColors(ids){
+    let r=0,g=0,b=0,n=0;
+    ids.forEach(id => {
+      const hex = (SYRUPS[id] || SYRUPS.classic).color.replace('#','');
+      if(hex.length === 6){ r += parseInt(hex.slice(0,2),16); g += parseInt(hex.slice(2,4),16); b += parseInt(hex.slice(4,6),16); n++; }
+    });
+    if(!n) return '#F3BC45';
+    const to = v => Math.round(v/n).toString(16).padStart(2,'0');
+    return '#' + to(r) + to(g) + to(b);
+  }
   function updateSyrupVisual(){
     const c = state.can;
     const rect = document.getElementById('canSyrupRect');
     const surf = document.getElementById('canSyrupSurface');
-    if(!rect || !surf) return;
+    const layers = document.getElementById('canSyrupLayers');
+    if(!rect || !surf || !layers) return;
     const y = 132 - clamp(c.syrup,0,100) * .9;
     const h = Math.max(0,132-y);
     rect.setAttribute('y', y); rect.setAttribute('height', h);
     surf.setAttribute('cy', y);
     surf.setAttribute('opacity', c.syrup > 0 ? .75 : 0);
+    const parts = SYRUP_IDS.map(id => ({id, v:c.components[id] || 0})).filter(x => x.v > .05);
+    const total = parts.reduce((s,x) => s+x.v, 0);
+    if(c.syrup <= 0 || total <= 0){ layers.innerHTML = ''; return; }
+    if(c.stirred){
+      rect.setAttribute('fill', mixSyrupColors(parts.map(x => x.id)));
+      rect.setAttribute('opacity', '1');
+      layers.innerHTML = '';
+      surf.setAttribute('fill', mixSyrupColors(parts.map(x => x.id)));
+      return;
+    }
+    rect.setAttribute('fill', 'rgba(248,229,179,.55)');
+    rect.setAttribute('opacity', '1');
+    let offset = 0;
+    layers.innerHTML = parts.map(part => {
+      const ph = h * part.v / total;
+      const py = 132 - offset - ph;
+      offset += ph;
+      return `<rect x="24" y="${py.toFixed(2)}" width="92" height="${Math.max(.5,ph).toFixed(2)}" fill="${SYRUPS[part.id].color}" opacity=".9"/>`;
+    }).join('');
+    surf.setAttribute('fill', SYRUPS[parts[0].id].color);
   }
   function bumpCan(){
     els.canWrap.classList.remove('bump');
@@ -1974,7 +2048,7 @@
       els.batchStrip.innerHTML = state.batches.map(b => {
         const label = b.quality === 'thin' ? '偏生（也能用）' : b.quality === 'burnt' ? '焦苦（也能用）' : '火候完美';
         return `<button class="batch-chip ${state.selectedBatch === b.id ? 'active' : ''} ${b.quality || ''}" type="button" data-batch="${b.id}" ${c.sealed || b.used ? 'disabled' : ''}>
-          ${b.sugar} 勺 · ${label}<small>糖水 #${b.id}${b.used ? ' · 已用' : b.sugar === state.order.sugar ? ' · 对味' : ''}</small>
+          ${(b.types || ['classic']).map(id => SYRUPS[id].name).join('+')} · ${b.sugar} 勺 · ${label}<small>糖水 #${b.id}${b.used ? ' · 已用' : b.sugar === state.order.sugar ? ' · 对味' : ''}</small>
         </button>`;
       }).join('');
     }
@@ -1988,27 +2062,87 @@
     els.syrupReadout.textContent = Math.round(c.syrup) + '%';
     const selBatch = findBatch();
     els.syrupNote.textContent = selBatch
-      ? `已选：${selBatch.sugar} 勺 · ${selBatch.quality === 'thin' ? '偏生' : selBatch.quality === 'burnt' ? '焦苦' : '火候完美'}`
+      ? `已选：${(selBatch.types || ['classic']).map(id => SYRUPS[id].name).join('+')} · ${selBatch.sugar} 勺 · ${selBatch.quality === 'thin' ? '偏生' : selBatch.quality === 'burnt' ? '焦苦' : '火候完美'}`
       : '选一锅熬好的糖水';
     els.pourBtn.disabled = c.sealed || !findBatch() || c.syrup >= 100;
     els.pourBtn.classList.toggle('pouring', state.pouring);
+    renderSyrupComposition();
     updateFooter();
+  }
+
+  function renderSyrupComposition(){
+    if(!els.syrupComposition) return;
+    const o = state.order, c = state.can;
+    if(!o){ els.syrupComposition.innerHTML = ''; return; }
+    const targetTotal = SUGAR[o.sugar].target;
+    const expected = o.syrups || [{id:'classic',ratio:100}];
+    els.syrupComposition.innerHTML = expected.map(s => {
+      const comp = c.components[s.id] || 0;
+      const target = targetTotal * s.ratio / 100;
+      const pct = clamp(comp / 100 * 100, 0, 100);
+      const tgt = clamp(target, 0, 100);
+      const ok = Math.abs(comp - target) <= (o.tol || 8) * s.ratio / 100;
+      return `<div class="comp-item">
+        <div class="comp-top"><span>${SYRUPS[s.id].name}</span><b>${Math.round(comp)} / ${Math.round(target)}%${ok?' ✓':''}</b></div>
+        <div class="comp-track"><div class="comp-fill" style="width:${pct}%;background:${SYRUPS[s.id].color}"></div><i class="comp-target" style="left:${tgt}%"></i></div>
+      </div>`;
+    }).join('');
+    const two = expected.length > 1;
+    if(els.stirBtn){
+      els.stirBtn.hidden = !two;
+      els.stirBtn.classList.toggle('on', !!c.stirred);
+      els.stirBtn.textContent = c.stirred ? '已搅拌 · 点一下恢复分层' : '搅拌一下';
+    }
+  }
+
+  function toggleStir(){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    if(!state.order || (state.order.syrups || []).length < 2) return;
+    state.can.stirred = !state.can.stirred;
+    updateSyrupVisual();
+    renderWork();
+    sfx.tap();
   }
 
   function renderKitchen(){
     if(!state.order) return;
     const o = state.order;
-    els.kitchenOrder.innerHTML = `订单：<b>${SIZES[o.size].name} · ${JARS[o.jar || 'classic'].name}</b> · 黄桃 <b>${peachText(o.peaches)}</b> · ${SUGAR[o.sugar].name}（${o.sugar} 勺） · 加料 ${toppingText(o.toppings)}`;
+    els.kitchenOrder.innerHTML = `订单：<b>${SIZES[o.size].name} · ${JARS[o.jar || 'classic'].name}</b> · 黄桃 <b>${peachText(o.peaches)}</b> · ${SUGAR[o.sugar].name}（${o.sugar} 勺） · 糖浆 <b>${syrupText(o)}</b> · 加料 ${toppingText(o.toppings)}`;
     els.cutStock.textContent = '不限';
     els.bowlLarge.textContent = state.bowl.large;
     els.bowlSmall.textContent = state.bowl.small;
     els.cutStage.classList.remove('knife-mint','knife-sakura','knife-gold');
     if(state.upgrade.knife !== 'wood') els.cutStage.classList.add('knife-' + state.upgrade.knife);
-    els.alarmNote.textContent = state.upgrade.alarm
-      ? '闹钟已开启：进入火候区前会响铃提醒。'
+    const alarms = state.upgrade.alarms || 0;
+    const assigned = state.pots.filter(p => p.alarm).length;
+    els.alarmNote.textContent = alarms > 0
+      ? `闹钟 ${alarms} 个 · 已设置 ${assigned} 个：把闹钟拖到锅上，进入火候区前会响铃。`
       : '没有闹钟：盯着绿色火候区，自己数秒关火。';
     els.potNote.textContent = `绿色区 ${BOIL_MIN}%–${BOIL_MAX}% · 太早太晚都会失败`;
     renderPots();
+    renderAlarmTray();
+  }
+
+  function renderAlarmTray(){
+    if(!els.alarmTray || !els.alarmTrayItems) return;
+    const total = state.upgrade.alarms || 0;
+    const assigned = state.pots.filter(p => p.alarm).length;
+    const free = Math.max(0, total - assigned);
+    els.alarmTray.hidden = state.stage !== 'kitchen' || total <= 0;
+    els.alarmTrayItems.innerHTML = Array.from({length: free}, (_,i) =>
+      `<div class="alarm-token" draggable="true" data-alarm="${i}" title="拖到锅炉上设置闹钟">⏰</div>`).join('');
+  }
+  function assignAlarm(potId){
+    const p = state.pots[potId];
+    if(!p || p.alarm) return;
+    const assigned = state.pots.filter(x => x.alarm).length;
+    if(assigned >= (state.upgrade.alarms || 0)){ toast('没有空闲闹钟了，去道具商店再买一个'); return; }
+    p.alarm = true;
+    p.alarmFired = false;
+    sfx.ding();
+    toast(`闹钟已放到熬糖锅 ${potId+1}，到火候区会响`);
+    renderPots();
+    renderAlarmTray();
   }
 
   function potStatusText(p){
@@ -2025,6 +2159,8 @@
       }
       const p = state.pots[i];
       const dots = [1,2,3].map(n => `<i class="sugar-dot ${p.sugar >= n ? 'on' : ''}"></i>`).join('');
+      const types = availableSyrups().map(id =>
+        `<button class="pot-type ${p.types.includes(id) ? 'on' : ''}" type="button" data-pot-type="${id}" data-pot="${i}" ${p.status !== 'idle' ? 'disabled' : ''}>${SYRUPS[id].name.replace('糖浆','')}</button>`).join('');
       let actions = '';
       if(p.status === 'heating'){
         actions = `<button class="primary" type="button" data-pot-stop="${i}">关火出锅</button>`;
@@ -2033,8 +2169,10 @@
           <button type="button" data-pot-sugar="1" data-pot="${i}" ${p.sugar>=3?'disabled':''}>糖+</button>
           <button class="primary" type="button" data-pot-start="${i}" ${p.sugar<1?'disabled':''}>开火</button>`;
       }
-      html += `<div class="pot-card" data-status="${p.status}">
-        <div class="pot-head"><b>熬糖锅 ${i+1}</b><span class="pot-sugar">${dots}</span></div>
+      const alarm = p.alarm ? `<span class="pot-alarm">⏰ 闹钟</span>` : '';
+      html += `<div class="pot-card" data-status="${p.status}" data-pot-drop="${i}">
+        <div class="pot-head"><b>熬糖锅 ${i+1}</b><span class="pot-sugar">${dots}${alarm}</span></div>
+        <div class="pot-types">${types}</div>
         <div class="pot-gauge"><div class="pot-zone"></div><div class="pot-fill" id="potFill${i}" style="width:${p.progress}%"></div></div>
         <div class="pot-meta"><span>${potStatusText(p)}</span><b id="potPct${i}">${Math.round(p.progress)}%</b></div>
         <div class="pot-actions">${actions}</div>
@@ -2218,7 +2356,7 @@
     state.batches = [];
     state.selectedBatch = null;
     state.pots = makePots();
-    state.upgrade = {pots:1, alarm:false, knife:'wood', knives:['wood']};
+    if(activeProfile && activeProfile.upgrades) state.upgrade = activeProfile.upgrades;
     state.stock = Infinity;
     batchSeq = 0;
     lastOrderSig = '';
@@ -2342,7 +2480,7 @@
     if(!focus || !list.some(t => t.id === focus)) focus = list[0].id;
     const item = list.find(t => t.id === focus);
     if(!item) return;
-    const next = clamp(item.qty + delta, 0, 3);
+    const next = clamp(item.qty + delta, 0, 99);
     if(next <= 0){
       state.can.toppings = list.filter(t => t.id !== focus);
       state.toppingFocus = state.can.toppings.length ? state.can.toppings[0].id : null;
@@ -2376,6 +2514,19 @@
     renderHint();
   }
 
+  function cyclePotType(potId, type){
+    const p = state.pots[potId];
+    if(!p || p.status !== 'idle') return;
+    if(p.types.includes(type)){
+      if(p.types.length === 1){ toast('至少保留一种糖浆'); return; }
+      p.types = p.types.filter(t => t !== type);
+    }else{
+      if(p.types.length >= 2){ toast('一口锅最多两种糖浆'); return; }
+      p.types.push(type);
+    }
+    sfx.tap();
+    renderPots();
+  }
   function addSugar(potId, delta){
     if(state.phase !== 'playing' || state.stage !== 'kitchen') return;
     const p = state.pots[potId];
@@ -2408,7 +2559,7 @@
     bottlePot(p, quality);
   }
   function bottlePot(p, quality){
-    const batch = {id:++batchSeq, sugar:p.sugar, quality};
+    const batch = {id:++batchSeq, sugar:p.sugar, quality, types:(p.types || ['classic']).slice()};
     state.batches.push(batch);
     state.selectedBatch = batch.id;
     p.status = 'idle'; p.sugar = 0; p.progress = 0; p.quality = null;
@@ -2430,7 +2581,7 @@
     state.pots.forEach(p => {
       if(p.status !== 'heating') return;
       p.progress = clamp((now - p.startedAt) / BOIL_MS * 100, 0, 100);
-      if(state.upgrade.alarm && !p.alarmFired && p.progress >= 50){
+      if(p.alarm && !p.alarmFired && p.progress >= 50){
         p.alarmFired = true;
         sfx.alarm(); buzz(35);
       }
@@ -2445,9 +2596,9 @@
     if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
     const batch = state.batches.find(b => b.id === id);
     if(!batch || batch.used) return;
-    if(state.can.syrup > 0){ toast('已经倒进去了，想换糖水先点「重做」'); return; }
+    if(state.can.sealed){ toast('已经封盖了，先重做'); return; }
     state.selectedBatch = id;
-    state.can.batchId = id;
+    if(!state.can.batchId) state.can.batchId = id;
     renderWork();
     renderHint();
     sfx.tap();
@@ -2473,7 +2624,14 @@
   function tickPour(now){
     if(!state.pouring) return;
     const c = state.can;
-    c.syrup = clamp(c.syrup + POUR_RATE * 16.7, 0, 100);
+    const batch = findBatch();
+    if(!batch){ stopPour(); return; }
+    const types = (batch.types && batch.types.length) ? batch.types : ['classic'];
+    const add = POUR_RATE * 16.7;
+    const each = add / types.length;
+    types.forEach(id => { c.components[id] = clamp((c.components[id] || 0) + each, 0, 100); });
+    c.syrup = clamp(c.syrup + add, 0, 100);
+    if(!c.batchIds.includes(batch.id)) c.batchIds.push(batch.id);
     updateSyrupVisual();
     els.syrupFill.style.width = c.syrup + '%';
     els.syrupReadout.textContent = Math.round(c.syrup) + '%';
@@ -2559,50 +2717,82 @@
     const total = c.pieces.length;
     const need = peachTotal(o.peaches);
     const sizeOk = c.size === o.size;
-    const jarOk = (c.jar || 'classic') === (o.jar || 'classic');
+    const jarChoice = unlockedJars().length > 1;
+    const jarOk = !jarChoice || (c.jar || 'classic') === (o.jar || 'classic');
     const countDiff = Math.abs(total - need);
     const sizeDiff = Math.abs(counts.large - o.peaches.large) + Math.abs(counts.small - o.peaches.small);
-    const sizeScore = sizeOk ? 10 : 0;
-    const jarScore = jarOk ? 5 : 0;
-    const countScore = countDiff === 0 ? 10 : countDiff === 1 ? 5 : 0;
-    const pieceSizeScore = sizeDiff === 0 ? 10 : Math.max(0, 10 - sizeDiff * 5);
+    const sizeScore = sizeOk ? 6 : 0;
+    const jarScore = jarChoice ? (jarOk ? 2 : 0) : 2;
+    const countScore = countDiff === 0 ? 8 : countDiff === 1 ? 4 : 0;
+    const pieceSizeScore = sizeDiff === 0 ? 7 : Math.max(0, 7 - sizeDiff * 3.5);
     const peachScore = countScore + pieceSizeScore;
-    const batch = state.batches.find(b => b.id === c.batchId);
-    const sugarScore = batch && batch.sugar === o.sugar ? 5 : 0;
-    const qualityScore = batch ? (batch.quality === 'perfect' ? 5 : batch.quality === 'thin' ? 2 : 1) : 0;
+
+    const wantSyrups = o.syrups || [{id:'classic', ratio:100}];
+    const wantIds = wantSyrups.map(s => s.id);
+    const gotIds = SYRUP_IDS.filter(id => (c.components[id] || 0) > .5);
+    const matched = wantIds.filter(id => gotIds.includes(id));
+    const extra = gotIds.filter(id => !wantIds.includes(id)).length;
+    const usedBatches = (c.batchIds || []).map(id => state.batches.find(b => b.id === id)).filter(Boolean);
+    if(!usedBatches.length && c.batchId) usedBatches.push(state.batches.find(b => b.id === c.batchId));
+    const batchTypes = usedBatches.map(b => b.types || ['classic']);
+    const styleOk = wantIds.length <= 1
+      ? batchTypes.every(t => t.length === 1)
+      : o.boilStyle === 'together'
+        ? batchTypes.some(t => t.length > 1)
+        : batchTypes.every(t => t.length === 1);
+    const kindScore = Math.max(0, 7 * matched.length / wantIds.length - extra * 3) + (styleOk ? 3 : 0);
+
     const target = SUGAR[o.sugar].target, tol = o.tol || SUGAR[o.sugar].tol;
-    const fillDiff = Math.abs(c.syrup - target);
-    const fillScore = fillDiff <= tol ? 10 : Math.max(0, 10 - (fillDiff - tol) * .45);
-    const syrupScore = sugarScore + qualityScore + fillScore;
-    const tempScore = c.temp === o.temp ? 15 : 0;
+    let maxRatioDiff = 0;
+    wantSyrups.forEach(s => {
+      const want = target * s.ratio / 100;
+      maxRatioDiff = Math.max(maxRatioDiff, Math.abs((c.components[s.id] || 0) - want));
+    });
+    const ratioScore = maxRatioDiff <= tol ? 8 : Math.max(0, 8 - (maxRatioDiff - tol) * .7);
+
+    const qualityPts = usedBatches.map(b => b.quality === 'perfect' ? 10 : b.quality === 'thin' ? 5 : 1);
+    const batch = usedBatches[0] || null;
+    const boilScore = qualityPts.length ? qualityPts.reduce((a,b) => a+b, 0) / qualityPts.length : 0;
+
+    const pourDiff = Math.abs(c.syrup - target);
+    const pourScore = c.syrup <= 0 ? 0 : pourDiff <= tol ? 12 : Math.max(0, 12 - (pourDiff - tol) * .8);
+
+    const stirScore = wantIds.length > 1 ? (!!c.stirred === !!o.stirred ? 7 : 0) : 7;
+
+    const tempScore = c.temp === o.temp ? 10 : 0;
     const wantTops = o.toppings || [], gotTops = c.toppings || [];
     let toppingKindScore = 0, toppingQtyScore = 0;
     if(!wantTops.length){
-      toppingKindScore = gotTops.length ? 0 : 8;
-      toppingQtyScore = gotTops.length ? 0 : 7;
+      toppingKindScore = gotTops.length ? 0 : 6;
+      toppingQtyScore = gotTops.length ? 0 : 4;
     }else{
-      const matched = wantTops.filter(w => gotTops.some(g => g.id === w.id));
+      const topMatched = wantTops.filter(w => gotTops.some(g => g.id === w.id));
       const exact = wantTops.filter(w => gotTops.some(g => g.id === w.id && g.qty === w.qty));
-      const extra = gotTops.filter(g => !wantTops.some(w => w.id === g.id)).length;
-      toppingKindScore = Math.max(0, 8 * matched.length / wantTops.length - extra * 2);
-      toppingQtyScore = 7 * exact.length / wantTops.length;
+      const topExtra = gotTops.filter(g => !wantTops.some(w => w.id === g.id)).length;
+      toppingKindScore = Math.max(0, 6 * topMatched.length / wantTops.length - topExtra * 1.5);
+      toppingQtyScore = 4 * exact.length / wantTops.length;
     }
     const toppingScore = toppingKindScore + toppingQtyScore;
     const remain = Math.max(0, state.deadline - performance.now());
-    const speedScore = remain >= state.patienceMs * .5 ? 15 : remain >= state.patienceMs * .25 ? 10 : remain > 0 ? 5 : 0;
-    const score = timedOut ? 0 : Math.round(sizeScore + jarScore + peachScore + syrupScore + tempScore + toppingScore + speedScore);
+    const speedScore = remain >= state.patienceMs * .5 ? 10 : remain >= state.patienceMs * .25 ? 7 : remain > 0 ? 4 : 0;
+    const score = timedOut ? 0 : Math.round(sizeScore + jarScore + peachScore + kindScore + ratioScore + boilScore + pourScore + stirScore + tempScore + toppingScore + speedScore);
     const perfect = !timedOut && score >= 100;
     const stars = score >= 90 ? 3 : score >= 70 ? 2 : score >= 45 ? 1 : 0;
     const baseCoins = timedOut ? 0 : 8 + Math.round(score * .12) + (perfect ? 5 : 0);
     const coins = Math.round(baseCoins * ((state.guest && state.guest.coin) || 1));
     const details = [];
-    details.push({ok:sizeScore===10, label:'罐型', text: sizeOk ? `${SIZES[c.size].name} · ${JARS[c.jar || 'classic'].name} ✓` : `要${SIZES[o.size].name} · 用了${SIZES[c.size] ? SIZES[c.size].name : '空罐'}`});
-    details.push({ok:jarScore===5, label:'罐子', text: jarOk ? JARS[c.jar || 'classic'].name + ' ✓' : `要${JARS[o.jar || 'classic'].name} · 用了${JARS[c.jar || 'classic'].name}`});
-    details.push({ok:peachScore===20, label:'黄桃', text: `${counts.large}大${counts.small}小 · 共${total}块${peachScore===20 ? ' ✓' : ` / 要${peachText(o.peaches)}`}`});
-    details.push({ok:syrupScore>=19, label:'糖水', text: batch ? `${SUGAR[batch.sugar].name} · ${batch.quality === 'perfect' ? '火候完美' : batch.quality === 'thin' ? '偏生' : '焦苦'} · ${Math.round(c.syrup)}%${syrupScore===20 ? ' ✓' : ''}` : '没有可用糖水'});
-    details.push({ok:tempScore===15, label:'温度', text: c.temp ? `${TEMPS[c.temp]}${tempScore===15 ? ' ✓' : ` / 要${TEMPS[o.temp]}`}` : '没选温度'});
-    details.push({ok:toppingScore>=14.5, label:'加料', text: c.toppingTouched ? `${toppingText(gotTops)}${toppingScore>=14.5 ? ' ✓' : ` / 要${toppingText(wantTops)}`}` : '没选加料'});
-    details.push({ok:speedScore===15, label:'出餐速度', text: timedOut ? '超时了…' : speedScore===15 ? '手速超快' : speedScore===10 ? '稍微有点慢' : '客人等急了'});
+    details.push({ok:sizeScore===6, label:'罐型', text: sizeOk ? `${SIZES[c.size].name} ✓` : `要${SIZES[o.size].name}${c.size ? ` · 用了${SIZES[c.size].name}` : ''}`});
+    if(jarChoice) details.push({ok:jarOk, label:'罐子', text: jarOk ? `${JARS[c.jar || 'classic'].name} ✓` : `要${JARS[o.jar || 'classic'].name}`});
+    details.push({ok:peachScore===15, label:'黄桃', text: `${counts.large}大${counts.small}小 · 共${total}块${peachScore===15 ? ' ✓' : ` / 要${peachText(o.peaches)}`}`});
+    details.push({ok:kindScore>=9.5, label:'糖浆种类', text: c.syrup > 0 ? `${gotIds.map(id => SYRUPS[id].name).join('+') || '空'}${kindScore>=9.5 ? ' ✓' : ` / 要${wantIds.map(id => SYRUPS[id].name).join('+')}${wantIds.length > 1 ? (o.boilStyle === 'together' ? '·一起熬' : '·分开熬') : ''}`}` : '还没倒糖浆'});
+    const ratioText = wantSyrups.map(s => `${SYRUPS[s.id].name} ${Math.round(c.components[s.id] || 0)}/${Math.round(target * s.ratio / 100)}%`).join(' · ');
+    details.push({ok:ratioScore>=7.5, label:'糖浆比例', text: ratioText});
+    details.push({ok:boilScore>=9.5, label:'熬糖火候', text: usedBatches.length ? usedBatches.map(b => `${(b.types||['classic']).map(id=>SYRUPS[id].name).join('+')}：${b.quality === 'perfect' ? '完美' : b.quality === 'thin' ? '偏生' : '焦苦'}`).join(' / ') : '没有可用糖水'});
+    details.push({ok:pourScore>=11.5, label:'倒糖量', text: `总 ${Math.round(c.syrup)}% / 目标 ${Math.round(target)}%`});
+    details.push({ok:stirScore===7, label:'搅拌', text: wantIds.length > 1 ? (c.stirred ? '已搅拌 ✓' : '分层') + (o.stirred === !!c.stirred ? ' ✓' : o.stirred ? ' / 要搅拌' : ' / 要分层') : '单糖浆 ✓'});
+    details.push({ok:tempScore===10, label:'温度', text: c.temp ? `${TEMPS[c.temp]}${tempScore===10 ? ' ✓' : ` / 要${TEMPS[o.temp]}`}` : '没选温度'});
+    details.push({ok:toppingScore>=9.5, label:'加料', text: c.toppingTouched ? `${toppingText(gotTops)}${toppingScore>=9.5 ? ' ✓' : ` / 要${toppingText(wantTops)}`}` : '没选加料'});
+    details.push({ok:speedScore===10, label:'出餐速度', text: timedOut ? '超时了…' : speedScore===10 ? '手速超快' : speedScore===7 ? '稍微有点慢' : '客人等急了'});
     return {score, stars, perfect, coins, details, timedOut, guest:state.guest};
   }
 
@@ -2806,22 +2996,45 @@
   function potPrice(){ return POT_PRICES[state.upgrade.pots] || 999; }
   function shopItems(){
     const items = [];
-    items.push({id:'pot', name:'备用熬糖锅', desc:`当前 ${state.upgrade.pots} 口 · 最多 4 口，可以同时熬多锅`, price:potPrice(),
-      owned:state.upgrade.pots >= 4, label:state.upgrade.pots >= 4 ? '已满 4 口' : `买 ${potPrice()}`,
+    const u = activeProfile ? activeProfile.upgrades : state.upgrade;
+    items.push({id:'pot', name:'备用熬糖锅', desc:`当前 ${u.pots} 口 · 最多 4 口，可以同时熬多锅`, price:potPrice(),
+      owned:u.pots >= 4, label:u.pots >= 4 ? '已满 4 口' : `买 ${potPrice()}`,
       icon:`<svg class="icon" style="width:28px;height:28px;color:#B67F1A"><use href="#i-heat"></use></svg>`});
-    items.push({id:'alarm', name:'熬糖锅闹钟', desc:'进入火候区前响铃提醒，不用一直盯着锅', price:35,
-      owned:state.upgrade.alarm, label:state.upgrade.alarm ? '已拥有' : '买 35',
+    items.push({id:'alarm', name:'熬糖锅闹钟', desc:`买了拖到锅上 · 已有 ${u.alarms}/4 个，每口锅要单独设`, price:ALARM_PRICE,
+      owned:u.alarms >= 4, label:u.alarms >= 4 ? '已满 4 个' : `买 ${ALARM_PRICE}`,
       icon:`<svg class="icon" style="width:28px;height:28px;color:#8A6842"><use href="#i-clock"></use></svg>`});
     Object.keys(KNIVES).forEach(id => {
       if(id === 'wood') return;
       const k = KNIVES[id];
-      const owned = state.upgrade.knives.includes(id);
-      const equipped = state.upgrade.knife === id;
+      const owned = u.knives.includes(id);
+      const equipped = u.knife === id;
       items.push({id:'knife:'+id, name:k.name, desc: equipped ? '正在使用 · 切桃时换一种手感' : '刀具皮肤 · 切桃时显示',
         price:k.price, owned:equipped, label:equipped ? '使用中' : owned ? '装备' : `买 ${k.price}`,
         icon:`<i class="knife-swatch" style="--sw:${k.color}"></i>`});
     });
     return items;
+  }
+  function syrupItems(){
+    return ['honey','maple'].map(id => {
+      const s = SYRUPS[id], owned = !!(activeProfile && activeProfile.syrups[id]);
+      return {id, name:s.name, desc:s.desc, price:s.price, owned,
+        icon:`<span style="display:block;width:26px;height:26px;border-radius:50%;background:${s.color};border:2px solid #C58B3A"></span>`,
+        label: owned ? '已解锁' : `解锁 ${s.price}`};
+    });
+  }
+  function renderShopFurniture(){
+    if(!els.shopFurnGrid || !activeProfile) return;
+    els.shopFurnGrid.innerHTML = Object.entries(FURNITURE).map(([id,f]) => {
+      const owned = activeProfile.ownedFurniture.includes(id);
+      const placed = activeProfile.placedFurniture.includes(id);
+      return `<div class="shop-item">
+        <div class="shop-icon">${f.icon}</div>
+        <div class="shop-copy"><b>${f.name}</b><small>${f.desc}</small></div>
+        <button class="buy-btn ${owned ? 'equipped' : ''}" type="button" data-furniture="${id}" ${!owned && activeProfile.wallet < f.price ? 'disabled' : ''}>
+          ${owned ? (placed ? '收起' : '摆放') : activeProfile.wallet >= f.price ? `买 ${f.price}` : `还差 ${f.price-activeProfile.wallet}`}
+        </button>
+      </div>`;
+    }).join('');
   }
   function expansionItems(){
     const items = [];
@@ -2837,20 +3050,29 @@
     return items;
   }
   function setShopTab(tab){
-    state.shopTab = tab === 'expand' ? 'expand' : 'run';
+    const valid = ['run','syrup','furniture','expand'];
+    state.shopTab = valid.includes(tab) ? tab : 'run';
     if(els.shopTabs) els.shopTabs.querySelectorAll('[data-shoptab]').forEach(b => b.classList.toggle('active', b.dataset.shoptab === state.shopTab));
-    if(els.shopGrid){ els.shopGrid.hidden = state.shopTab !== 'run'; els.shopGrid.style.display = state.shopTab === 'run' ? 'grid' : 'none'; }
-    if(els.shopExpandGrid){ els.shopExpandGrid.hidden = state.shopTab !== 'expand'; els.shopExpandGrid.style.display = state.shopTab === 'expand' ? 'grid' : 'none'; }
-    if(els.shopWallet){ els.shopWallet.hidden = state.shopTab !== 'expand'; els.shopWallet.style.display = state.shopTab === 'expand' ? 'flex' : 'none'; }
+    [['shopGrid','run'],['shopSyrupGrid','syrup'],['shopFurnGrid','furniture'],['shopExpandGrid','expand']].forEach(([key,id]) => {
+      if(els[key]){ els[key].hidden = state.shopTab !== id; els[key].style.display = state.shopTab === id ? 'grid' : 'none'; }
+    });
+    if(els.shopWallet){ els.shopWallet.hidden = false; els.shopWallet.style.display = 'flex'; }
   }
   function renderShop(){
-    const wallet = activeProfile ? activeProfile.wallet : state.coins;
+    if(!activeProfile) return;
+    const wallet = activeProfile.wallet;
+    const main = !!state.shopMain;
     els.shopCoins.textContent = wallet;
-    if(els.shopWallet) els.shopWallet.innerHTML = `<svg class="icon"><use href="#i-coin"></use></svg>金币 <b>${wallet}</b>`;
+    if(els.shopWallet) els.shopWallet.innerHTML = `<svg class="icon"><use href="#i-coin"></use></svg>金币 <b>${wallet}</b><small>全局购买，永久生效</small>`;
+    if(els.shopTitle) els.shopTitle.textContent = main ? '道具商店' : '打烊后的金币商店';
+    if(els.shopSub) els.shopSub.textContent = main ? '家具、升级、糖浆，买了就永久生效' : '买口锅、换把刀，让明天更快一点';
+    if(els.shopStartBtn) els.shopStartBtn.style.display = main ? 'none' : '';
+    if(els.shopEarlyBtn) els.shopEarlyBtn.style.display = main ? 'none' : '';
+    if(els.shopBackBtn) els.shopBackBtn.textContent = main ? '关闭' : '回到今日结算';
+    if(els.shopEvent) els.shopEvent.hidden = true;
     setShopTab(state.shopTab || 'run');
     if(els.shopExpandGrid){
       els.shopExpandGrid.innerHTML = expansionItems().map(item => {
-        const wallet = activeProfile ? activeProfile.wallet : 0;
         const disabled = item.owned || wallet < item.price;
         return `<div class="shop-item">
           <div class="shop-icon">${item.icon}</div>
@@ -2859,25 +3081,41 @@
         </div>`;
       }).join('');
     }
-    els.shopStartBtn.innerHTML = state.summaryKind === 'weekPass'
-      ? `开始第 ${state.week + 1} 周${icon('arrow')}`
-      : `开始第 ${state.day + 1} 天${icon('arrow')}`;
-    const nextDay = state.day + 1;
-    const nextSpecial = specialForDay(nextDay);
-    const nextValid = state.mode !== 'normal' || nextDay <= NORMAL_DAYS;
-    if(els.shopEvent){
-      els.shopEvent.hidden = !(nextValid && nextSpecial);
-      if(nextValid && nextSpecial){
-        els.shopEvent.className = `shop-event ${nextSpecial.type}`;
-        const sg = nextSpecial.guest;
-        const secs = Math.round(PATIENCE_MS * (sg.patience || 1) / 1000);
-        els.shopEvent.innerHTML = nextSpecial.type === 'boss'
-          ? `<b>明日 BOSS · ${sg.name}</b><span>第 ${nextDay} 天周末检查：耐心只有 ${secs} 秒，容错更小，奖励 ×${sg.coin}。先把糖水熬稳！</span>`
-          : `<b>明日精英 · ${sg.name}</b><span>第 ${nextDay} 天精英上门：订单更复杂，耐心 ${secs} 秒，奖励 ×${sg.coin}。</span>`;
+    if(els.shopSyrupGrid){
+      els.shopSyrupGrid.innerHTML = syrupItems().map(item => {
+        const disabled = item.owned || wallet < item.price;
+        return `<div class="shop-item">
+          <div class="shop-icon">${item.icon}</div>
+          <div class="shop-copy"><b>${item.name}</b><small>${item.desc}</small></div>
+          <button class="buy-btn ${item.owned ? 'equipped' : ''}" type="button" data-syrup="${item.id}" ${disabled ? 'disabled' : ''}>${item.owned ? '已解锁' : wallet < item.price ? `还差 ${item.price - wallet}` : item.label}</button>
+        </div>`;
+      }).join('');
+    }
+    renderShopFurniture();
+    if(!main){
+      els.shopStartBtn.innerHTML = state.summaryKind === 'weekPass'
+        ? `开始第 ${state.week + 1} 周${icon('arrow')}`
+        : `开始第 ${state.day + 1} 天${icon('arrow')}`;
+      const nextDay = state.day + 1;
+      const nextSpecial = specialForDay(nextDay);
+      const nextValid = state.mode !== 'normal' || nextDay <= NORMAL_DAYS;
+      if(els.shopEvent){
+        els.shopEvent.hidden = !(nextValid && nextSpecial);
+        if(nextValid && nextSpecial){
+          els.shopEvent.className = `shop-event ${nextSpecial.type}`;
+          const sg = nextSpecial.guest;
+          const secs = Math.round(PATIENCE_MS * (sg.patience || 1) / 1000);
+          els.shopEvent.innerHTML = nextSpecial.type === 'boss'
+            ? `<b>明日 BOSS · ${sg.name}</b><span>第 ${nextDay} 天周末检查：耐心只有 ${secs} 秒，容错更小，奖励 ×${sg.coin}。先把糖水熬稳！</span>`
+            : `<b>明日精英 · ${sg.name}</b><span>第 ${nextDay} 天精英上门：订单更复杂，耐心 ${secs} 秒，奖励 ×${sg.coin}。</span>`;
+        }
       }
     }
+    const u = activeProfile.upgrades;
     els.shopGrid.innerHTML = shopItems().map(item => {
-      const disabled = item.owned || (!item.id.startsWith('knife:') && wallet < item.price) || (item.id.startsWith('knife:') && !state.upgrade.knives.includes(item.id.split(':')[1]) && wallet < item.price);
+      const isKnife = item.id.startsWith('knife:');
+      const knifeId = isKnife ? item.id.split(':')[1] : '';
+      const disabled = item.owned || wallet < item.price || (isKnife && u.knives.includes(knifeId) && wallet < 0);
       return `<div class="shop-item">
         <div class="shop-icon">${item.icon}</div>
         <div class="shop-copy"><b>${item.name}</b><small>${item.desc}</small></div>
@@ -2887,35 +3125,47 @@
   }
   function buyItem(itemId){
     ensureAudio();
+    if(!activeProfile) return;
+    const u = activeProfile.upgrades;
     if(itemId === 'pot'){
-      if(state.upgrade.pots >= 4) return;
+      if(u.pots >= 4) return;
       const price = potPrice();
       if(!spendCoins(price)){ toast('金币不够，再卖几罐吧'); return; }
-      state.upgrade.pots++;
+      u.pots++;
       sfx.coin(); toast('新锅到手！厨房里多了一口熬糖锅');
     }else if(itemId === 'alarm'){
-      if(state.upgrade.alarm) return;
-      if(!spendCoins(35)){ toast('金币不够'); return; }
-      state.upgrade.alarm = true;
-      sfx.coin(); toast('闹钟装好了！熬糖时会提前提醒');
+      if(u.alarms >= 4) return;
+      if(!spendCoins(ALARM_PRICE)){ toast('金币不够'); return; }
+      u.alarms++;
+      sfx.coin(); toast('闹钟到手！在柜台旁边，拖到锅上就能设置');
     }else if(itemId.startsWith('knife:')){
       const id = itemId.split(':')[1];
       const k = KNIVES[id];
       if(!k) return;
-      if(state.upgrade.knives.includes(id)){
-        state.upgrade.knife = id;
+      if(u.knives.includes(id)){
+        u.knife = id;
         sfx.tap(); toast(`换上了${k.name}`);
       }else{
         if(!spendCoins(k.price)){ toast('金币不够'); return; }
-        state.upgrade.knives.push(id);
-        state.upgrade.knife = id;
+        u.knives.push(id);
+        u.knife = id;
         sfx.coin(); toast(`买下并装备了${k.name}`);
       }
     }
-    saveGame();
+    syncProfile();
+    saveProfiles();
     renderShop();
     updateHud();
     if(state.stage === 'kitchen') renderKitchen();
+  }
+  function buySyrup(id){
+    if(!activeProfile || activeProfile.syrups[id]) return;
+    const s = SYRUPS[id];
+    if(!s) return;
+    if(!spendCoins(s.price)){ toast('金币不够'); return; }
+    activeProfile.syrups[id] = true;
+    sfx.coin(); toast(`${s.name}已解锁，熬糖时可以选择`);
+    syncProfile(); saveProfiles(); renderShop(); updateHud();
   }
   function buyExpansion(expandId){
     ensureAudio();
@@ -2932,8 +3182,11 @@
     renderShop();
     renderPlayerBar();
   }
-  function openShop(){
+  function openShop(main=false){
     sfx.tap();
+    main = main === true;
+    if(main && !activeProfile) return;
+    state.shopMain = main;
     renderShop();
     els.shopOverlay.classList.add('show');
     els.shopOverlay.setAttribute('aria-hidden','false');
@@ -2941,6 +3194,7 @@
   function closeShop(){
     els.shopOverlay.classList.remove('show');
     els.shopOverlay.setAttribute('aria-hidden','true');
+    state.shopMain = false;
     sfx.tap();
   }
 
@@ -3078,6 +3332,8 @@
       if(b) selectBatch(Number(b.dataset.batch));
     });
     els.potGrid.addEventListener('click', e => {
+      const type = e.target.closest('[data-pot-type]');
+      if(type){ cyclePotType(Number(type.dataset.pot), type.dataset.potType); return; }
       const sugar = e.target.closest('[data-pot-sugar]');
       if(sugar){ addSugar(Number(sugar.dataset.pot), Number(sugar.dataset.potSugar)); return; }
       const start = e.target.closest('[data-pot-start]');
@@ -3087,6 +3343,45 @@
       const dump = e.target.closest('[data-pot-dump]');
       if(dump){ dumpPot(Number(dump.dataset.potDump)); return; }
     });
+    if(els.alarmTrayItems){
+      let draggingAlarm = false;
+      els.alarmTrayItems.addEventListener('pointerdown', e => {
+        const t = e.target.closest('.alarm-token');
+        if(!t) return;
+        e.preventDefault();
+        draggingAlarm = true;
+        t.classList.add('dragging');
+        toast('将闹钟拖拽到锅炉上以设置闹钟');
+      });
+      document.addEventListener('pointermove', e => {
+        if(!draggingAlarm) return;
+        document.querySelectorAll('.pot-card.alarm-drop').forEach(x => x.classList.remove('alarm-drop'));
+        const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-pot-drop]');
+        if(el) el.classList.add('alarm-drop');
+      });
+      document.addEventListener('pointerup', e => {
+        if(!draggingAlarm) return;
+        draggingAlarm = false;
+        document.querySelectorAll('.alarm-token.dragging').forEach(x => x.classList.remove('dragging'));
+        const card = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-pot-drop]');
+        document.querySelectorAll('.pot-card.alarm-drop').forEach(x => x.classList.remove('alarm-drop'));
+        if(card) assignAlarm(Number(card.dataset.potDrop));
+      });
+      els.alarmTrayItems.addEventListener('dragstart', e => {
+        const t = e.target.closest('.alarm-token');
+        if(t) { e.dataTransfer.setData('text/plain', 'alarm'); e.dataTransfer.effectAllowed = 'copy'; }
+      });
+      els.potGrid.addEventListener('dragover', e => {
+        if(e.target.closest('[data-pot-drop]')) e.preventDefault();
+      });
+      els.potGrid.addEventListener('drop', e => {
+        const card = e.target.closest('[data-pot-drop]');
+        if(!card) return;
+        e.preventDefault();
+        assignAlarm(Number(card.dataset.potDrop));
+      });
+    }
+    if(els.stirBtn) els.stirBtn.addEventListener('click', toggleStir);
     els.resetBtn.addEventListener('click', resetCan);
     els.sealBtn.addEventListener('click', sealCan);
     els.serveBtn.addEventListener('click', () => {
@@ -3112,6 +3407,15 @@
       const b = e.target.closest('[data-expand]');
       if(b && !b.disabled) buyExpansion(b.dataset.expand);
     });
+    if(els.shopSyrupGrid) els.shopSyrupGrid.addEventListener('click', e => {
+      const b = e.target.closest('[data-syrup]');
+      if(b && !b.disabled) buySyrup(b.dataset.syrup);
+    });
+    if(els.shopFurnGrid) els.shopFurnGrid.addEventListener('click', e => {
+      const b = e.target.closest('[data-furniture]');
+      if(b && !b.disabled){ handleFurniture(b.dataset.furniture); renderShop(); }
+    });
+    if(els.itemShopEntryBtn) els.itemShopEntryBtn.addEventListener('click', () => openShop(true));
 
     if(els.savePlayerBtn) els.savePlayerBtn.addEventListener('click', savePlayerName);
     if(els.playerName) els.playerName.addEventListener('keydown', e => {

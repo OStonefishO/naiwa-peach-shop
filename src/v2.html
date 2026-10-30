@@ -1099,31 +1099,31 @@
   .cut-stock{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:5px;font-size:8px;font-weight:800;color:#8B6A44}
   .bowl-count{display:flex;gap:5px}
   .bowl-count span{background:#FFF1CC;border:1px solid #E3C58C;border-radius:999px;padding:2px 6px}
-  .pot-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-  .pot-card{position:relative;border:1.5px solid #E3CDA8;border-radius:11px;background:#FFFEFA;padding:5px 7px 6px;
+  .pot-grid{display:grid;grid-template-columns:1fr;gap:9px}
+  .pot-card{position:relative;border:1.5px solid #E3CDA8;border-radius:14px;background:#FFFEFA;padding:10px 12px 11px;
     box-shadow:0 2px 0 #F1E2C9;min-width:0}
   .pot-card[data-status="heating"]{border-color:#E39A2C;box-shadow:0 0 0 2px rgba(255,190,60,.22),0 2px 0 #F1E2C9}
   .pot-card[data-status="failed"]{border-color:#D96A55;background:#FFF6F2}
-  .pot-head{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-bottom:3px}
-  .pot-head b{font-size:8.5px;color:#6C4A27}
-  .pot-sugar{display:flex;align-items:center;gap:3px}
-  .sugar-dot{width:7px;height:7px;border-radius:2px;background:#F4E5C9;border:1px solid #DCC39A}
+  .pot-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px}
+  .pot-head b{font-size:11px;color:#6C4A27}
+  .pot-sugar{display:flex;align-items:center;gap:5px}
+  .sugar-dot{width:9px;height:9px;border-radius:2px;background:#F4E5C9;border:1px solid #DCC39A}
   .sugar-dot.on{background:#FFF6E8;border-color:#CFAE7C;box-shadow:inset 0 -1px 0 #D8B987}
-  .pot-gauge{position:relative;height:10px;border-radius:99px;background:#EFE3CF;border:1px solid #DCC8A6;overflow:hidden;margin:4px 0 3px}
-  .pot-zone{position:absolute;top:0;bottom:0;left:58%;width:22%;background:repeating-linear-gradient(135deg,rgba(47,125,82,.35) 0 4px,rgba(47,125,82,.12) 4px 8px);
+  .pot-gauge{position:relative;height:18px;border-radius:99px;background:#EFE3CF;border:1px solid #DCC8A6;overflow:hidden;margin:7px 0 6px}
+  .pot-zone{position:absolute;top:0;bottom:0;left:55%;width:27%;background:repeating-linear-gradient(135deg,rgba(47,125,82,.35) 0 4px,rgba(47,125,82,.12) 4px 8px);
     border-left:1px solid #3D9361;border-right:1px solid #3D9361}
   .pot-fill{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,#FFD852,#FF9E3D);transition:width .08s linear}
   .pot-fill.perfect{background:linear-gradient(90deg,#FFE16B,#7DC389)}
   .pot-fill.failed{background:linear-gradient(90deg,#F3A08E,#D75540)}
-  .pot-meta{display:flex;align-items:center;justify-content:space-between;gap:3px;font-size:6.5px;font-weight:800;color:#9A7950;min-height:11px}
+  .pot-meta{display:flex;align-items:center;justify-content:space-between;gap:3px;font-size:8.5px;font-weight:800;color:#9A7950;min-height:14px}
   .pot-meta b{color:#6C4A27}
-  .pot-actions{display:flex;gap:3px;margin-top:3px}
-  .pot-actions button{flex:1;height:21px;border-radius:6px;border:1px solid #DCC39A;background:#FFF8E8;
-    font-size:7px;font-weight:900;color:#75522F;display:flex;align-items:center;justify-content:center;gap:2px}
+  .pot-actions{display:flex;gap:6px;margin-top:7px}
+  .pot-actions button{flex:1;height:32px;border-radius:8px;border:1px solid #DCC39A;background:#FFF8E8;
+    font-size:9.5px;font-weight:900;color:#75522F;display:flex;align-items:center;justify-content:center;gap:3px}
   .pot-actions button.primary{background:linear-gradient(180deg,#FFE16C,#FFC62C);border-color:#D39D0D;color:#5C3D05}
   .pot-actions button:disabled{opacity:.4}
-  .pot-empty{border:1.5px dashed #DCC39A;border-radius:11px;min-height:78px;display:grid;place-items:center;
-    font-size:8px;font-weight:800;color:#B08B5F;text-align:center;line-height:1.5}
+  .pot-empty{border:1.5px dashed #DCC39A;border-radius:14px;min-height:96px;display:grid;place-items:center;
+    font-size:9px;font-weight:800;color:#B08B5F;text-align:center;line-height:1.6}
   .alarm-note{display:flex;align-items:center;gap:5px;font-size:7.5px;font-weight:800;color:#8E6B43;
     background:#FFF4D4;border:1px dashed #E0BF83;border-radius:8px;padding:4px 7px;margin-top:5px}
 
@@ -1392,7 +1392,7 @@
   .early-btn{height:26px;padding:0 7px;border-radius:8px;border:1.2px solid #D6B277;background:#FFF6DF;
     font-family:inherit;font-size:7px;font-weight:900;color:#8A6238;white-space:nowrap}
   .early-ghost{height:30px!important;margin-top:4px;font-size:7.5px!important}
-  .confirm-overlay{z-index:120;align-items:center;padding:18px;background:rgba(14,28,20,.78)}
+  .confirm-overlay{z-index:500;align-items:center;padding:18px;background:rgba(14,28,20,.78)}
   .confirm-card{width:min(100%,310px);background:linear-gradient(180deg,#FFFDF3,#FFF2D3);border:3px solid #6B4A1B;
     border-radius:20px;padding:16px 15px calc(14px + var(--safe-bottom));text-align:center;
     box-shadow:0 12px 0 rgba(80,50,15,.2),0 30px 60px rgba(0,0,0,.4)}
@@ -1463,7 +1463,7 @@
   .batch-chip.thin{border-color:#D8A04D;background:#FFF4D8}
   .batch-chip.burnt{border-color:#C4735B;background:#FFE9E0}
   .batch-chip .q{display:block;font-size:6.5px;font-weight:800;color:#9C7950;margin-top:1px}
-  .shop-tabs{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:0 0 8px;padding:3px;
+  .shop-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin:0 0 8px;padding:3px;
     border-radius:10px;background:#F4E3C2;border:1px solid #E0C393}
   .shop-tabs button{height:26px;border:0;border-radius:7px;background:transparent;font-family:inherit;
     font-size:8px;font-weight:900;color:#9B7647}
@@ -1603,6 +1603,31 @@
     .settings-card{padding:14px 13px 12px}
     .setting-row{padding:7px 0}
   }
+  /* v-next: 闹钟拖拽、糖浆混合、道具商店 */
+  .alarm-tray[hidden]{display:none!important}
+  .alarm-tray{position:absolute;right:8px;bottom:26px;z-index:24;display:flex;align-items:center;gap:4px;
+    padding:4px 6px;border:1px dashed #C88C3A;border-radius:9px;background:rgba(255,248,226,.92);box-shadow:0 2px 6px rgba(90,50,15,.12)}
+  .alarm-tray-label{font-size:6.5px;font-weight:900;color:#A46B22;writing-mode:vertical-rl;letter-spacing:1px}
+  .alarm-tray-items{display:flex;gap:3px;min-width:18px}
+  .alarm-token{width:23px;height:28px;border:2px solid #8E6230;border-radius:9px 9px 7px 7px;background:linear-gradient(#FFE49A,#E9A33A);
+    display:grid;place-items:center;font-size:11px;cursor:grab;touch-action:none;box-shadow:0 2px 0 #B97E2B}
+  .alarm-token.assigned{opacity:.35;filter:grayscale(.6)}
+  .alarm-token.dragging{opacity:.5;transform:scale(1.08)}
+  .pot-card.alarm-drop{outline:3px dashed #E3A33B;outline-offset:-3px}
+  .pot-alarm{font-size:9px;color:#A15D12;font-weight:900}
+  .pot-types{display:flex;gap:6px;margin:7px 0 3px;flex-wrap:wrap}
+  .pot-type{height:28px;padding:0 9px;border:1px solid #D8B47C;border-radius:8px;background:#FFF9EA;color:#8A6435;
+    font:900 8.5px/28px inherit;cursor:pointer;white-space:nowrap;flex:0 0 auto}
+  .pot-type.on{background:#F3B94D;border-color:#B67A20;color:#432B0E}
+  .syrup-composition{display:flex;gap:5px;margin-top:6px}
+  .comp-item{flex:1;min-width:0}
+  .comp-top{display:flex;justify-content:space-between;font-size:6.5px;font-weight:900;color:#8B6236;margin-bottom:2px}
+  .comp-track{height:8px;border-radius:5px;background:#F3E1C3;border:1px solid #E2C79C;position:relative;overflow:hidden}
+  .comp-fill{height:100%;border-radius:4px;transition:width .1s}
+  .comp-target{position:absolute;top:-2px;bottom:-2px;width:2px;background:#4D8E62}
+  .stir-btn{width:100%;height:27px;margin-top:6px;border:1px solid #D7B77B;border-radius:8px;background:#FFF7E2;
+    color:#7B582A;font:900 8px/1 inherit;cursor:pointer}
+  .stir-btn.on{background:#F7D37D;border-color:#B9832B;color:#4A2E0C}
 </style>
 </head>
 <body>
@@ -1887,6 +1912,11 @@
       </div>
     </div>
 
+    <div class="alarm-tray" id="alarmTray" aria-label="闹钟收纳盒">
+      <span class="alarm-tray-label">闹钟</span>
+      <div class="alarm-tray-items" id="alarmTrayItems"></div>
+    </div>
+
     <div class="counter" aria-hidden="true">
       <div class="counter-top"></div>
       <div class="counter-front"><span class="counter-sign">奶蛙的店 · 黄桃罐头</span></div>
@@ -1957,6 +1987,8 @@
             <small>松手停止</small>
           </button>
         </div>
+        <div class="syrup-composition" id="syrupComposition"></div>
+        <button class="stir-btn" id="stirBtn" type="button" hidden>搅拌一下</button>
       </div>
 
       <div class="cook-grid">
@@ -2062,13 +2094,14 @@
       <button class="primary-btn" id="startBtn" type="button">开始 14 天营业<svg class="icon"><use href="#i-arrow"></use></svg></button>
       <div class="menu-group" id="shopGroup">
         <button class="menu-toggle" id="shopToggle" type="button" aria-expanded="false" aria-controls="shopPanel">
-          <span class="menu-toggle-copy"><small>我的小店</small><b>小家与衣橱</b></span>
+          <span class="menu-toggle-copy"><small>我的小店</small><b>小家和店铺</b></span>
           <span class="menu-chevron">▾</span>
         </button>
         <div class="menu-panel" id="shopPanel" hidden>
-          <div class="intro-links two">
+          <div class="intro-links three">
             <button class="ghost-btn" id="homeEntryBtn" type="button">奶蛙的小家</button>
             <button class="ghost-btn" id="dressEntryBtn" type="button">更衣室</button>
+            <button class="ghost-btn" id="itemShopEntryBtn" type="button">道具商店</button>
           </div>
         </div>
       </div>
@@ -2140,16 +2173,20 @@
       <div class="shop-head">
         <div class="shop-eyebrow">NAIWA UPGRADE SHOP</div>
         <h2 class="shop-title" id="shopTitle">打烊后的金币商店</h2>
-        <div class="shop-sub">买口锅、换把刀，让明天更快一点</div>
+        <div class="shop-sub" id="shopSub">买口锅、换把刀，让明天更快一点</div>
       </div>
       <div class="shop-coins"><svg class="icon"><use href="#i-coin"></use></svg><span id="shopCoins">0</span> 金币</div>
       <div class="shop-tabs" id="shopTabs">
-        <button type="button" data-shoptab="run" class="active">本局升级</button>
-        <button type="button" data-shoptab="expand">永久拓展</button>
+        <button type="button" data-shoptab="run" class="active">升级</button>
+        <button type="button" data-shoptab="syrup">糖浆</button>
+        <button type="button" data-shoptab="furniture">家具</button>
+        <button type="button" data-shoptab="expand">拓展</button>
       </div>
-      <div class="shop-wallet" id="shopWallet" hidden><svg class="icon"><use href="#i-coin"></use></svg>金币 <b>0</b><small>永久解锁，不用重复购买</small></div>
+      <div class="shop-wallet" id="shopWallet"><svg class="icon"><use href="#i-coin"></use></svg>金币 <b>0</b><small>全局购买，永久生效</small></div>
       <div class="shop-event" id="shopEvent" hidden></div>
       <div class="shop-grid" id="shopGrid"></div>
+      <div class="shop-grid" id="shopSyrupGrid" hidden></div>
+      <div class="shop-grid" id="shopFurnGrid" hidden></div>
       <div class="shop-grid" id="shopExpandGrid" hidden></div>
       <div class="shop-actions">
         <button class="primary-btn" id="shopStartBtn" type="button">开始第 2 天<svg class="icon"><use href="#i-arrow"></use></svg></button>
