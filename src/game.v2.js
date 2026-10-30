@@ -343,6 +343,17 @@
 
   let audioCtx = null, masterGain = null;
   let batchSeq = 0;
+  const DEV_MODE_KEY = 'naiwa_dev_mode';
+  function loadDevMode(){
+    try { return localStorage.getItem(DEV_MODE_KEY) === '1'; } catch(e){ return false; }
+  }
+  function coinText(){
+    if(state.devMode) return '∞';
+    return String(activeProfile ? activeProfile.wallet : state.coins);
+  }
+  function canAfford(n){
+    return !!state.devMode || !!(activeProfile && activeProfile.wallet >= n);
+  }
 
   function emptyCan(){
     return {size:null, jar:'classic', pieces:[], syrup:0, components:{classic:0,honey:0,maple:0,honeysuckle:0}, stirred:false, temp:null, toppings:[], toppingTouched:false, sealed:false, batchIds:[]};
@@ -361,7 +372,8 @@
     upgrade:{pots:1, alarms:0, knife:'wood', knives:['wood']},
     reviews:[], patience:1, patienceMs:PATIENCE_MS, deadline:0, pouring:false,
     sound:true, lastPourSfx:0, speechTimer:null, toastTimer:null, scoreResult:null,
-    metaAwarded:false, homeTab:'room', skinPreview:{area:'desk', id:'classic'}, shopTab:'run'
+    metaAwarded:false, homeTab:'room', skinPreview:{area:'desk', id:'classic'}, shopTab:'run',
+    devMode:loadDevMode()
   };
   let bgmEl = null, bgmKey = null, bgmToken = 0, musicWanted = false, alarmEl = null;
 
@@ -583,10 +595,10 @@
     state.bestEndless = activeProfile.bestEndless || 0;
     state.coins = activeProfile.wallet || 0;
     if(activeProfile.upgrades) state.upgrade = activeProfile.upgrades;
-    if(els.coins) els.coins.textContent = state.coins;
-    if(els.homeCoins) els.homeCoins.textContent = state.coins;
-    if(els.shopCoins) els.shopCoins.textContent = state.coins;
-    if(els.dressCoins) els.dressCoins.textContent = `${state.coins} 金币`;
+    if(els.coins) els.coins.textContent = coinText();
+    if(els.homeCoins) els.homeCoins.textContent = coinText();
+    if(els.shopCoins) els.shopCoins.textContent = coinText();
+    if(els.dressCoins) els.dressCoins.textContent = `${coinText()} 金币`;
   }
   function playerNameSafe(name){
     return String(name || '').trim().replace(/\s+/g, ' ').slice(0, 10);
@@ -936,20 +948,21 @@
     activeProfile.wallet += n;
     state.coins = activeProfile.wallet;
     saveProfiles();
-    if(els.coins) els.coins.textContent = state.coins;
-    if(els.homeCoins) els.homeCoins.textContent = state.coins;
-    if(els.shopCoins) els.shopCoins.textContent = state.coins;
-    if(els.dressCoins) els.dressCoins.textContent = `${state.coins} 金币`;
+    if(els.coins) els.coins.textContent = coinText();
+    if(els.homeCoins) els.homeCoins.textContent = coinText();
+    if(els.shopCoins) els.shopCoins.textContent = coinText();
+    if(els.dressCoins) els.dressCoins.textContent = `${coinText()} 金币`;
   }
   function spendCoins(n){
+    if(state.devMode) return true;
     if(!activeProfile || !Number.isFinite(n) || activeProfile.wallet < n) return false;
     activeProfile.wallet -= n;
     state.coins = activeProfile.wallet;
     saveProfiles();
-    if(els.coins) els.coins.textContent = state.coins;
-    if(els.homeCoins) els.homeCoins.textContent = state.coins;
-    if(els.shopCoins) els.shopCoins.textContent = state.coins;
-    if(els.dressCoins) els.dressCoins.textContent = `${state.coins} 金币`;
+    if(els.coins) els.coins.textContent = coinText();
+    if(els.homeCoins) els.homeCoins.textContent = coinText();
+    if(els.shopCoins) els.shopCoins.textContent = coinText();
+    if(els.dressCoins) els.dressCoins.textContent = `${coinText()} 金币`;
     return true;
   }
   function awardProfile(kind){
@@ -1186,7 +1199,7 @@
   }
   function renderHome(){
     if(!els.homeOverlay || !activeProfile) return;
-    els.homeCoins.textContent = activeProfile.wallet;
+    els.homeCoins.textContent = coinText();
     els.homeOwner.textContent = `店长：${activeProfile.name}`;
     els.homeTabs.forEach(t => t.classList.toggle('active', t.dataset.homeTab === state.homeTab));
     $$('.home-panel', els.homeOverlay).forEach(p => { p.hidden = p.dataset.homePanel !== state.homeTab; });
@@ -1271,7 +1284,7 @@
     if(!els.dressOverlay || !activeProfile) return;
     const head = activeProfile.equipped.head;
     const top = activeProfile.equipped.top;
-    els.dressCoins.textContent = `${activeProfile.wallet} 金币`;
+    els.dressCoins.textContent = `${coinText()} 金币`;
     els.dressDoll.classList.toggle('has-hat', head !== 'chef');
     els.dressDoll.classList.toggle('has-top', top !== 'apron');
     els.dressDoll.innerHTML = `<svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>
@@ -1330,7 +1343,7 @@
       'batchStrip','syrupTarget','syrupFill','syrupReadout','pourBtn','kitchenOrder','cutStage','cutStock',
       'bowlLarge','bowlSmall','potGrid','potNote','alarmNote','footer','resetBtn','sealBtn','serveBtn','toast',
       'introOverlay','startBtn','introNote','reviewOverlay','reviewStars','reviewTitle','reviewScore','reviewQuote',
-      'scoreGrid','reviewCoins','perfectStamp','nextBtn','summaryOverlay','summaryTitle','summaryStars',
+      'scoreGrid','reviewCoins','reviewTip','perfectStamp','nextBtn','summaryOverlay','summaryTitle','summaryStars',
       'summaryCoins','summaryCoinsLabel','summaryPerfect','summaryAvg','summaryComment','summaryBest','summarySub','confetti',
       'summaryRibbon','homeBtn','weekBanner','weekLabel','weekFill','weekValue','weekLeft','bgm',
       'reviewSpecial','shopBtn','replayBtn','shopOverlay','shopCoins','shopEvent','shopGrid','shopStartBtn','shopBackBtn',
@@ -1349,6 +1362,7 @@
       'modeGroup','modeToggle','modeToggleName','modePanel','shopGroup','shopToggle','shopPanel',
       'settingsEntryBtn','settingsBtn','settingsOverlay','settingsClose','settingsDone',
       'setMaster','setMusic','setAlarm','setMasterVal','setMusicVal','setAlarmVal',
+      'redeemInput','redeemBtn','redeemStatus','devExitBtn',
       'reviewPersonality','codexEntryBtn','codexOverlay','codexClose','codexTabs','codexBody','codexFromSettings','batchStrip','batchScrollWrap','batchScroll'];
     ids.forEach(id => els[id] = document.getElementById(id));
     els.panel = $('#panel');
@@ -1396,8 +1410,56 @@
       if(out) out.textContent = settings[key] + '%';
     });
   }
+  function syncDevModeUI(){
+    if(els.redeemStatus){
+      els.redeemStatus.textContent = state.devMode ? '开发者模式已开启 · 金币无限' : '输入兑换码领取内容';
+      els.redeemStatus.className = 'redeem-status' + (state.devMode ? ' ok' : '');
+    }
+    if(els.devExitBtn) els.devExitBtn.hidden = !state.devMode;
+    if(els.redeemInput) els.redeemInput.placeholder = state.devMode ? '已开启 · 可输入关闭码' : '输入兑换码';
+  }
+  function setDevMode(on){
+    state.devMode = !!on;
+    try {
+      if(state.devMode) localStorage.setItem(DEV_MODE_KEY, '1');
+      else localStorage.removeItem(DEV_MODE_KEY);
+    } catch(e){}
+    syncDevModeUI();
+    if(els.redeemStatus){
+      els.redeemStatus.textContent = state.devMode ? '开发者模式已开启 · 金币无限' : '已退出开发者模式';
+      els.redeemStatus.className = 'redeem-status ' + (state.devMode ? 'ok' : '');
+    }
+    syncProfile();
+    updateHud();
+    if(els.shopOverlay && els.shopOverlay.classList.contains('show')) renderShop();
+  }
+  function redeemCode(){
+    if(!els.redeemInput) return;
+    const raw = (els.redeemInput.value || '').trim();
+    const code = raw.replace(/^[:：\s]+/, '');
+    if(code === '奶龙学长模式'){
+      setDevMode(true);
+      els.redeemInput.value = '';
+      sfx.coin();
+      toast('开发者模式已开启：金币无限，买东西不再扣钱');
+      return;
+    }
+    if(code === '关闭奶龙学长模式' || code === '退出奶龙学长模式'){
+      setDevMode(false);
+      els.redeemInput.value = '';
+      sfx.tap();
+      toast('已退出开发者模式');
+      return;
+    }
+    if(els.redeemStatus){
+      els.redeemStatus.textContent = '兑换码无效，请检查后重试';
+      els.redeemStatus.className = 'redeem-status err';
+    }
+    sfx.error();
+  }
   function openSettings(){
     syncSettingsUI();
+    syncDevModeUI();
     if(!els.settingsOverlay) return;
     els.settingsOverlay.classList.add('show');
     els.settingsOverlay.setAttribute('aria-hidden', 'false');
@@ -1610,7 +1672,7 @@
   }
 
   function updateHud(){
-    if(els.coins) els.coins.textContent = activeProfile ? activeProfile.wallet : state.coins;
+    if(els.coins) els.coins.textContent = coinText();
     if(els.earlyBtn) els.earlyBtn.style.display = state.phase === 'intro' ? 'none' : '';
     if(els.daySub){
       const label = state.phase === 'intro' ? '准备营业' : state.stage === 'desk' ? '服务台' : state.stage === 'work' ? '工作台' : '厨房';
@@ -3107,6 +3169,32 @@
     setTimeout(() => finishOrder(true), 420);
   }
 
+  function orderTip(o){
+    let pts = 0;
+    const notes = [];
+    const top = o.toppings || [];
+    const extraTops = top.filter(t => !['mint','osmanthus'].includes(t.id));
+    extraTops.forEach(t => {
+      pts += 2 + Math.max(0, (t.qty || 1) - 1);
+      notes.push(TOPPINGS[t.id] ? TOPPINGS[t.id].name : t.id);
+    });
+    top.forEach(t => {
+      if(['mint','osmanthus'].includes(t.id) && (t.qty || 1) > 1) pts += (t.qty - 1);
+    });
+    if((o.jar || 'classic') !== 'classic'){
+      pts += 2;
+      notes.push(JARS[o.jar] ? JARS[o.jar].name : o.jar);
+    }
+    const syrups = o.syrups || [];
+    const special = syrups.filter(s => s.id !== 'classic');
+    pts += special.length * 3;
+    special.forEach(s => notes.push(SYRUPS[s.id] ? SYRUPS[s.id].name : s.id));
+    if(syrups.length > 1){ pts += 2; notes.push('双糖浆'); }
+    if(o.stirred){ pts += 2; notes.push('搅拌'); }
+    if(o.boilStyle === 'separate' && syrups.length > 1){ pts += 1; notes.push('分开熬'); }
+    return { tip: pts, notes };
+  }
+
   function scoreOrder(timedOut){
     const c = state.can, o = state.order;
     const counts = countPieces(c.pieces);
@@ -3182,8 +3270,12 @@
     const pDelta = score - baseScore;
     const perfect = !timedOut && score >= 100;
     const stars = score >= 90 ? 3 : score >= 70 ? 2 : score >= 45 ? 1 : 0;
+    const tipInfo = orderTip(o);
+    const tip = timedOut ? 0 : tipInfo.tip;
+    const coinMul = (state.guest && state.guest.coin) || 1;
     const baseCoins = timedOut ? 0 : 8 + Math.round(score * .12) + (perfect ? 5 : 0);
-    const coins = Math.round(baseCoins * ((state.guest && state.guest.coin) || 1));
+    const tipCoins = Math.round(tip * coinMul);
+    const coins = Math.round(baseCoins * coinMul) + tipCoins;
     const details = [];
     details.push({ok:sizeScore===6, label:'罐型', text: sizeOk ? `${SIZES[c.size].name} ✓` : `要${SIZES[o.size].name}${c.size ? ` · 用了${SIZES[c.size].name}` : ''}`});
     if(jarChoice) details.push({ok:jarOk, label:'罐子', text: jarOk ? `${JARS[c.jar || 'classic'].name} ✓` : `要${JARS[o.jar || 'classic'].name}`});
@@ -3197,7 +3289,7 @@
     details.push({ok:tempScore===10, label:'温度', text: c.temp ? `${TEMPS[c.temp]}${tempScore===10 ? ' ✓' : ` / 要${TEMPS[o.temp]}`}` : '没选温度'});
     details.push({ok:toppingScore>=9.5, label:'加料', text: c.toppingTouched ? `${toppingText(gotTops)}${toppingScore>=9.5 ? ' ✓' : ` / 要${toppingText(wantTops)}`}` : '没选加料'});
     details.push({ok:speedScore===10, label:'出餐速度', text: timedOut ? '超时了…' : speedScore===10 ? '手速超快' : speedScore===7 ? '稍微有点慢' : '客人等急了'});
-    return {score, baseScore, pDelta, personality:p, stars, perfect, coins, details, timedOut, guest:state.guest};
+    return {score, baseScore, pDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipNotes:tipInfo.notes, details, timedOut, guest:state.guest};
   }
 
   function commentFor(result){
@@ -3261,6 +3353,14 @@
     }
     els.reviewQuote.innerHTML = `<b>${result.guest.name}：</b>${result.comment}`;
     els.reviewCoins.textContent = result.coins;
+    if(els.reviewTip){
+      const tip = Number(result.tip) || 0;
+      els.reviewTip.hidden = !tip;
+      if(tip){
+        const note = (result.tipNotes || []).slice(0, 4).join('、');
+        els.reviewTip.innerHTML = `<span>复杂订单小费${note ? ` · ${note}` : ''}</span><b>+${tip}</b>`;
+      }
+    }
     els.perfectStamp.style.display = result.perfect ? 'grid' : 'none';
     els.scoreGrid.innerHTML = result.details.map(d => `
       <div class="score-item ${d.ok ? 'ok' : 'bad'}">
@@ -3451,8 +3551,8 @@
       return `<div class="shop-item">
         <div class="shop-icon">${f.icon}</div>
         <div class="shop-copy"><b>${f.name}</b><small>${f.desc}</small></div>
-        <button class="buy-btn ${owned ? 'equipped' : ''}" type="button" data-furniture="${id}" ${!owned && activeProfile.wallet < f.price ? 'disabled' : ''}>
-          ${owned ? (placed ? '收起' : '摆放') : activeProfile.wallet >= f.price ? `买 ${f.price}` : `还差 ${f.price-activeProfile.wallet}`}
+        <button class="buy-btn ${owned ? 'equipped' : ''}" type="button" data-furniture="${id}" ${!owned && !canAfford(f.price) ? 'disabled' : ''}>
+          ${owned ? (placed ? '收起' : '摆放') : state.devMode ? '免费领取' : activeProfile.wallet >= f.price ? `买 ${f.price}` : `还差 ${f.price-activeProfile.wallet}`}
         </button>
       </div>`;
     }).join('');
@@ -3483,8 +3583,8 @@
     if(!activeProfile) return;
     const wallet = activeProfile.wallet;
     const main = !!state.shopMain;
-    els.shopCoins.textContent = wallet;
-    if(els.shopWallet) els.shopWallet.innerHTML = `<svg class="icon"><use href="#i-coin"></use></svg>金币 <b>${wallet}</b><small>全局购买，永久生效</small>`;
+    els.shopCoins.textContent = coinText();
+    if(els.shopWallet) els.shopWallet.innerHTML = `<svg class="icon"><use href="#i-coin"></use></svg>金币 <b>${coinText()}</b><small>全局购买，永久生效</small>`;
     if(els.shopTitle) els.shopTitle.textContent = main ? '道具商店' : '打烊后的金币商店';
     if(els.shopSub) els.shopSub.textContent = main ? '家具、升级、糖浆，买了就永久生效' : '买口锅、换把刀，让明天更快一点';
     if(els.shopStartBtn) els.shopStartBtn.style.display = main ? 'none' : '';
@@ -3494,21 +3594,21 @@
     setShopTab(state.shopTab || 'run');
     if(els.shopExpandGrid){
       els.shopExpandGrid.innerHTML = expansionItems().map(item => {
-        const disabled = item.owned || wallet < item.price;
+        const disabled = item.owned || !canAfford(item.price);
         return `<div class="shop-item">
           <div class="shop-icon">${item.icon}</div>
           <div class="shop-copy"><b>${item.name}</b><small>${item.desc}</small></div>
-          <button class="buy-btn ${item.owned ? 'equipped' : ''}" type="button" data-expand="${item.id}" ${disabled ? 'disabled' : ''}>${item.owned ? '已解锁' : wallet < item.price ? `还差 ${item.price - wallet}` : `解锁 ${item.price}`}</button>
+          <button class="buy-btn ${item.owned ? 'equipped' : ''}" type="button" data-expand="${item.id}" ${disabled ? 'disabled' : ''}>${item.owned ? '已解锁' : state.devMode ? '解锁' : wallet < item.price ? `还差 ${item.price - wallet}` : `解锁 ${item.price}`}</button>
         </div>`;
       }).join('');
     }
     if(els.shopSyrupGrid){
       els.shopSyrupGrid.innerHTML = syrupItems().map(item => {
-        const disabled = item.owned || wallet < item.price;
+        const disabled = item.owned || !canAfford(item.price);
         return `<div class="shop-item">
           <div class="shop-icon">${item.icon}</div>
           <div class="shop-copy"><b>${item.name}</b><small>${item.desc}</small></div>
-          <button class="buy-btn ${item.owned ? 'equipped' : ''}" type="button" data-syrup="${item.id}" ${disabled ? 'disabled' : ''}>${item.owned ? '已解锁' : wallet < item.price ? `还差 ${item.price - wallet}` : item.label}</button>
+          <button class="buy-btn ${item.owned ? 'equipped' : ''}" type="button" data-syrup="${item.id}" ${disabled ? 'disabled' : ''}>${item.owned ? '已解锁' : state.devMode ? '解锁' : wallet < item.price ? `还差 ${item.price - wallet}` : item.label}</button>
         </div>`;
       }).join('');
     }
@@ -3536,11 +3636,11 @@
     els.shopGrid.innerHTML = shopItems().map(item => {
       const isKnife = item.id.startsWith('knife:');
       const knifeId = isKnife ? item.id.split(':')[1] : '';
-      const disabled = item.owned || wallet < item.price || (isKnife && u.knives.includes(knifeId) && wallet < 0);
+      const disabled = item.owned || !canAfford(item.price);
       return `<div class="shop-item">
         <div class="shop-icon">${item.icon}</div>
         <div class="shop-copy"><b>${item.name}</b><small>${item.desc}</small></div>
-        <button class="buy-btn ${item.owned ? 'equipped' : ''}" type="button" data-buy="${item.id}" ${disabled ? 'disabled' : ''}>${item.label}</button>
+        <button class="buy-btn ${item.owned ? 'equipped' : ''}" type="button" data-buy="${item.id}" ${disabled ? 'disabled' : ''}>${item.owned ? '已拥有' : state.devMode ? '免费领取' : item.label}</button>
       </div>`;
     }).join('');
   }
@@ -3723,6 +3823,11 @@
     [['Master','master'],['Music','music'],['Alarm','alarm']].forEach(([id,key]) => {
       const input = els['set' + id];
       if(input) input.addEventListener('input', () => setSetting(key, input.value));
+    });
+    if(els.redeemBtn) els.redeemBtn.addEventListener('click', redeemCode);
+    if(els.devExitBtn) els.devExitBtn.addEventListener('click', () => { setDevMode(false); toast('已退出开发者模式'); });
+    if(els.redeemInput) els.redeemInput.addEventListener('keydown', e => {
+      if(e.key === 'Enter'){ e.preventDefault(); redeemCode(); }
     });
     if(els.codexEntryBtn) els.codexEntryBtn.addEventListener('click', () => openCodex('personality'));
     if(els.codexFromSettings) els.codexFromSettings.addEventListener('click', () => { closeSettings(); openCodex('personality'); });
@@ -3998,6 +4103,7 @@
     bgmEl = els.bgm;
     updateSoundButton();
     syncSettingsUI();
+    syncDevModeUI();
     renderPlayerBar();
     renderFrogWear();
     applySkins();
@@ -4014,7 +4120,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex };
+      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex };
     }
   }
 

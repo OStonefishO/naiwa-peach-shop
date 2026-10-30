@@ -759,6 +759,12 @@
   .score-item .copy{min-width:0}
   .score-item b{display:block;font-size:8.5px;font-weight:900;color:#61421F;line-height:1.25}
   .score-item small{display:block;font-size:7px;font-weight:700;color:#9C7B56;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .review-tip{
+    display:flex;align-items:center;justify-content:space-between;gap:6px;margin:0 0 8px;padding:5px 9px;
+    border:1px dashed #D8B56B;border-radius:8px;background:#FFF7DE;color:#8A5A18;font-size:7.4px;font-weight:800
+  }
+  .review-tip b{font-size:8px;color:#B47A10}
+  .review-tip[hidden]{display:none}
   .reward-row{
     display:flex;align-items:center;justify-content:space-between;
     padding:8px 10px;margin-bottom:11px;
@@ -1648,6 +1654,16 @@
   }
   .review-personality[hidden]{display:none}
   .review-personality small{font-size:7px;color:#9B8058;font-weight:700}
+  .redeem-box{margin-top:9px;padding:8px 9px;border:1px dashed #DCC49A;border-radius:11px;background:#FFFCF2}
+  .redeem-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;color:#6B4A1B;font-size:8px}
+  .redeem-head b{font-size:9px}.redeem-head span{color:#B29A72;font-size:6.8px;font-weight:700}
+  .redeem-row{display:grid;grid-template-columns:1fr 56px;gap:5px}
+  .redeem-input{height:29px;border:1px solid #E6D0A8;border-radius:8px;background:#FFFDF7;padding:0 8px;font:700 8px/1 inherit;color:#5B4324;outline:none;min-width:0}
+  .redeem-input:focus{border-color:#D3A44E;box-shadow:0 0 0 2px rgba(211,164,78,.15)}
+  .redeem-btn{height:29px;border:1px solid #C58A2B;border-radius:8px;background:#F8D37E;color:#4B2F0C;font:900 8px/1 inherit;cursor:pointer}
+  .redeem-status{margin-top:4px;font-size:6.8px;line-height:1.4;color:#A0875F;font-weight:700}
+  .redeem-status.ok{color:#2F8562}.redeem-status.err{color:#C24C43}
+  .redeem-exit{width:100%;height:24px;margin-top:5px;border:1px solid #E3B1A4;border-radius:7px;background:#FFF2EE;color:#A6483C;font:800 7px/1 inherit;cursor:pointer}
   .settings-codex{
     width:100%;height:36px;margin-top:10px;border:1.5px dashed #D6B97C;border-radius:11px;
     background:#FFF9E8;color:#8B5E21;font-family:inherit;font-size:9.5px;font-weight:900;cursor:pointer
@@ -2203,6 +2219,7 @@
       </div>
       <div class="review-quote" id="reviewQuote"></div>
       <div class="score-grid" id="scoreGrid"></div>
+      <div class="review-tip" id="reviewTip" hidden></div>
       <div class="reward-row"><span>本单收入 · 奶蛙的小费</span><strong><svg class="icon"><use href="#i-coin"></use></svg>+<span id="reviewCoins">0</span></strong></div>
       <div class="review-actions">
         <button class="primary-btn" id="nextBtn" type="button">下一位客人<svg class="icon"><use href="#i-arrow"></use></svg></button>
@@ -2427,6 +2444,15 @@
         <output class="setting-val" id="setAlarmVal">80%</output>
       </div>
       <div class="settings-note">主音量控制所有声音；音乐音量只影响四首 BGM；闹钟音量只影响熬糖锅的提醒铃声。</div>
+      <div class="redeem-box">
+        <div class="redeem-head"><b>兑换码</b><span>为后续拓展准备</span></div>
+        <div class="redeem-row">
+          <input id="redeemInput" class="redeem-input" type="text" placeholder="输入兑换码" autocomplete="off">
+          <button id="redeemBtn" class="redeem-btn" type="button">兑换</button>
+        </div>
+        <div class="redeem-status" id="redeemStatus">输入兑换码领取内容</div>
+        <button id="devExitBtn" class="redeem-exit" type="button" hidden>退出开发者模式</button>
+      </div>
       <button class="settings-codex" id="codexFromSettings" type="button">📖 打开奶蛙图鉴</button>
       <button class="settings-done" id="settingsDone" type="button">完成</button>
     </div>
