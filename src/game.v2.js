@@ -1436,7 +1436,7 @@
   function redeemCode(){
     if(!els.redeemInput) return;
     const raw = (els.redeemInput.value || '').trim();
-    const code = raw.replace(/^[:：\s]+/, '');
+    const code = raw.replace(/\s+/g, '');
     if(code === '奶龙学长模式'){
       setDevMode(true);
       els.redeemInput.value = '';
@@ -1608,13 +1608,13 @@
       const tolBase = SUGAR[sugar].tol + (guest && guest.tolDelta || 0) + (p && p.id === 'strict' ? -1 : p && p.id === 'generous' ? 1 : 0);
       const tol = Math.max(3, tolBase);
       const poolS = availableSyrups();
-      const twoSyrupChance = complex ? .62 : simple ? .18 : .46;
+      const twoSyrupChance = complex ? .82 : simple ? .24 : .58;
       const sCount = poolS.length > 1 && Math.random() < twoSyrupChance ? 2 : 1;
       const picked = poolS.slice().sort(() => Math.random() - .5).slice(0, sCount);
       let ratios = sCount === 2 ? [50,50] : [100];
       if(sCount === 2 && Math.random() < .5) ratios = Math.random() < .5 ? [60,40] : [40,60];
       const syrups = picked.map((id,i) => ({id, ratio:ratios[i]}));
-      const stirChance = complex ? .5 : simple ? .25 : .38;
+      const stirChance = complex ? .9 : simple ? .35 : .65;
       const stirred = sCount === 2 && Math.random() < stirChance;
       const boilStyle = sCount === 2 ? (Math.random() < .5 ? 'together' : 'separate') : 'single';
       order = {size, jar, peaches:{large, small:total-large}, sugar, temp, toppings:tops, tol, syrups, stirred, boilStyle};
@@ -2514,16 +2514,23 @@
       </div>`;
     }).join('');
     const two = expected.length > 1;
+    const poured = expected.filter(s => (c.components[s.id] || 0) > 0).length;
     if(els.stirBtn){
-      els.stirBtn.hidden = !two;
-      els.stirBtn.classList.toggle('on', !!c.stirred);
-      els.stirBtn.textContent = c.stirred ? '已搅拌 · 点一下恢复分层' : '搅拌一下';
+      const ready = two && poured >= 2;
+      els.stirBtn.disabled = !ready;
+      els.stirBtn.classList.toggle('on', ready && !!c.stirred);
+      els.stirBtn.textContent = !two ? '本单是单糖浆 · 不需要搅拌'
+        : !ready ? `两种糖浆都倒好后可搅拌（${poured}/2）`
+        : c.stirred ? '已搅拌 · 点一下恢复分层' : '搅拌一下';
     }
   }
 
   function toggleStir(){
     if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
-    if(!state.order || (state.order.syrups || []).length < 2) return;
+    const wanted = state.order ? (state.order.syrups || []) : [];
+    if(wanted.length < 2) return;
+    const poured = wanted.filter(s => (state.can.components[s.id] || 0) > 0).length;
+    if(poured < 2){ toast('两种糖浆都倒好后再搅拌哦'); return; }
     state.can.stirred = !state.can.stirred;
     updateSyrupVisual();
     renderWork();
