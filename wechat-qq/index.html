@@ -7358,14 +7358,14 @@
   }
   function renderRogueShop(){
     if(!els.rogueShopList) return;
-    if(els.rogueShopCoins) els.rogueShopCoins.textContent = state.rogue.coins;
+    if(els.rogueShopCoins) els.rogueShopCoins.textContent = coinText();
     els.rogueShopList.innerHTML = (state.rogue.shopStock || ['cashback']).map(id => {
       const item = ROGUE_ITEMS.find(i => i.id === id);
       if(!item) return '';
       const owned = state.rogue.items[id] || 0;
       const maxed = owned >= item.max;
       const price = rogueShopPrice(item);
-      return `<div class="rogue-shop-item"><div><b>${item.name}${owned ? ` ×${owned}` : ''}</b><small>${item.desc}</small></div><button data-rogue-buy="${id}" ${maxed || state.rogue.coins < price ? 'disabled' : ''}>${maxed ? '已满' : `${price} 金币`}</button></div>`;
+      return `<div class="rogue-shop-item"><div><b>${item.name}${owned ? ` ×${owned}` : ''}</b><small>${item.desc}</small></div><button data-rogue-buy="${id}" ${maxed || (!state.devMode && state.rogue.coins < price) ? 'disabled' : ''}>${maxed ? '已满' : `${price} 金币`}</button></div>`;
     }).join('');
   }
   function buyRogueItem(id){
