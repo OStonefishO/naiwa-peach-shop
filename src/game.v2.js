@@ -334,7 +334,7 @@
       {id:'campus', name:'校园食堂', price:80}
     ]
   };
-  const ROGUE_TARGET = week => 400 + (week - 1) * 200;
+  const ROGUE_TARGET = week => Math.round(400 * Math.pow(2.5, week - 1));
   const SHRIMPS = [
     {id:'goodReview',name:'好评价',rarity:'normal',desc:'客人评分 +4%（每级），上限 3 级',max:3,key:'score'},
     {id:'mercy',name:'手下留情！',rarity:'normal',desc:'降分时少扣 5% 小费，上限 1 级',max:1,key:'mercy'},
@@ -1528,6 +1528,8 @@
       'redeemInput','redeemBtn','redeemStatus','devExitBtn',
       'reviewPersonality','codexEntryBtn','codexOverlay','codexClose','codexTabs','codexBody','codexFromSettings','batchStrip','batchScrollWrap','batchScroll',
       'rogueShopOverlay','rogueShopCoins','rogueShopList','rogueShopNext','shrimpOverlay','shrimpTitle','shrimpSub','shrimpChoices','shrimpSkip','shrimpReroll',
+      'eventOverlay','eventIcon','eventTitle','eventDesc','eventContinue','changelogOverlay','changelogClose','changelogDone','changelogBtn',
+      'rogueHudPanel','rogueDayTag','rogueEventLine','buffBagBtn','buffCount','rogueShopBtn','rogueCoinShopBtn',
       'startActions','continueBtn','continueMeta','rogueModeCard','rogueBadge','rogueNote',
       'playerMenuToggle','playerMenu',
       'settingsPauseBtn','rogueOverlay','rogueTitle','rogueStayBtn','rogueHomeBtn','confirmTitle','confirmCopy'];
@@ -2971,6 +2973,7 @@
     renderPatience(state.patience);
     renderOrderStack();
     renderRestaurant();
+    renderRogueHud();
     setStage(state.stage, true);
     updateTabBadges();
   }
@@ -3225,6 +3228,7 @@
       state.selectedBatch = null;
       state.pouring = false;
       acceptGuest(0, {auto:true});
+      if(rogueActive()) setTimeout(showRogueEventPopup, 350);
       if(!state.orderTipShown){
         state.orderTipShown = true;
         setTimeout(() => toast('小提示：订单可以拖到订单架出餐，也可以先收进置物棍'), 1800);
@@ -3338,6 +3342,47 @@
     if(!rogueActive()) return null;
     const id = state.rogue.events[state.day];
     return ROGUE_EVENTS.find(e => e.id === id) || null;
+  }
+  function renderRogueHud(){
+    if(!els.rogueHudPanel) return;
+    if(!rogueActive()){ els.rogueHudPanel.hidden = true; return; }
+    els.rogueHudPanel.hidden = false;
+    const ev = rogueEventToday();
+    const mod = state.day % WEEK_DAYS;
+    const tag = mod === 0 ? 'BOSS日' : mod === 5 ? '精英日' : '普通日';
+    els.rogueDayTag.textContent = tag;
+    els.rogueDayTag.className = `rogue-day-tag ${mod === 0 ? 'boss' : mod === 5 ? 'elite' : ''}`;
+    els.rogueEventLine.textContent = ev ? `今日事件：${ev.name} · ${ev.desc}` : '今日事件：无（本周随机事件日已过）';
+    const itemCount = Object.values(state.rogue.items || {}).reduce((s,n) => s + n, 0);
+    if(els.buffCount) els.buffCount.textContent = (state.rogue.shrimp || []).length + itemCount;
+  }
+  function showRogueEventPopup(){
+    if(!rogueActive()) return;
+    const ev = rogueEventToday();
+    if(!ev || state.rogue.eventShownDay === state.day) return;
+    state.rogue.eventShownDay = state.day;
+    state.phase = 'event';
+    state.eventStartedAt = performance.now();
+    if(els.eventIcon) els.eventIcon.textContent = ev.type === 'good' ? '🍀' : '☠️';
+    if(els.eventTitle) els.eventTitle.textContent = ev.name;
+    if(els.eventDesc) els.eventDesc.textContent = ev.desc;
+    if(els.eventOverlay){ els.eventOverlay.classList.add('show'); els.eventOverlay.setAttribute('aria-hidden','false'); }
+  }
+  function closeRogueEventPopup(){
+    if(els.eventOverlay){ els.eventOverlay.classList.remove('show'); els.eventOverlay.setAttribute('aria-hidden','true'); }
+    const paused = state.eventStartedAt ? performance.now() - state.eventStartedAt : 0;
+    state.eventStartedAt = 0;
+    if(rogueActive()){
+      state.deadline += paused;
+      state.pots.forEach(p => { if(p.status === 'heating') p.startedAt += paused; });
+    }
+    state.phase = 'playing';
+  }
+  function showBuffBag(){
+    if(!rogueActive()) return;
+    const sh = state.rogue.shrimp.map(id => SHRIMPS.find(s => s.id === id)?.name).filter(Boolean);
+    const its = Object.entries(state.rogue.items).filter(([,n]) => n > 0).map(([id,n]) => `${ROGUE_ITEMS.find(i=>i.id===id)?.name || id}×${n}`);
+    toast(`辣虾：${sh.length ? sh.join('、') : '暂无'} ｜ 道具：${its.length ? its.join('、') : '暂无'}`);
   }
   function startRogueRun(){
     state.rogue = {
@@ -4255,9 +4300,17 @@
 
   /* -------------------- 商店 -------------------- */
   function potPrice(){ return POT_PRICES[state.upgrade.pots] || 999; }
+  function shopUpgrades(){
+    if(rogueActive()) return state.rogue.upgrades;
+    return activeProfile ? activeProfile.upgrades : state.upgrade;
+  }
+  function shopUnlocks(){
+    if(rogueActive()) return {toppings:state.rogue.toppings, jars:state.rogue.jars};
+    return activeProfile ? activeProfile.unlocks : {toppings:[],jars:[]};
+  }
   function shopItems(){
     const items = [];
-    const u = activeProfile ? activeProfile.upgrades : state.upgrade;
+    const u = shopUpgrades();
     items.push({id:'pot', name:'备用熬糖锅', desc:`当前 ${u.pots} 口 · 最多 4 口，可以同时熬多锅`, price:potPrice(),
       owned:u.pots >= 4, label:u.pots >= 4 ? '已满 4 口' : `买 ${potPrice()}`,
       icon:`<svg class="icon" style="width:28px;height:28px;color:#B67F1A"><use href="#i-heat"></use></svg>`});
@@ -4277,7 +4330,8 @@
   }
   function syrupItems(){
     return ['honey','maple','honeysuckle'].map(id => {
-      const s = SYRUPS[id], owned = !!(activeProfile && activeProfile.syrups[id]);
+      const s = SYRUPS[id];
+      const owned = rogueActive() ? state.rogue.syrups.includes(id) : !!(activeProfile && activeProfile.syrups[id]);
       return {id, name:s.name, desc:s.desc, price:s.price, owned,
         icon:`<span style="display:block;width:26px;height:26px;border-radius:50%;background:${s.color};border:2px solid #C58B3A"></span>`,
         label: owned ? '已解锁' : `解锁 ${s.price}`};
@@ -4321,12 +4375,16 @@
   }
   function renderShop(){
     if(!activeProfile) return;
-    const wallet = activeProfile.wallet;
+    const wallet = rogueActive() ? state.rogue.coins : activeProfile.wallet;
     const main = !!state.shopMain;
+    if(els.shopTabs) els.shopTabs.querySelectorAll('[data-shoptab]').forEach(b => {
+      b.hidden = rogueActive() && (b.dataset.shoptab === 'furniture' || b.dataset.shoptab === 'expand');
+    });
+    if(rogueActive() && (state.shopTab === 'furniture' || state.shopTab === 'expand')) state.shopTab = 'run';
     els.shopCoins.textContent = coinText();
-    if(els.shopWallet) els.shopWallet.innerHTML = `<svg class="icon"><use href="#i-coin"></use></svg>金币 <b>${coinText()}</b><small>全局购买，永久生效</small>`;
-    if(els.shopTitle) els.shopTitle.textContent = main ? '道具商店' : '打烊后的金币商店';
-    if(els.shopSub) els.shopSub.textContent = main ? '家具、升级、糖浆，买了就永久生效' : '买口锅、换把刀，让明天更快一点';
+    if(els.shopWallet) els.shopWallet.innerHTML = `<svg class="icon"><use href="#i-coin"></use></svg>金币 <b>${coinText()}</b><small>${rogueActive() ? '本局购买 · 结束后重置' : '全局购买，永久生效'}</small>`;
+    if(els.shopTitle) els.shopTitle.textContent = rogueActive() ? '肉鸽金币商店' : main ? '道具商店' : '打烊后的金币商店';
+    if(els.shopSub) els.shopSub.textContent = rogueActive() ? '本局有效，肉鸽结束后全部重置' : main ? '家具、升级、糖浆，买了就永久生效' : '买口锅、换把刀，让明天更快一点';
     if(els.shopStartBtn) els.shopStartBtn.style.display = main ? 'none' : '';
     if(els.shopEarlyBtn) els.shopEarlyBtn.style.display = main ? 'none' : '';
     if(els.shopBackBtn) els.shopBackBtn.textContent = main ? '关闭' : '回到今日结算';
@@ -4386,8 +4444,8 @@
   }
   function buyItem(itemId){
     ensureAudio();
-    if(!activeProfile) return;
-    const u = activeProfile.upgrades;
+    if(!activeProfile && !rogueActive()) return;
+    const u = shopUpgrades();
     if(itemId === 'pot'){
       if(u.pots >= 4) return;
       const price = potPrice();
@@ -4413,6 +4471,13 @@
         sfx.coin(); toast(`买下并装备了${k.name}`);
       }
     }
+    if(rogueActive()){
+      state.upgrade = state.rogue.upgrades;
+      renderShop();
+      updateHud();
+      if(state.stage === 'kitchen') renderKitchen();
+      return;
+    }
     syncProfile();
     saveProfiles();
     renderShop();
@@ -4429,6 +4494,10 @@
       if(!pool.length) continue;
       const pick = pool[Math.floor(Math.random() * pool.length)];
       if(!out.some(s => s.id === pick.id)) out.push(pick);
+    }
+    if(out.length < 3){
+      const spare = SHRIMPS.filter(s => !out.some(o => o.id === s.id) && shrimpLevel(s.id) < s.max);
+      while(out.length < 3 && spare.length) out.push(spare.splice(randInt(0, spare.length - 1), 1)[0]);
     }
     return out;
   }
@@ -4521,9 +4590,17 @@
     sfx.coin();
   }
   function buySyrup(id){
-    if(!activeProfile || activeProfile.syrups[id]) return;
     const s = SYRUPS[id];
     if(!s) return;
+    if(rogueActive()){
+      if(state.rogue.syrups.includes(id)) return;
+      if(!spendCoins(s.price)){ toast('金币不够'); return; }
+      state.rogue.syrups.push(id);
+      sfx.coin(); toast(`${s.name}已解锁（本局有效）`);
+      renderShop(); updateHud();
+      return;
+    }
+    if(!activeProfile || activeProfile.syrups[id]) return;
     if(!spendCoins(s.price)){ toast('金币不够'); return; }
     activeProfile.syrups[id] = true;
     sfx.coin(); toast(`${s.name}已解锁，熬糖时可以选择`);
@@ -4546,7 +4623,6 @@
   }
   function openShop(main=false){
     sfx.tap();
-    if(rogueActive()){ openRogueShop(); return; }
     main = main === true;
     if(main && !activeProfile) return;
     state.shopMain = main;
@@ -4864,7 +4940,7 @@
       serveOrder();
     });
     els.nextBtn.addEventListener('click', nextGuest);
-    els.shopBtn.addEventListener('click', openShop);
+    els.shopBtn.addEventListener('click', () => rogueActive() ? openRogueShop() : openShop());
     els.replayBtn.addEventListener('click', onReplay);
     els.homeBtn.addEventListener('click', goHome);
     els.shopBackBtn.addEventListener('click', closeShop);
@@ -4905,6 +4981,16 @@
       const b = e.target.closest('[data-shrimp]');
       if(b) finishShrimp(b.dataset.shrimp);
     });
+    if(els.eventContinue) els.eventContinue.addEventListener('click', closeRogueEventPopup);
+    if(els.buffBagBtn) els.buffBagBtn.addEventListener('click', showBuffBag);
+    if(els.rogueShopBtn) els.rogueShopBtn.addEventListener('click', openRogueShop);
+    if(els.rogueCoinShopBtn) els.rogueCoinShopBtn.addEventListener('click', () => openShop(true));
+    if(els.changelogBtn) els.changelogBtn.addEventListener('click', () => {
+      if(els.changelogOverlay){ els.changelogOverlay.classList.add('show'); els.changelogOverlay.setAttribute('aria-hidden','false'); }
+    });
+    [els.changelogClose, els.changelogDone].forEach(b => b && b.addEventListener('click', () => {
+      if(els.changelogOverlay){ els.changelogOverlay.classList.remove('show'); els.changelogOverlay.setAttribute('aria-hidden','true'); }
+    }));
 
     if(els.savePlayerBtn) els.savePlayerBtn.addEventListener('click', savePlayerName);
     if(els.playerName) els.playerName.addEventListener('keydown', e => {

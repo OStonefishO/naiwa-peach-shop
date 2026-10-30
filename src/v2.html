@@ -1832,6 +1832,32 @@
   .guest-svg.naishu-photo{object-fit:cover;background:#FFF8E5}
   .codex-tabs.five{grid-template-columns:repeat(5,1fr)}
   .codex-tab{font-size:6.8px}
+  .update-badge{left:auto;right:-8px;top:76px;background:linear-gradient(160deg,#6E8BD8,#3E5AA8);transform:rotate(4deg);font-size:7px}
+  .event-overlay,.changelog-overlay{align-items:center;padding:14px;background:rgba(14,30,21,.7);z-index:360;transition:none}
+  .event-card,.changelog-card{
+    width:min(100%,350px);padding:18px 16px calc(16px + var(--safe-bottom));border:3px solid #6B4A1B;border-radius:20px;
+    background:linear-gradient(180deg,#FFFDF2,#FFF0C9);box-shadow:0 14px 0 rgba(80,50,15,.18);text-align:center;position:relative
+  }
+  .event-icon{font-size:38px;line-height:1;margin:4px 0}
+  .event-card h2,.changelog-card h2{margin:3px 0 5px;font-size:21px;color:#4A3215}
+  .event-card p{margin:0 0 14px;font-size:8.5px;line-height:1.6;color:#8C7042;font-weight:700}
+  .changelog-card{text-align:left}
+  .changelog-card h2{margin-left:2px}
+  .changelog-body{display:grid;gap:8px;margin:8px 0 13px;max-height:56dvh;overflow-y:auto;scrollbar-width:none}
+  .changelog-body::-webkit-scrollbar{display:none}
+  .changelog-item{padding:8px 9px;border:1px solid #E8D3A8;border-radius:11px;background:#FFFDF5}
+  .changelog-item b{display:block;font-size:8.5px;color:#4E3718}
+  .changelog-item span{display:block;margin-top:3px;font-size:7.4px;line-height:1.55;color:#876C43;font-weight:700}
+  .settings-changelog{width:100%;height:33px;margin-top:7px;border:1px dashed #D6B97C;border-radius:10px;background:#FFF9E8;color:#8B5E21;font:900 8.5px/1 inherit;cursor:pointer}
+  .rogue-hud-panel{margin:6px 0 0;padding:7px 8px;border:1px solid #A9CBE0;border-radius:12px;background:#EAF6FC}
+  .rogue-day-line{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:7.4px;font-weight:800;color:#42657A}
+  .rogue-day-tag{padding:2px 6px;border-radius:999px;background:#BFE0F1;color:#2E5C78;font-size:7px}
+  .rogue-day-tag.elite{background:#E9C4B0;color:#8A4328}
+  .rogue-day-tag.boss{background:#DFC6E8;color:#6E3D83}
+  .rogue-event-line{flex:1;min-width:130px}
+  .rogue-hud-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:6px}
+  .rogue-bag-btn{height:28px;border:1px solid #B7D3E0;border-radius:8px;background:#FFF;color:#3D6478;font:900 7.6px/1 inherit;cursor:pointer}
+  .rogue-bag-btn b{color:#B45A38}
 </style>
 </head>
 <body>
@@ -2170,6 +2196,14 @@
         </div>
       </div>
       <div class="desk-note">小提示：多接的订单会堆在置物棍上。封盖后把订单拖到「订单架」出餐。</div>
+      <div class="rogue-hud-panel" id="rogueHudPanel" hidden>
+        <div class="rogue-day-line"><span class="rogue-day-tag" id="rogueDayTag">普通日</span><span class="rogue-event-line" id="rogueEventLine">今日事件：无</span></div>
+        <div class="rogue-hud-actions">
+          <button class="rogue-bag-btn" id="buffBagBtn" type="button">🎒 增益袋 <b id="buffCount">0</b></button>
+          <button class="rogue-bag-btn" id="rogueCoinShopBtn" type="button">🛒 金币商店</button>
+          <button class="rogue-bag-btn" id="rogueShopBtn" type="button">🏮 肉鸽夜市</button>
+        </div>
+      </div>
     </div>
 
     <div class="stage-view" id="restaurantView" data-view="restaurant">
@@ -2291,6 +2325,7 @@
       <div class="intro-hero">
         <span class="intro-tag">SUMMER PEACH · 2026</span>
         <span class="intro-badge">1.0<br>正式版</span>
+        <span class="intro-badge update-badge">肉鸽更新！</span>
         <svg viewBox="0 0 312 210" aria-hidden="true">
           <use href="#frog-chef" x="8" y="15" width="180" height="206"></use>
           <use href="#peach-can" x="177" y="38" width="120" height="163"></use>
@@ -2617,6 +2652,7 @@
         <button id="devExitBtn" class="redeem-exit" type="button" hidden>退出开发者模式</button>
       </div>
       <button class="settings-codex" id="codexFromSettings" type="button">📖 打开奶蛙图鉴</button>
+      <button class="settings-changelog" id="changelogBtn" type="button">📝 更新日志 · 1.0 肉鸽更新</button>
       <button class="settings-pause" id="settingsPauseBtn" type="button" hidden>暂时打烊（保存进度）</button>
       <button class="settings-early" id="settingsEarlyBtn" type="button" hidden>提前下班</button>
       <button class="settings-done" id="settingsDone" type="button">完成</button>
@@ -2675,6 +2711,29 @@
       <div class="rogue-money">肉鸽金币 <b id="rogueShopCoins">0</b></div>
       <div class="rogue-shop-list" id="rogueShopList"></div>
       <button class="primary-btn" id="rogueShopNext" type="button">开始下一天</button>
+    </div>
+  </div>
+
+  <div class="overlay event-overlay" id="eventOverlay" aria-hidden="true">
+    <div class="event-card">
+      <div class="rogue-kicker">ROGUE EVENT</div>
+      <div class="event-icon" id="eventIcon">🍀</div>
+      <h2 id="eventTitle">今日事件</h2>
+      <p id="eventDesc"></p>
+      <button class="primary-btn" id="eventContinue" type="button">继续营业</button>
+    </div>
+  </div>
+
+  <div class="overlay changelog-overlay" id="changelogOverlay" aria-hidden="true">
+    <div class="changelog-card">
+      <button class="codex-close" id="changelogClose" type="button">✕</button>
+      <div class="rogue-kicker">CHANGELOG</div>
+      <h2>更新日志</h2>
+      <div class="changelog-body">
+        <div class="changelog-item"><b>1.0 · 肉鸽更新！</b><span>肉鸽模式上线：周金币指标、随机事件、辣虾三选一、肉鸽夜市、肉鸽图鉴、奶鼠 BOSS、豆包帮手；普通模式改为 28 天。</span></div>
+        <div class="changelog-item"><b>1.0 · 体验优化</b><span>继续对局、暂时打烊、店长下拉、提前下班移入设置、搅拌不受订单限制、28 天普通模式。</span></div>
+      </div>
+      <button class="primary-btn" id="changelogDone" type="button">知道了</button>
     </div>
   </div>
 
