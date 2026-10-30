@@ -1855,6 +1855,10 @@
   .rogue-day-tag.elite{background:#E9C4B0;color:#8A4328}
   .rogue-day-tag.boss{background:#DFC6E8;color:#6E3D83}
   .rogue-event-line{flex:1;min-width:130px}
+  .rogue-items-bar{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+  .rogue-item-chip{display:inline-flex;align-items:center;gap:4px;height:25px;padding:0 8px;border:1px solid #9EC0D4;border-radius:8px;background:#FFF;color:#3C6276;font:900 7px/1 inherit}
+  .rogue-item-chip button{height:19px;padding:0 6px;border:1px solid #7FA8BF;border-radius:6px;background:#DCEEF7;color:#31576B;font:900 6.8px/1 inherit;cursor:pointer}
+  .rogue-item-chip.passive{opacity:.72}
   .rogue-hud-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:6px}
   .rogue-bag-btn{height:28px;border:1px solid #B7D3E0;border-radius:8px;background:#FFF;color:#3D6478;font:900 7.6px/1 inherit;cursor:pointer}
   .rogue-bag-btn b{color:#B45A38}
@@ -2213,6 +2217,7 @@
       <div class="desk-note">小提示：多接的订单会堆在置物棍上。封盖后把订单拖到「订单架」出餐。</div>
       <div class="rogue-hud-panel" id="rogueHudPanel" hidden>
         <div class="rogue-day-line"><span class="rogue-day-tag" id="rogueDayTag">普通日</span><span class="rogue-event-line" id="rogueEventLine">今日事件：无</span></div>
+        <div class="rogue-items-bar" id="rogueItemsBar"></div>
       </div>
     </div>
 

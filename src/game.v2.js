@@ -1529,7 +1529,7 @@
       'reviewPersonality','codexEntryBtn','codexOverlay','codexClose','codexTabs','codexBody','codexFromSettings','batchStrip','batchScrollWrap','batchScroll',
       'rogueShopOverlay','rogueShopCoins','rogueShopList','rogueShopNext','shrimpOverlay','shrimpTitle','shrimpSub','shrimpChoices','shrimpSkip','shrimpReroll',
       'eventOverlay','eventIcon','eventTitle','eventDesc','eventContinue','changelogOverlay','changelogClose','changelogDone','changelogBtn',
-      'rogueHudPanel','rogueDayTag','rogueEventLine','buffBagBtn','buffCount','rogueShopBtn','rogueCoinShopBtn',
+      'rogueHudPanel','rogueDayTag','rogueEventLine','rogueItemsBar','buffBagBtn','buffCount','rogueShopBtn','rogueCoinShopBtn',
       'rogueMarketCoin','rogueMarketBag','buffBagOverlay','buffBagClose','buffBagBody','summaryPauseBtn','devEndDayBtn',
       'startActions','continueBtn','continueMeta','rogueModeCard','rogueBadge','rogueNote',
       'playerMenuToggle','playerMenu',
@@ -3377,6 +3377,45 @@
     els.rogueEventLine.textContent = ev ? `今日事件：${ev.name} · ${ev.desc}` : '今日事件：无（本周随机事件日已过）';
     const itemCount = Object.values(state.rogue.items || {}).reduce((s,n) => s + n, 0);
     if(els.buffCount) els.buffCount.textContent = (state.rogue.shrimp || []).length + itemCount;
+    if(els.rogueItemsBar){
+      const chips = [];
+      if((state.rogue.items.cashback || 0) > 0) chips.push(`<span class="rogue-item-chip">好评返现 ×${state.rogue.items.cashback}<button type="button" data-use-item="cashback">使用</button></span>`);
+      if((state.rogue.items.personality || 0) > 0) chips.push(`<span class="rogue-item-chip">性格改造 ×${state.rogue.items.personality}<button type="button" data-use-item="personality">使用</button></span>`);
+      if((state.rogue.items.reroll || 0) > 0) chips.push(`<span class="rogue-item-chip">再来一份 ×${state.rogue.items.reroll}</span>`);
+      if((state.rogue.items.goldPot || 0) > 0) chips.push(`<span class="rogue-item-chip passive">黄金锅 ×${state.rogue.items.goldPot}</span>`);
+      if((state.rogue.items.doubao || 0) > 0) chips.push(`<span class="rogue-item-chip passive">豆包 ×${state.rogue.items.doubao}</span>`);
+      if((state.rogue.items.sugarOwl || 0) > 0) chips.push(`<span class="rogue-item-chip passive">糖枭</span>`);
+      els.rogueItemsBar.innerHTML = chips.join('') || '<span class="rogue-item-chip passive">暂无可用增幅道具</span>';
+    }
+  }
+  function useRogueItem(id){
+    if(!rogueActive()) return;
+    const n = state.rogue.items[id] || 0;
+    if(n <= 0) return toast('这个道具已经用完了');
+    if(id === 'cashback'){
+      state.rogue.items.cashback = n - 1;
+      state.rogue.cashbackReady = true;
+      toast('好评返现已启用：下一单至少 80 分');
+    }else if(id === 'personality'){
+      state.rogue.items.personality = n - 1;
+      const dg = state.dayGuests[state.guestIndex];
+      if(dg){
+        dg.personality = PERSONALITIES[PERSONALITY_IDS[randInt(0, PERSONALITY_IDS.length - 1)]];
+        state.personality = dg.personality;
+        dg.patienceMs = personalityPatience(dg.personality, dg.guest);
+        state.patienceMs = dg.patienceMs;
+        state.deadline = performance.now() + state.patienceMs;
+      }
+      toast('性格改造器生效：当前客人的性格被随机改变');
+    }else{
+      toast('这个道具是被动效果，不需要手动使用');
+      return;
+    }
+    sfx.tap();
+    renderRogueHud();
+    renderWork();
+    renderDesk();
+    saveRunToProfile();
   }
   function showRogueEventPopup(){
     if(!rogueActive()) return;
@@ -3978,7 +4017,11 @@
           toast(`奶鼠偷走了 ${steal} 肉鸽金币`);
         }
       }
-      if(score < 80 && (state.rogue.items.cashback || 0) > 0){
+      if(state.rogue.cashbackReady){
+        state.rogue.cashbackReady = false;
+        score = Math.max(80, score);
+        toast('好评返现生效：本单至少 80 分');
+      }else if(score < 80 && (state.rogue.items.cashback || 0) > 0){
         state.rogue.items.cashback -= 1;
         score = 80;
         toast('好评返现福利生效：本单按 80 分结算');
@@ -4618,6 +4661,7 @@
       state.rogue.syrups = ['honey','maple','honeysuckle'];
     }
     renderRogueShop();
+    renderRogueHud();
     sfx.coin();
   }
   function buySyrup(id){
@@ -5031,6 +5075,10 @@
       const b = e.target.closest('[data-shrimp]');
       if(b) finishShrimp(b.dataset.shrimp);
     });
+    if(els.rogueItemsBar) els.rogueItemsBar.addEventListener('click', e => {
+      const b = e.target.closest('[data-use-item]');
+      if(b) useRogueItem(b.dataset.useItem);
+    });
     if(els.eventContinue) els.eventContinue.addEventListener('click', closeRogueEventPopup);
     if(els.buffBagBtn) els.buffBagBtn.addEventListener('click', showBuffBag);
     if(els.rogueShopBtn) els.rogueShopBtn.addEventListener('click', openRogueShop);
@@ -5186,7 +5234,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday };
+      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, renderRogueHud, useRogueItem };
     }
   }
 
