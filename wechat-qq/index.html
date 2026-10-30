@@ -2167,6 +2167,19 @@
       <h2 class="save-title" id="saveTitle">存档与云同步</h2>
       <p class="save-sub">店长名字是本机存档 · Supabase 用名字 + PIN 跨设备 · GitHub Gist 可选</p>
 
+      <div class="save-section save-cloud sb-cloud">
+        <div class="save-label">Supabase 云存档 <span class="save-badge">推荐 · 名字 + PIN</span></div>
+        <input class="save-token" id="sbUrl" type="url" autocomplete="off" spellcheck="false" placeholder="Project URL（https://xxxx.supabase.co）">
+        <input class="save-token" id="sbKey" type="password" autocomplete="off" spellcheck="false" placeholder="anon public key">
+        <input class="save-token" id="sbPin" type="password" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="4–8 位同步密码（只用于云端校验）">
+        <div class="save-row">
+          <button class="primary-btn" id="sbSaveBtn" type="button">上传到 Supabase</button>
+          <button class="ghost-btn" id="sbLoadBtn" type="button">从 Supabase 读取</button>
+        </div>
+        <p class="save-note">已连接内置 Supabase 项目，只需设置 4–8 位 PIN。<br>换设备输入同名店长 + 同一 PIN 即可恢复；换项目再按 <b>supabase/README.md</b> 建表。</p>
+        <div class="save-status" id="sbStatus">已配置 · 输入 PIN 后上传/读取</div>
+      </div>
+
       <div class="save-section">
         <div class="save-label">导出存档码</div>
         <textarea class="save-textarea" id="saveExport" readonly></textarea>
@@ -2180,19 +2193,6 @@
         <div class="save-label">导入存档码</div>
         <textarea class="save-textarea" id="saveImport" placeholder="粘贴以 NAIWA1: 开头的存档码"></textarea>
         <button class="primary-btn" id="importSaveBtn" type="button">导入并覆盖同名店长</button>
-      </div>
-
-      <div class="save-section save-cloud sb-cloud">
-        <div class="save-label">Supabase 云存档 <span class="save-badge">推荐 · 名字 + PIN</span></div>
-        <input class="save-token" id="sbUrl" type="url" autocomplete="off" spellcheck="false" placeholder="Project URL（https://xxxx.supabase.co）">
-        <input class="save-token" id="sbKey" type="password" autocomplete="off" spellcheck="false" placeholder="anon public key">
-        <input class="save-token" id="sbPin" type="password" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="4–8 位同步密码（只用于云端校验）">
-        <div class="save-row">
-          <button class="primary-btn" id="sbSaveBtn" type="button">上传到 Supabase</button>
-          <button class="ghost-btn" id="sbLoadBtn" type="button">从 Supabase 读取</button>
-        </div>
-        <p class="save-note">先用 <b>supabase/schema.sql</b> 建表与函数；anon key 可公开，PIN 不会上传，只由数据库校验。换设备输入同名 + 同一 PIN 即可恢复。</p>
-        <div class="save-status" id="sbStatus">未配置 · 先填 Project URL 和 anon key</div>
       </div>
 
       <div class="save-section save-cloud">
