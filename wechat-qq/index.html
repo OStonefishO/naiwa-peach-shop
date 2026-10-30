@@ -765,6 +765,13 @@
   }
   .review-tip b{font-size:8px;color:#B47A10}
   .review-tip[hidden]{display:none}
+  .review-queue{
+    display:flex;align-items:center;justify-content:space-between;gap:6px;margin:0 0 8px;padding:5px 9px;
+    border:1px dashed #B9A3D2;border-radius:8px;background:#F6F0FF;color:#65458C;font-size:7.2px;font-weight:800
+  }
+  .review-queue b{font-size:8px}
+  .review-queue.bad{border-color:#E0A7A0;background:#FFF3F0;color:#9A4C43}
+  .review-queue[hidden]{display:none}
   .reward-row{
     display:flex;align-items:center;justify-content:space-between;
     padding:8px 10px;margin-bottom:11px;
@@ -1717,6 +1724,38 @@
   .desk-avatar .author-photo{position:absolute;left:50%;top:52%;width:57px;height:57px;object-fit:cover;border:2px solid #FFF9E8;border-radius:50%;transform:translate(-50%,-52%);filter:none!important;animation:none!important}
   .guest-tag.normal{background:#FFF0BE;border-color:#E7BF58;color:#9A6A10}
   .ci-icon img{width:100%;height:100%;object-fit:cover;border-radius:8px}
+  .stage-tabs{grid-template-columns:repeat(4,1fr);gap:4px;padding:5px 8px}
+  .stage-tab{font-size:8.4px;gap:3px}
+  .stage-tab small{display:none}
+  .order-board{display:grid;grid-template-columns:57px 1fr 57px;gap:5px;align-items:stretch;min-height:48px}
+  .order-stack-col{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .order-stack-col small{font-size:5.8px;color:#A17C49;font-weight:900;text-align:center;letter-spacing:.2px}
+  .order-stack{display:flex;flex-direction:column;gap:2px;min-height:30px}
+  .kitchen-order-line{font-size:8px;font-weight:800;color:#7B5933;background:#FFF7E4;border:1px dashed #DFC18B;border-radius:8px;padding:5px 8px;line-height:1.5}
+  .kitchen-order-line b{color:#51361C}
+  .order-mini{width:100%;padding:2px 3px;border:1px solid #DFC18F;border-radius:6px;background:#FFF8E5;color:#7A5526;font-family:inherit;font-size:5.8px;font-weight:900;line-height:1.25;text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .order-mini.active{border-color:#C38A19;background:#FFE9A8;box-shadow:0 1px 0 #D8A844}
+  .order-mini.served{opacity:.45;text-decoration:line-through}
+  .submit-rack{border:1.5px dashed #C99B4E;border-radius:11px;background:#FFF4D6;color:#7C5520;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-family:inherit;cursor:pointer;padding:3px;min-width:0}
+  .submit-rack .icon{width:16px;height:16px}
+  .submit-rack b{font-size:7.5px;font-weight:900}
+  .submit-rack em{font-size:5.7px;font-weight:700;font-style:normal;color:#9C7A45;line-height:1.3;text-align:center}
+  .submit-rack.drop{outline:3px dashed #E3A33B;background:#FFE5A2}
+  .restaurant-card{padding-bottom:7px}
+  .restaurant-note{font-size:6.6px;line-height:1.5;color:#98784A;font-weight:700;margin:0 0 6px;padding:5px 7px;border-radius:8px;background:#FFF7E4}
+  .restaurant-list{display:grid;gap:5px}
+  .rest-card{display:grid;grid-template-columns:50px 1fr auto;gap:6px;align-items:center;padding:5px 6px;border:1px solid #E7D0A7;border-radius:11px;background:#FFFDF5}
+  .rest-card.served{opacity:.5}
+  .rest-card.active{border-color:#D8A438;background:#FFF5D7}
+  .rest-avatar{width:48px;height:58px;border-radius:9px;background:#FFF2D0;overflow:hidden;display:flex;align-items:center;justify-content:center}
+  .rest-avatar .guest-svg{position:static;width:46px;height:56px;filter:none;animation:none;transform:none}
+  .rest-avatar .author-photo{width:46px;height:56px;border-radius:8px}
+  .rest-copy{min-width:0}
+  .rest-copy b{display:block;font-size:8px;color:#51371A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rest-copy small{display:block;font-size:6.2px;color:#9A7948;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rest-accept{border:1.4px solid #D6A52F;border-radius:8px;background:#FFD85C;color:#5A3D08;font-family:inherit;font-size:6.5px;font-weight:900;padding:5px 6px;cursor:pointer;white-space:nowrap}
+  .rest-accept:disabled{border-color:#D8C9AE;background:#F1E6D2;color:#A18A68;cursor:default}
+  .rest-tag{display:inline-block;margin-left:3px;padding:0 3px;border-radius:4px;background:#F1E2C2;color:#8B652E;font-size:5.6px}
 </style>
 </head>
 <body>
@@ -1933,7 +1972,8 @@
   </header>
 
   <nav class="stage-tabs" id="stageTabs" aria-label="工作区域">
-    <button class="stage-tab active" type="button" data-stage="desk"><svg class="icon"><use href="#i-clock"></use></svg>服务台<small>接单</small><span class="tab-dot"></span></button>
+    <button class="stage-tab active" type="button" data-stage="desk"><svg class="icon"><use href="#i-clock"></use></svg>服务台<small>出餐</small><span class="tab-dot"></span></button>
+    <button class="stage-tab" type="button" data-stage="restaurant"><svg class="icon"><use href="#i-ticket"></use></svg>餐厅<small>接单</small><span class="tab-dot"></span></button>
     <button class="stage-tab" type="button" data-stage="work"><svg class="icon"><use href="#i-can"></use></svg>工作台<small>装罐</small><span class="tab-dot"></span></button>
     <button class="stage-tab" type="button" data-stage="kitchen"><svg class="icon"><use href="#i-heat"></use></svg>厨房<small>备料</small><span class="tab-dot"></span></button>
   </nav>
@@ -2026,6 +2066,21 @@
     </div>
 
     <div class="stage-view active" id="deskView" data-view="desk">
+      <div class="order-board">
+        <div class="order-stack-col">
+          <small>左置物棍</small>
+          <div class="order-stack" id="orderStackLeft"></div>
+        </div>
+        <button class="submit-rack" id="submitRack" type="button">
+          <svg class="icon"><use href="#i-ticket"></use></svg>
+          <b>订单架</b>
+          <em>把封好的订单拖到这里出餐</em>
+        </button>
+        <div class="order-stack-col right">
+          <small>右置物棍</small>
+          <div class="order-stack" id="orderStackRight"></div>
+        </div>
+      </div>
       <div class="desk-card">
         <div class="desk-guest">
           <div class="desk-avatar" id="deskAvatar"></div>
@@ -2037,7 +2092,19 @@
           <button class="mini-action" type="button" data-go="kitchen"><svg class="icon"><use href="#i-heat"></use></svg>去厨房</button>
         </div>
       </div>
-      <div class="desk-note">小提示：客人耐心在倒计时。先切桃、熬糖，再回工作台装罐。</div>
+      <div class="desk-note">小提示：多接的订单会堆在置物棍上。封盖后把订单拖到「订单架」出餐。</div>
+    </div>
+
+    <div class="stage-view" id="restaurantView" data-view="restaurant">
+      <div class="ctrl-card restaurant-card">
+        <div class="ctrl-head">
+          <span class="stepnum">R</span>
+          <span class="ctrl-title">今日餐厅</span>
+          <span class="ctrl-note">先接谁，由你决定</span>
+        </div>
+        <div class="restaurant-note">客人可以按顺序接，也可以提前接。插队会扣被插队客人的评价；提前出餐会拿到额外好评。</div>
+        <div class="restaurant-list" id="restaurantList"></div>
+      </div>
     </div>
 
     <div class="stage-view" id="workView" data-view="work">
@@ -2109,7 +2176,7 @@
     </div>
 
     <div class="stage-view" id="kitchenView" data-view="kitchen">
-      <div class="order-mini" id="kitchenOrder">订单：—</div>
+      <div class="kitchen-order-line" id="kitchenOrder">订单：—</div>
       <div class="cut-card">
         <div class="ctrl-head"><span class="stepnum">1</span><span class="ctrl-title">切黄桃</span><span class="ctrl-note">每刀切一块</span></div>
         <div class="cut-stage" id="cutStage">
@@ -2225,6 +2292,7 @@
       <div class="review-quote" id="reviewQuote"></div>
       <div class="score-grid" id="scoreGrid"></div>
       <div class="review-tip" id="reviewTip" hidden></div>
+      <div class="review-queue" id="reviewQueue" hidden></div>
       <div class="reward-row"><span>本单收入 · 奶蛙的小费</span><strong><svg class="icon"><use href="#i-coin"></use></svg>+<span id="reviewCoins">0</span></strong></div>
       <div class="review-actions">
         <button class="primary-btn" id="nextBtn" type="button">下一位客人<svg class="icon"><use href="#i-arrow"></use></svg></button>
@@ -2662,9 +2730,15 @@
       delta:[-10000,-10000],
       desc:'一点小错误就会让心情变差，评价掉得很快。',
       effect:'扣分被放大 · 小错误代价很高'
+    },
+    petty:{
+      id:'petty', name:'斤斤计较', icon:'🧾', color:'#7A5AA6',
+      delta:[-30000,-10000],
+      desc:'最讨厌被插队，食材稍微不对就会记在心里。',
+      effect:'被插队扣分翻倍 · 糖水容错略严'
     }
   };
-  const PERSONALITY_IDS = ['patient','generous','strict','impatient','irritable'];
+  const PERSONALITY_IDS = ['patient','generous','strict','impatient','irritable','petty'];
   const SPECIAL_SLOT = {elite:1, boss:2};
   function specialForDay(day){
     const d = ((day - 1) % WEEK_DAYS) + 1;
@@ -2862,6 +2936,7 @@
     mode:'normal', introMode:'normal', runEarned:0, week:1, weekEarned:0, weekTarget:weekTargetFor(1),
     summaryKind:'day', bestNormal:0, bestEndless:0,
     dayCoins:0, dayStars:0, guestIndex:0, guest:null, personality:null, order:null, todayGuests:[],
+    dayGuests:[], orders:[], activeOrderId:null, orderSeq:0, queueInfo:null,
     can:emptyCan(), bowl:{large:0,small:0}, stock:Infinity,
     pots:makePots(), batches:[], selectedBatch:null,
     upgrade:{pots:1, alarms:0, knife:'wood', knives:['wood']},
@@ -3833,12 +3908,12 @@
   const els = {};
   function cacheEls(){
     const ids = ['game','daySub','coins','soundBtn','stageTabs','orderTicket','speech','guestWrap','canWrap',
-      'deskView','workView','kitchenView','deskAvatar','deskGuestName','deskGuestMood','deskStatus',
+      'deskView','restaurantView','restaurantList','workView','kitchenView','orderStackLeft','orderStackRight','submitRack','deskAvatar','deskGuestName','deskGuestMood','deskStatus',
       'hint','hintText','patience','patienceFill','patienceTime','canLarge','canSmall','bowlWorkLarge','bowlWorkSmall','syrupNote',
       'batchStrip','syrupTarget','syrupFill','syrupReadout','pourBtn','kitchenOrder','cutStage','cutStock',
       'bowlLarge','bowlSmall','potGrid','potNote','alarmNote','footer','resetBtn','sealBtn','serveBtn','toast',
       'introOverlay','startBtn','introNote','reviewOverlay','reviewStars','reviewTitle','reviewScore','reviewQuote',
-      'scoreGrid','reviewCoins','reviewTip','perfectStamp','nextBtn','summaryOverlay','summaryTitle','summaryStars',
+      'scoreGrid','reviewCoins','reviewTip','reviewQueue','perfectStamp','nextBtn','summaryOverlay','summaryTitle','summaryStars',
       'summaryCoins','summaryCoinsLabel','summaryPerfect','summaryAvg','summaryComment','summaryBest','summarySub','confetti',
       'summaryRibbon','homeBtn','weekBanner','weekLabel','weekFill','weekValue','weekLeft','bgm',
       'reviewSpecial','shopBtn','replayBtn','shopOverlay','shopCoins','shopEvent','shopGrid','shopStartBtn','shopBackBtn',
@@ -4076,9 +4151,9 @@
   /* -------------------- 订单 -------------------- */
   function randInt(a,b){ return a + Math.floor(Math.random() * (b - a + 1)); }
   let lastOrderSig = '';
-  function makeOrder(index, guest){
+  function makeOrder(index, guest, pOverride){
     const hard = guest && (guest.tier === 'elite' || guest.tier === 'boss');
-    const p = state.personality || null;
+    const p = pOverride !== undefined ? pOverride : (state.personality || null);
     const complex = hard || (p && (p.id === 'patient' || p.id === 'strict'));
     const simple = p && p.id === 'impatient';
     let order = null, sig = '';
@@ -4100,7 +4175,7 @@
           tops.push({id:pick, qty:randInt(1,3)});
         }
       }
-      const tolBase = SUGAR[sugar].tol + (guest && guest.tolDelta || 0) + (p && p.id === 'strict' ? -1 : p && p.id === 'generous' ? 1 : 0);
+      const tolBase = SUGAR[sugar].tol + (guest && guest.tolDelta || 0) + (p && p.id === 'strict' ? -1 : p && p.id === 'petty' ? -1 : p && p.id === 'generous' ? 1 : 0);
       const tol = Math.max(3, tolBase);
       const poolS = availableSyrups();
       const twoSyrupChance = complex ? .82 : simple ? .24 : .58;
@@ -4152,10 +4227,12 @@
     els.game.dataset.stage = stage;
     els.stageTabs.forEach(t => t.classList.toggle('active', t.dataset.stage === stage));
     els.deskView.classList.toggle('active', stage === 'desk');
+    if(els.restaurantView) els.restaurantView.classList.toggle('active', stage === 'restaurant');
     els.workView.classList.toggle('active', stage === 'work');
     els.kitchenView.classList.toggle('active', stage === 'kitchen');
     if(els.orderRod) els.orderRod.hidden = stage !== 'desk';
-    if(stage === 'desk') renderDesk();
+    if(stage === 'desk'){ renderDesk(); renderOrderStack(); }
+    if(stage === 'restaurant') renderRestaurant();
     if(stage === 'work') renderWork();
     if(stage === 'kitchen') renderKitchen();
     renderAlarmTray();
@@ -4170,7 +4247,7 @@
     if(els.coins) els.coins.textContent = coinText();
     if(els.earlyBtn) els.earlyBtn.style.display = state.phase === 'intro' ? 'none' : '';
     if(els.daySub){
-      const label = state.phase === 'intro' ? '准备营业' : state.stage === 'desk' ? '服务台' : state.stage === 'work' ? '工作台' : '厨房';
+      const label = state.phase === 'intro' ? '准备营业' : state.stage === 'desk' ? '服务台' : state.stage === 'restaurant' ? '餐厅' : state.stage === 'work' ? '工作台' : '厨房';
       const special = specialForDay(state.day);
       const mark = special ? (special.type === 'boss' ? ' · BOSS日' : ' · 精英日') : '';
       if(state.phase === 'intro') els.daySub.textContent = '选择模式 · 准备营业';
@@ -5011,21 +5088,14 @@
     const two = expected.length > 1;
     const poured = expected.filter(s => (c.components[s.id] || 0) > 0).length;
     if(els.stirBtn){
-      const ready = two && poured >= 2;
-      els.stirBtn.disabled = !ready;
-      els.stirBtn.classList.toggle('on', ready && !!c.stirred);
-      els.stirBtn.textContent = !two ? '本单是单糖浆 · 不需要搅拌'
-        : !ready ? `两种糖浆都倒好后可搅拌（${poured}/2）`
-        : c.stirred ? '已搅拌 · 点一下恢复分层' : '搅拌一下';
+      els.stirBtn.disabled = false;
+      els.stirBtn.classList.toggle('on', !!c.stirred);
+      els.stirBtn.textContent = c.stirred ? '已搅拌 · 点一下恢复分层' : '搅拌一下';
     }
   }
 
   function toggleStir(){
     if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
-    const wanted = state.order ? (state.order.syrups || []) : [];
-    if(wanted.length < 2) return;
-    const poured = wanted.filter(s => (state.can.components[s.id] || 0) > 0).length;
-    if(poured < 2){ toast('两种糖浆都倒好后再搅拌哦'); return; }
     state.can.stirred = !state.can.stirred;
     updateSyrupVisual();
     renderWork();
@@ -5190,6 +5260,15 @@
       els.sealBtn.disabled = false;
       els.serveBtn.innerHTML = `${icon('arrow')}${sealed ? '去服务台' : '出餐'}`;
       els.serveBtn.disabled = !sealed;
+    }else if(state.stage === 'restaurant'){
+      els.footer.style.gridTemplateColumns = '1fr';
+      if(state.activeOrderId){
+        els.serveBtn.innerHTML = `${icon('arrow')}回服务台`;
+        els.serveBtn.disabled = false;
+      }else{
+        els.serveBtn.innerHTML = `${icon('ticket')}先接单`;
+        els.serveBtn.disabled = true;
+      }
     }else{
       els.footer.style.gridTemplateColumns = '1fr';
       els.serveBtn.innerHTML = `${icon('arrow')}去工作台`;
@@ -5201,6 +5280,43 @@
     els.stageTabs.forEach(t => t.classList.remove('alert'));
     if(state.can.sealed) $('.stage-tab[data-stage="desk"]').classList.add('alert');
     if(state.batches.length && state.stage !== 'work') $('.stage-tab[data-stage="work"]').classList.add('alert');
+    if((state.dayGuests || []).some(d => !d.accepted && !d.served) && state.stage !== 'restaurant') $('.stage-tab[data-stage="restaurant"]').classList.add('alert');
+  }
+
+  function renderRestaurant(){
+    if(!els.restaurantList) return;
+    const list = state.dayGuests || [];
+    if(!list.length){
+      els.restaurantList.innerHTML = '<div class="restaurant-note">今天还没有客人。按「开始营业」后，客人会陆续来到餐厅。</div>';
+      return;
+    }
+    els.restaurantList.innerHTML = list.map(dg => {
+      const active = dg.orderId && dg.orderId === state.activeOrderId;
+      const st = dg.served ? '已出餐' : active ? '正在做' : dg.accepted ? '已接单' : '等待接单';
+      const cls = dg.served ? 'served' : active ? 'active' : '';
+      const o = dg.order;
+      const brief = `${SIZES[o.size].name} · ${peachText(o.peaches)} · ${SUGAR[o.sugar].name}`;
+      const p = dg.personality;
+      const ptag = p ? `<span class="rest-tag" style="color:${p.color}">${p.icon} ${p.name}</span>` : '<span class="rest-tag">普通</span>';
+      const btn = dg.served ? '<button class="rest-accept" disabled>已出餐</button>'
+        : active ? '<button class="rest-accept" disabled>正在做</button>'
+        : dg.accepted ? `<button class="rest-accept" data-activate-order="${dg.orderId}">查看订单</button>`
+        : `<button class="rest-accept" data-accept-guest="${dg.index}">接单</button>`;
+      return `<div class="rest-card ${cls}" data-rest-index="${dg.index}">
+        <div class="rest-avatar">${guestSVG(dg.guest, dg.index)}</div>
+        <div class="rest-copy"><b>${dg.guest.name}${guestTag(dg.guest)}${ptag}</b><small>${st} · ${brief}</small><small>${p ? p.effect : '按普通耐心等待'}</small></div>
+        ${btn}
+      </div>`;
+    }).join('');
+  }
+
+  function renderOrderStack(){
+    const wrapL = els.orderStackLeft, wrapR = els.orderStackRight;
+    if(!wrapL || !wrapR) return;
+    const open = state.orders.filter(o => !o.served);
+    const mini = o => `<button class="order-mini ${o.id === state.activeOrderId ? 'active' : ''}" data-order-id="${o.id}" type="button">${o.guest.name}<br>${o.id.toString().padStart(2,'0')}</button>`;
+    wrapL.innerHTML = open.filter((_,i) => i % 2 === 0).slice(0,4).map(mini).join('');
+    wrapR.innerHTML = open.filter((_,i) => i % 2 === 1).slice(0,4).map(mini).join('');
   }
 
   function renderAll(){
@@ -5209,6 +5325,8 @@
     renderGuest();
     renderCan();
     renderPatience(state.patience);
+    renderOrderStack();
+    renderRestaurant();
     setStage(state.stage, true);
     updateTabBadges();
   }
@@ -5222,7 +5340,106 @@
     return pool.length ? pool[randInt(0, pool.length - 1)] : GUESTS[randInt(0, GUESTS.length - 1)];
   }
 
+  function setupDayGuests(){
+    state.dayGuests = [];
+    state.todayGuests = [];
+    state.orders = [];
+    state.activeOrderId = null;
+    state.orderSeq = 0;
+    state.queueInfo = null;
+    for(let i=0;i<GUEST_COUNT;i++){
+      const guest = pickGuest(i);
+      state.todayGuests.push(guest.name);
+      const p = personalityFor(guest);
+      markSeen(guest);
+      const patienceMs = personalityPatience(p, guest);
+      const order = makeOrder(i, guest, p);
+      state.dayGuests.push({index:i, guest, personality:p, patienceMs, order, accepted:false, served:false, queuePenalty:0, orderId:null});
+    }
+  }
+
+  function saveActiveOrder(){
+    if(state.activeOrderId == null) return;
+    const rec = state.orders.find(o => o.id === state.activeOrderId);
+    if(!rec) return;
+    rec.can = state.can;
+    rec.selectedBatch = state.selectedBatch;
+    rec.patienceLeft = Math.max(0, state.deadline - performance.now());
+  }
+
+  function activateOrder(id, opts={}){
+    const rec = state.orders.find(o => o.id === id);
+    if(!rec || rec.served) return;
+    saveActiveOrder();
+    state.activeOrderId = id;
+    state.guestIndex = rec.guestIndex;
+    state.guest = rec.guest;
+    state.personality = rec.personality;
+    state.order = rec.order;
+    state.can = rec.can;
+    state.selectedBatch = rec.selectedBatch || null;
+    state.patienceMs = rec.patienceMs;
+    state.patienceLeft = rec.patienceLeft == null ? rec.patienceMs : rec.patienceLeft;
+    state.deadline = performance.now() + state.patienceLeft;
+    state.patience = clamp(state.patienceLeft / state.patienceMs, 0, 1);
+    state.pouring = false;
+    state.phase = 'playing';
+    state.stage = opts.keepStage ? state.stage : 'desk';
+    els.game.dataset.stage = state.stage;
+    setGuestMood('idle');
+    renderAll();
+    resetOrderTicket();
+    renderFrogWear();
+    renderDesk();
+    renderWork();
+    renderKitchen();
+    renderRestaurant();
+    updateFooter();
+    renderHint();
+    updateTabBadges();
+    if(!opts.quiet) showSpeech(rec.guest.greet);
+    cueMusic();
+  }
+
+  function acceptGuest(index, opts={}){
+    const dg = state.dayGuests[index];
+    if(!dg || dg.served) return;
+    if(dg.accepted){ activateOrder(dg.orderId); return; }
+    const id = ++state.orderSeq;
+    const rec = {
+      id, guestIndex:index, guest:dg.guest, personality:dg.personality,
+      order:dg.order, can:emptyCan(), patienceMs:dg.patienceMs, patienceLeft:dg.patienceMs,
+      queueBonus:0, served:false, acceptedAt:performance.now()
+    };
+    state.orders.push(rec);
+    dg.accepted = true;
+    dg.orderId = id;
+    if(!opts.auto) toast(`已接单：${dg.guest.name}。可以现在做，也可以先去招呼别人。`);
+    if(dg.guest.kind === 'author') toast(`彩蛋客人「奶龙学长」到店！小费 ×${dg.guest.coin.toFixed(1)}`);
+    const special = specialForDay(state.day);
+    if(special && special.slot === index){
+      setTimeout(() => toast(special.type === 'boss'
+        ? `周末 BOSS「${dg.guest.name}」到店：耐心 ${Math.round(dg.patienceMs/1000)} 秒，奖励 ×${dg.guest.coin}！`
+        : `精英客人「${dg.guest.name}」到店：订单更复杂，奖励 ×${dg.guest.coin}！`), 420);
+    }
+    activateOrder(id, {quiet:!!opts.auto});
+  }
+
   function newCustomer(index){
+    if(index === 0 || !state.dayGuests.length){
+      setupDayGuests();
+      state.phase = 'playing';
+      state.stage = 'desk';
+      els.game.dataset.stage = 'desk';
+      state.selectedBatch = null;
+      state.pouring = false;
+      acceptGuest(0, {auto:true});
+      if(!state.orderTipShown){
+        state.orderTipShown = true;
+        setTimeout(() => toast('小提示：订单可以拖到订单架出餐，也可以先收进置物棍'), 1800);
+      }
+      return;
+    }
     if(index === 0) state.todayGuests = [];
     state.guestIndex = index;
     state.guest = pickGuest(index);
@@ -5642,6 +5859,24 @@
     updateTabBadges();
   }
 
+  function computeQueue(){
+    const dg = state.dayGuests[state.guestIndex];
+    const skipped = (state.dayGuests || []).filter(d => !d.served && d.index < state.guestIndex);
+    state.queueInfo = {
+      bonus: skipped.length ? Math.min(15, skipped.length * 5) : 0,
+      skipped: skipped.map(d => d.guest.name)
+    };
+    skipped.forEach(d => {
+      d.queuePenalty = (d.queuePenalty || 0) + (d.personality && d.personality.id === 'petty' ? 16 : 8);
+    });
+  }
+
+  function submitActive(){
+    if(state.phase !== 'playing') return;
+    if(!state.can.sealed){ toast('还没有封盖，封好后再放到订单架'); setStage('work'); return; }
+    serveOrder();
+  }
+
   function serveOrder(){
     if(state.phase !== 'playing') return;
     if(state.stage !== 'desk'){
@@ -5649,6 +5884,7 @@
       return;
     }
     if(!state.can.sealed){ toast('罐头还没封好，先去工作台'); setStage('work'); return; }
+    computeQueue();
     state.phase = 'serving';
     state.pouring = false;
     stopAllHeating();
@@ -5663,6 +5899,7 @@
   }
   function timeoutOrder(){
     if(state.phase !== 'playing') return;
+    state.queueInfo = null;
     state.phase = 'serving';
     state.pouring = false;
     stopAllHeating();
@@ -5770,6 +6007,11 @@
       else if(p.id === 'irritable') score = Math.max(0, Math.round(100 - (100 - baseScore) * 1.75));
     }
     const pDelta = score - baseScore;
+    const dg = (state.dayGuests || [])[state.guestIndex];
+    const queueBonus = (!timedOut && state.queueInfo) ? (state.queueInfo.bonus || 0) : 0;
+    const queuePenalty = (!timedOut && dg) ? (dg.queuePenalty || 0) : 0;
+    const queueDelta = queueBonus - queuePenalty;
+    if(!timedOut && queueDelta) score = clamp(Math.round(score + queueDelta), 0, 100);
     const perfect = !timedOut && score >= 100;
     const stars = score >= 90 ? 3 : score >= 70 ? 2 : score >= 45 ? 1 : 0;
     const tipInfo = orderTip(o);
@@ -5790,8 +6032,11 @@
     details.push({ok:stirScore===7, label:'搅拌', text: wantIds.length > 1 ? (c.stirred ? '已搅拌 ✓' : '分层') + (o.stirred === !!c.stirred ? ' ✓' : o.stirred ? ' / 要搅拌' : ' / 要分层') : '单糖浆 ✓'});
     details.push({ok:tempScore===10, label:'温度', text: c.temp ? `${TEMPS[c.temp]}${tempScore===10 ? ' ✓' : ` / 要${TEMPS[o.temp]}`}` : '没选温度'});
     details.push({ok:toppingScore>=9.5, label:'加料', text: c.toppingTouched ? `${toppingText(gotTops)}${toppingScore>=9.5 ? ' ✓' : ` / 要${toppingText(wantTops)}`}` : '没选加料'});
+    if(queueDelta){
+      details.push({ok:queueDelta > 0, label:'排队', text: queueDelta > 0 ? `提前服务 +${queueDelta}` : `被插队 ${queueDelta}`});
+    }
     details.push({ok:speedScore===10, label:'出餐速度', text: timedOut ? '超时了…' : speedScore===10 ? '手速超快' : speedScore===7 ? '稍微有点慢' : '客人等急了'});
-    return {score, baseScore, pDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipNotes:tipInfo.notes, details, timedOut, guest:state.guest};
+    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipNotes:tipInfo.notes, details, timedOut, guest:state.guest};
   }
 
   function commentFor(result){
@@ -5817,6 +6062,11 @@
     stopAllHeating();
     const result = scoreOrder(timedOut);
     result.comment = commentFor(result);
+    const servedDg = (state.dayGuests || [])[state.guestIndex];
+    if(servedDg) servedDg.served = true;
+    const servedRec = (state.orders || []).find(o => o.id === state.activeOrderId);
+    if(servedRec){ servedRec.served = true; servedRec.result = result; }
+    state.queueInfo = null;
     state.scoreResult = result;
     state.reviews.push(result);
     state.dayStars += result.stars;
@@ -5828,6 +6078,7 @@
     renderReview(result);
     updateHud();
     updateTabBadges();
+    renderOrderStack();
     cueMusic();
   }
 
@@ -5863,13 +6114,21 @@
         els.reviewTip.innerHTML = `<span>复杂订单小费${note ? ` · ${note}` : ''}</span><b>+${tip}</b>`;
       }
     }
+    if(els.reviewQueue){
+      const q = Number(result.queueDelta) || 0;
+      els.reviewQueue.hidden = !q;
+      els.reviewQueue.classList.toggle('bad', q < 0);
+      if(q) els.reviewQueue.innerHTML = `<span>${q > 0 ? '提前服务，客人很满意' : '被插队，客人不太高兴'}</span><b>${q > 0 ? '+' : ''}${q}</b>`;
+    }
     els.perfectStamp.style.display = result.perfect ? 'grid' : 'none';
     els.scoreGrid.innerHTML = result.details.map(d => `
       <div class="score-item ${d.ok ? 'ok' : 'bad'}">
         <span class="status">${icon(d.ok ? 'check' : 'x')}</span>
         <span class="copy"><b>${d.label}</b><small>${d.text}</small></span>
       </div>`).join('');
-    els.nextBtn.innerHTML = state.guestIndex >= GUEST_COUNT - 1 ? `查看今日结算${icon('arrow')}` : `下一位客人${icon('arrow')}`;
+    const allServed = (state.dayGuests || []).every(d => d.served);
+    const hasAcceptedNext = (state.orders || []).some(o => !o.served);
+    els.nextBtn.innerHTML = allServed ? `查看今日结算${icon('arrow')}` : hasAcceptedNext ? `下一单${icon('arrow')}` : `去餐厅接单${icon('arrow')}`;
     els.reviewOverlay.classList.add('show');
     els.reviewOverlay.setAttribute('aria-hidden','false');
     setTimeout(() => {
@@ -5886,11 +6145,18 @@
     els.reviewOverlay.classList.remove('show');
     els.reviewOverlay.setAttribute('aria-hidden','true');
     sfx.tap();
-    if(state.guestIndex >= GUEST_COUNT - 1){
+    if((state.dayGuests || []).every(d => d.served)){
       setTimeout(showSummary, 300);
-    }else{
-      newCustomer(state.guestIndex + 1);
+      return;
     }
+    const nextOrder = (state.orders || []).filter(o => !o.served).sort((a,b) => a.guestIndex - b.guestIndex)[0];
+    if(nextOrder){
+      activateOrder(nextOrder.id);
+      return;
+    }
+    state.phase = 'playing';
+    setStage('restaurant');
+    toast('去餐厅接下一单吧');
   }
 
   function summaryKindForDay(){
@@ -6296,9 +6562,15 @@
       if(!moved) return;
       const tr = ticket.getBoundingClientRect();
       const rr = els.orderRod.getBoundingClientRect();
+      const rack = els.submitRack ? els.submitRack.getBoundingClientRect() : null;
+      const rackHit = rack && tr.left + tr.width / 2 > rack.left && tr.left + tr.width / 2 < rack.right
+        && tr.top + tr.height / 2 > rack.top && tr.top + tr.height / 2 < rack.bottom;
       const dist = Math.hypot(tr.left + tr.width / 2 - (rr.left + rr.width / 2), tr.top + tr.height / 2 - (rr.top + rr.height / 2));
       ticket.style.transform = '';
-      if(dist < 110) storeOrder();
+      if(rackHit){
+        if(state.can.sealed) submitActive();
+        else toast('订单还没封盖，先去工作台');
+      }else if(dist < 110) storeOrder();
     };
     ticket.addEventListener('pointerup', finish);
     ticket.addEventListener('pointercancel', finish);
@@ -6381,6 +6653,22 @@
       sfx.tap();
     });
     els.stageTabs.forEach(t => t.addEventListener('click', () => setStage(t.dataset.stage)));
+    if(els.restaurantList) els.restaurantList.addEventListener('click', e => {
+      const accept = e.target.closest('[data-accept-guest]');
+      if(accept){ acceptGuest(Number(accept.dataset.acceptGuest)); return; }
+      const act = e.target.closest('[data-activate-order]');
+      if(act) activateOrder(Number(act.dataset.activateOrder));
+    });
+    [els.orderStackLeft, els.orderStackRight].forEach(box => {
+      if(box) box.addEventListener('click', e => {
+        const b = e.target.closest('[data-order-id]');
+        if(b) activateOrder(Number(b.dataset.orderId));
+      });
+    });
+    if(els.submitRack) els.submitRack.addEventListener('click', () => {
+      if(state.can.sealed) submitActive();
+      else { toast('订单还没封盖，先去工作台'); setStage('work'); }
+    });
     $$('[data-go]').forEach(b => b.addEventListener('click', () => setStage(b.dataset.go)));
     els.sizeBtns.forEach(b => b.addEventListener('click', () => selectSize(b.dataset.size)));
     $$('[data-piece-plus]').forEach(b => b.addEventListener('click', () => addPiece(b.dataset.piecePlus)));
@@ -6480,6 +6768,7 @@
     els.resetBtn.addEventListener('click', resetCan);
     els.sealBtn.addEventListener('click', sealCan);
     els.serveBtn.addEventListener('click', () => {
+      if(state.stage === 'restaurant'){ if(state.activeOrderId) setStage('desk'); else toast('先在餐厅接一单吧'); return; }
       if(state.stage === 'kitchen'){ setStage('work'); return; }
       if(state.stage === 'work'){ if(state.can.sealed) setStage('desk'); else toast('先封盖，再去服务台'); return; }
       serveOrder();
