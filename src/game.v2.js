@@ -4987,6 +4987,7 @@
     });
     if(els.rogueMarketCoin) els.rogueMarketCoin.addEventListener('click', () => {
       if(els.rogueShopOverlay){ els.rogueShopOverlay.classList.remove('show'); els.rogueShopOverlay.setAttribute('aria-hidden','true'); }
+      state.phase = 'summary';
       openShop(true);
     });
     if(els.rogueMarketBag) els.rogueMarketBag.addEventListener('click', showBuffBag);
