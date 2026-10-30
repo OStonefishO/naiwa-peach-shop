@@ -74,7 +74,11 @@
     {name:'飞机耳猫', kind:'plane', tier:'normal', patience:1.05, coin:1.05, tolDelta:0,
       greet:'（飞机耳）……可以，给我一罐吗？我、我会付钱的。',
       happy:'耳朵都竖起来了！这罐真的好好吃！',
-      okay:'嗯……还行吧，我没有很失望。'}
+      okay:'嗯……还行吧，我没有很失望。'},
+    {name:'牛来', kind:'bull', tier:'normal', personality:'generous', patience:1.12, coin:1.08, tolDelta:1,
+      greet:'哞……我不着急，慢慢做，做得好吃就行。',
+      happy:'哞！这罐真不错，我请你喝牛奶！',
+      okay:'哞，还行，我今天心情好，不跟你计较。'}
   ];
   const GUEST_CODEX = {
     '小黄':{icon:'🐕',bio:'街角第一个闻香而来的小黄狗，最爱冰镇薄荷。'},
@@ -83,8 +87,14 @@
     '口水猫':{icon:'🐱',bio:'闻到黄桃味就会流口水的橘猫，抱着一罐同款罐头。'},
     '夜莺师傅':{icon:'🐦',bio:'用耳朵品鉴糖水的音乐家，讲究“高音甜、低音沉”。'},
     '海绵宝宝':{icon:'🧽',bio:'永远元气满满的海绵，觉得黄桃罐头比蟹黄堡还香。'},
-    '飞机耳猫':{icon:'🐈',bio:'耳朵像小飞机一样折起来，说话小声但很认真地付钱。'}
+    '飞机耳猫':{icon:'🐈',bio:'耳朵像小飞机一样折起来，说话小声但很认真地付钱。'},
+    '牛来':{icon:'🐂',bio:'慢悠悠的黄色牛客人，通常带着大方性格来，不催单也不计较。'}
   };
+  const AUTHOR_GUEST = {name:'奶龙学长', kind:'author', tier:'normal', badge:'彩蛋', personality:'generous',
+    patience:1.6, coin:3, tolDelta:2,
+    greet:'我就是作者奶龙学长！今天来尝尝自己的店，小费管够。',
+    happy:'哈哈，做得不错！作者本人给你点赞，小费加倍！',
+    okay:'谢谢款待，作者下次还会悄悄来。'};
   const ELITE_GUEST = {name:'寸头猪', kind:'pig', tier:'elite', badge:'精英', personality:'strict', patience:.8, coin:1.35, tolDelta:-2,
     greet:'我从沙漠一路溜达来的。给我做罐讲究点的，别糊弄。',
     happy:'行啊，这手艺在沙漠里能开分店。',
@@ -97,9 +107,35 @@
     greet:'我是一颗星……听说这里有黄桃罐头？我要用全部零花钱买！',
     happy:'太——好——吃——啦！我要把它当枕头抱着睡！',
     okay:'我有点没吃明白……不过没关系，再来一罐！'};
+  const DOG_ELITE = {name:'大狗', kind:'bigdog', tier:'elite', badge:'精英', personality:'irritable', patience:.78, coin:1.4, tolDelta:-1,
+    greet:'汪！别让我等太久，我今天心情不太好。',
+    happy:'汪！勉强算你过关，肉给你留一口。',
+    okay:'汪……这点小错，我可记着呢。'};
+  const CHUBBY_ELITE = {name:'肥嘟嘟', kind:'chubby', tier:'elite', badge:'精英', personality:'generous', patience:.95, coin:1.5, tolDelta:1,
+    greet:'嘿嘿，给我来一罐，多一点糖也没关系。',
+    happy:'好吃！你人真好，我下次还来！',
+    okay:'没关系没关系，能吃就行。'};
+  const SAD_ELITE = {name:'伤心鼠', kind:'sadmouse', tier:'elite', badge:'精英', personality:'impatient', patience:.7, coin:1.4, tolDelta:-1,
+    greet:'……能快一点吗？我还要回去看手机。',
+    happy:'哇，好吃！我的伤心都少了一半。',
+    okay:'嗯……可以吧，我先走了。'};
+  const MAO_BOSS = {name:'耄耋', kind:'mao', tier:'boss', badge:'BOSS', personality:'strict', patience:.66, coin:2, tolDelta:-3,
+    greet:'都看着我干什么？罐头、糖水、比例，一样都不能错。',
+    happy:'……嗯，这次的罐头，勉强能入我的眼。',
+    okay:'哼，细节全是破绽。下次别让我挑出来。'};
+  const ELITE_GUESTS = [ELITE_GUEST, DOG_ELITE, CHUBBY_ELITE, SAD_ELITE];
+  const BOSS_GUESTS = [BOSS_GUEST, PATRICK_GUEST, MAO_BOSS];
+  function eliteGuestForDay(day){
+    const week = Math.floor((day - 1) / WEEK_DAYS) + 1;
+    return ELITE_GUESTS[(week - 1) % ELITE_GUESTS.length];
+  }
   function bossGuestForDay(day){
     const week = Math.floor((day - 1) / WEEK_DAYS) + 1;
-    return week % 2 === 0 ? PATRICK_GUEST : BOSS_GUEST;
+    return BOSS_GUESTS[(week - 1) % BOSS_GUESTS.length];
+  }
+  function isAuthorDay(day){ return ((day * 7919 + 104729) % 23) === 0; }
+  function makeAuthorGuest(){
+    return Object.assign({}, AUTHOR_GUEST, {coin: Number((2 + Math.random() * 2).toFixed(2))});
   }
   const PERSONALITIES = {
     patient:{
@@ -138,11 +174,14 @@
   function specialForDay(day){
     const d = ((day - 1) % WEEK_DAYS) + 1;
     if(d === 7) return {type:'boss', slot:SPECIAL_SLOT.boss, guest:bossGuestForDay(day)};
-    if(d === 5) return {type:'elite', slot:SPECIAL_SLOT.elite, guest:ELITE_GUEST};
+    if(d === 5) return {type:'elite', slot:SPECIAL_SLOT.elite, guest:eliteGuestForDay(day)};
     return null;
   }
   function personalityFor(guest){
     if(guest && guest.personality && PERSONALITIES[guest.personality]) return PERSONALITIES[guest.personality];
+    if(guest && guest.tier !== 'normal') return PERSONALITIES[PERSONALITY_IDS[randInt(0, PERSONALITY_IDS.length - 1)]];
+    // 普通客人：一半概率没有特殊性格，按普通耐心/订单处理
+    if(Math.random() < .5) return null;
     return PERSONALITIES[PERSONALITY_IDS[randInt(0, PERSONALITY_IDS.length - 1)]];
   }
   function personalityTag(p){
@@ -1415,11 +1454,13 @@
         return codexItem(p.icon, p.name, `${p.desc}<br>${p.effect}`, '', false);
       }).join('');
     } else if(codexTab === 'normal'){
-      html = `<div class="codex-note">每天在店里随机出现的常客。他们也可能带上不同的性格来点单。</div>`;
+      html = `<div class="codex-note">每天在店里随机出现的常客。约一半普通客人没有特殊性格，按普通耐心和订单处理。</div>`;
       html += GUESTS.map(g => {
         const info = GUEST_CODEX[g.name] || {icon:'🐾',bio:'奶蛙小店里的常客。'};
-        return codexItem(info.icon, g.name, `${info.bio}<br>性格随机 · 等待与订单随性格变化`, '常客', false);
+        return codexItem(info.icon, g.name, `${info.bio}<br>50% 无特殊性格 · 50% 随机性格`, '常客', false);
       }).join('');
+      html += codexItem(`<img src="${authorPhotoSrc()}" alt="奶龙学长">`, '奶龙学长',
+        '作者本人。每天随机出现，平均 10–30 天一次；小费 ×2–4。<br>不简化头像，真人照片出场。', '彩蛋', false);
     } else if(codexTab === 'items'){
       html = `<div class="codex-note">食材和罐子买过一次就永久解锁，会出现在后续订单里。</div>`;
       const topIcons = {mint:'🌿',osmanthus:'🌼',dates:'🫘',goji:'🍒',rock:'🍬',honeysuckle:'🌾'};
@@ -1441,14 +1482,15 @@
         return codexItem('🍯', s.name, unlocked ? s.desc : '未解锁 · 在道具商店购买', unlocked ? '已解锁' : '未解锁', !unlocked);
       }).join('');
     } else {
-      const specials = [ELITE_GUEST, BOSS_GUEST, PATRICK_GUEST];
+      const specials = [...ELITE_GUESTS, ...BOSS_GUESTS];
       html = `<div class="codex-note">只有在店里接待过，才会记录精英与 BOSS 的完整情报。</div>`;
       html += specials.map(g => {
         const seen = (g.tier === 'elite' ? profile.seen.elite : profile.seen.boss).includes(g.name);
         if(!seen){
           return codexItem('？', '？？？', `尚未遇见 · ${g.tier === 'elite' ? '精英客人' : '周末 BOSS'}`, '', true);
         }
-        return codexItem(g.tier === 'elite' ? '🐷' : (g.kind === 'patrick' ? '⭐' : '🐶'), g.name, `${g.greet}<br>耐心 ${Math.round(PATIENCE_MS * g.patience / 1000)} 秒 · 奖励 ×${g.coin}`, g.tier === 'elite' ? '精英' : 'BOSS', false);
+        const specialIcons = {pig:'🐷',bigdog:'🐕',chubby:'🐶',sadmouse:'🐭',serious:'🐶',patrick:'⭐',mao:'🐱'};
+        return codexItem(specialIcons[g.kind] || '🐾', g.name, `${g.greet}<br>耐心 ${Math.round(PATIENCE_MS * g.patience / 1000)} 秒 · 奖励 ×${g.coin}`, g.tier === 'elite' ? '精英' : 'BOSS', false);
       }).join('');
     }
     els.codexBody.innerHTML = html;
@@ -1479,9 +1521,9 @@
   let lastOrderSig = '';
   function makeOrder(index, guest){
     const hard = guest && (guest.tier === 'elite' || guest.tier === 'boss');
-    const p = state.personality || personalityFor(guest);
-    const complex = hard || p.id === 'patient' || p.id === 'strict';
-    const simple = p.id === 'impatient';
+    const p = state.personality || null;
+    const complex = hard || (p && (p.id === 'patient' || p.id === 'strict'));
+    const simple = p && p.id === 'impatient';
     let order = null, sig = '';
     for(let tries=0; tries<16; tries++){
       const size = ['small','medium','large'][randInt(0,2)];
@@ -1501,7 +1543,7 @@
           tops.push({id:pick, qty:randInt(1,3)});
         }
       }
-      const tolBase = SUGAR[sugar].tol + (guest && guest.tolDelta || 0) + (p.id === 'strict' ? -1 : p.id === 'generous' ? 1 : 0);
+      const tolBase = SUGAR[sugar].tol + (guest && guest.tolDelta || 0) + (p && p.id === 'strict' ? -1 : p && p.id === 'generous' ? 1 : 0);
       const tol = Math.max(3, tolBase);
       const poolS = availableSyrups();
       const twoSyrupChance = complex ? .62 : simple ? .18 : .46;
@@ -1629,7 +1671,152 @@
     els.guestWrap.classList.add('guest-enter');
   }
 
+  function bullSVG(guest, idx){
+    const id = 'bull' + idx;
+    return `
+    <svg class="guest-svg bull-svg" viewBox="0 0 160 200" role="img" aria-label="客人 ${guest.name}">
+      <defs><linearGradient id="${id}Fur" x1="0" y1="0" x2=".8" y2="1">
+        <stop offset="0" stop-color="#FFD84A"/><stop offset=".65" stop-color="#F0B91F"/><stop offset="1" stop-color="#D59913"/>
+      </linearGradient></defs>
+      <ellipse cx="80" cy="192" rx="43" ry="5" fill="#3A2410" opacity=".14"/>
+      <g class="dog-bob">
+        <path d="M46 112c-15 17-20 48-9 68 9 17 26 14 31-3l7-26z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.4"/>
+        <path d="M114 112c15 17 20 48 9 68-9 17-26 14-31-3l-7-26z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.4"/>
+        <path d="M45 101c0-18 15-32 35-32s35 14 35 32l-2 37c-2 23-15 37-33 37s-31-14-33-37z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.4"/>
+        <ellipse cx="46" cy="188" rx="17" ry="8" fill="#F5CFC8"/>
+        <ellipse cx="114" cy="188" rx="17" ry="8" fill="#F5CFC8"/>
+        <path d="M45 53c-13-5-22 2-20 13 2 10 10 14 22 10z" fill="#E8B21A" stroke="#B57A0C" stroke-width="1.3"/>
+        <path d="M115 53c13-5 22 2 20 13-2 10-10 14-22 10z" fill="#E8B21A" stroke="#B57A0C" stroke-width="1.3"/>
+        <path d="M54 34C46 24 49 12 57 15c7 2 8 10 7 19z" fill="#8D8178" stroke="#60564F" stroke-width="1.3"/>
+        <path d="M106 34c8-10 5-22-3-19-7 2-8 10-7 19z" fill="#8D8178" stroke="#60564F" stroke-width="1.3"/>
+        <path d="M44 53c0-20 16-32 36-32s36 12 36 32c0 17-14 34-36 34S44 70 44 53z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.5"/>
+        <path d="M45 63c0-19 15-30 35-30s35 11 35 30c0 9-6 17-15 22 2-4 2-8 0-11-6 7-13 10-20 10s-14-3-20-10c-2 3-2 7 0 11-9-5-15-13-15-22z" fill="#E7AD17" opacity=".45"/>
+        <ellipse cx="80" cy="77" rx="26" ry="18" fill="#F2C9C0" stroke="#C7938A" stroke-width="1.1"/>
+        <ellipse cx="71" cy="73" rx="3.2" ry="4.2" fill="#6B4A43" opacity=".75"/>
+        <ellipse cx="89" cy="73" rx="3.2" ry="4.2" fill="#6B4A43" opacity=".75"/>
+        <path d="M70 84c6 4 14 4 20 0" fill="none" stroke="#9C655A" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M55 55c6-4 13-4 18-1M87 54c5-3 12-3 18 1" fill="none" stroke="#6C490A" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="65" cy="62" r="3.2" fill="#2B1A08"/><circle cx="95" cy="62" r="3.2" fill="#2B1A08"/>
+        <path d="M38 166c9-3 16 2 17 10M122 166c-9-3-16 2-17 10" fill="none" stroke="#B57A0C" stroke-width="1.5" stroke-linecap="round"/>
+      </g>
+    </svg>`;
+  }
+
+  function bigDogSVG(guest, idx){
+    const id = 'bigdog' + idx;
+    return `
+    <svg class="guest-svg bigdog-svg" viewBox="0 0 160 200" role="img" aria-label="客人 ${guest.name}">
+      <defs><linearGradient id="${id}Fur" x1="0" y1="0" x2=".8" y2="1">
+        <stop offset="0" stop-color="#D8AE72"/><stop offset=".65" stop-color="#BF8C4F"/><stop offset="1" stop-color="#996734"/>
+      </linearGradient></defs>
+      <ellipse cx="80" cy="193" rx="48" ry="5" fill="#3A2410" opacity=".14"/>
+      <g class="dog-bob">
+        <path d="M38 178c-9-17-5-34 8-40 11-5 21 1 24 11l4 20z" fill="url(#${id}Fur)" stroke="#7A4E22" stroke-width="1.4"/>
+        <path d="M122 178c9-17 5-34-8-40-11-5-21 1-24 11l-4 20z" fill="url(#${id}Fur)" stroke="#7A4E22" stroke-width="1.4"/>
+        <path d="M55 123c-3-27 6-46 25-46s28 19 25 46l-3 49c-1 15-10 22-22 22s-21-7-22-22z" fill="url(#${id}Fur)" stroke="#7A4E22" stroke-width="1.4"/>
+        <path d="M46 70c-18-3-27 12-19 24 7 10 17 8 25 1z" fill="#A9703C" stroke="#7A4E22" stroke-width="1.4"/>
+        <path d="M114 70c18-3 27 12 19 24-7 10-17 8-25 1z" fill="#A9703C" stroke="#7A4E22" stroke-width="1.4"/>
+        <path d="M47 57c0-22 15-36 33-36s33 14 33 36c0 16-7 30-18 37-5 4-10 5-15 5s-10-1-15-5c-11-7-18-21-18-37z" fill="url(#${id}Fur)" stroke="#7A4E22" stroke-width="1.5"/>
+        <path d="M52 47c9-7 18-7 26 0M82 47c8-7 17-7 26 0" fill="none" stroke="#5C3A1C" stroke-width="3.2" stroke-linecap="round"/>
+        <circle cx="66" cy="56" r="4" fill="#211307"/><circle cx="94" cy="56" r="4" fill="#211307"/>
+        <ellipse cx="80" cy="76" rx="12" ry="8" fill="#2A1A0D"/>
+        <path d="M50 85c9-7 18-7 27-1l3 12c3 11-5 19-14 19s-17-8-14-19z" fill="#3A1A16" stroke="#5C2C25" stroke-width="1.2"/>
+        <path d="M55 93l8 5-8 5M105 85c-9-7-18-7-27-1l-3 12c-3 11 5 19 14 19s17-8 14-19z" fill="#3A1A16" stroke="#5C2C25" stroke-width="1.2"/>
+        <path d="M52 87l9 4-9 4M108 87l-9 4 9 4M55 105l9 3-9 4M105 105l-9 3 9 4" fill="#FFF6E8" stroke="#D8C2AA" stroke-width="-.5"/>
+        <path d="M56 116c15 7 33 7 48 0" fill="none" stroke="#3A1A16" stroke-width="2" stroke-linecap="round"/>
+        <path d="M32 170c10-4 18 2 18 10M128 170c-10-4-18 2-18 10" fill="none" stroke="#7A4E22" stroke-width="1.6" stroke-linecap="round"/>
+      </g>
+    </svg>`;
+  }
+
+  function chubbySVG(guest, idx){
+    const id = 'chubby' + idx;
+    return `
+    <svg class="guest-svg chubby-svg" viewBox="0 0 160 200" role="img" aria-label="客人 ${guest.name}">
+      <defs><linearGradient id="${id}Fur" x1="0" y1="0" x2=".8" y2="1">
+        <stop offset="0" stop-color="#FFE45C"/><stop offset=".7" stop-color="#F6C92C"/><stop offset="1" stop-color="#D9A812"/>
+      </linearGradient></defs>
+      <ellipse cx="80" cy="193" rx="49" ry="5" fill="#3A2410" opacity=".14"/>
+      <g class="dog-bob">
+        <path d="M30 174c-13-12-15-29-3-38 10-8 24-3 29 9l5 20z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.4"/>
+        <path d="M130 174c13-12 15-29 3-38-10-8-24-3-29 9l-5 20z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.4"/>
+        <path d="M40 118c0-33 18-55 40-55s40 22 40 55c0 37-15 65-40 65s-40-28-40-65z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.5"/>
+        <ellipse cx="80" cy="147" rx="30" ry="32" fill="#FFF2B8"/>
+        <path d="M43 45c-10-14-5-27 7-27 11 0 17 12 19 25z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.4"/>
+        <path d="M117 45c10-14 5-27-7-27-11 0-17 12-19 25z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.4"/>
+        <path d="M45 58c0-19 15-31 35-31s35 12 35 31c0 17-14 31-35 31S45 75 45 58z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.5"/>
+        <circle cx="65" cy="55" r="7" fill="#FFF9E4"/><circle cx="95" cy="55" r="7" fill="#FFF9E4"/>
+        <circle cx="65" cy="56" r="3" fill="#31200B"/><circle cx="95" cy="56" r="3" fill="#31200B"/>
+        <ellipse cx="80" cy="72" rx="13" ry="8" fill="#8E4A24"/>
+        <ellipse cx="75" cy="70" rx="3.5" ry="2" fill="#C87B4A"/>
+        <path d="M68 82c8 5 16 5 24 0" fill="none" stroke="#7C3E1C" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M52 118c8 10 19 15 28 15s20-5 28-15" fill="none" stroke="#E3B21C" stroke-width="1.5" stroke-linecap="round"/>
+        <ellipse cx="37" cy="186" rx="16" ry="8" fill="#F2C7A9"/>
+        <ellipse cx="123" cy="186" rx="16" ry="8" fill="#F2C7A9"/>
+      </g>
+    </svg>`;
+  }
+
+  function sadMouseSVG(guest, idx){
+    const id = 'sadmouse' + idx;
+    return `
+    <svg class="guest-svg sadmouse-svg" viewBox="0 0 160 200" role="img" aria-label="客人 ${guest.name}">
+      <defs><linearGradient id="${id}Fur" x1="0" y1="0" x2=".8" y2="1">
+        <stop offset="0" stop-color="#96AFD8"/><stop offset=".7" stop-color="#7895C4"/><stop offset="1" stop-color="#5E7BA8"/>
+      </linearGradient></defs>
+      <ellipse cx="80" cy="193" rx="48" ry="5" fill="#3A2410" opacity=".14"/>
+      <g class="dog-bob">
+        <path d="M50 188c-16-6-23-25-16-43 6-17 17-27 32-28h28c15 1 26 11 32 28 7 18 0 37-16 43z" fill="url(#${id}Fur)" stroke="#4D648A" stroke-width="1.5"/>
+        <path d="M50 70c0-24 14-39 30-39s30 15 30 39c0 21-13 36-30 36S50 91 50 70z" fill="url(#${id}Fur)" stroke="#4D648A" stroke-width="1.5"/>
+        <path d="M50 48c-9-9-7-19 3-19 8 0 11 8 11 17zM110 48c9-9 7-19-3-19-8 0-11 8-11 17z" fill="#7C9BCB" stroke="#4D648A" stroke-width="1.3"/>
+        <circle cx="66" cy="62" r="7" fill="#1E2630"/><circle cx="94" cy="62" r="7" fill="#1E2630"/>
+        <circle cx="69" cy="59" r="2.4" fill="#fff"/><circle cx="97" cy="59" r="2.4" fill="#fff"/>
+        <ellipse cx="80" cy="78" rx="9" ry="6" fill="#D9B2C2"/>
+        <path d="M73 91c5-2 10-2 14 0" fill="none" stroke="#4D648A" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M40 100l-20-3M41 108l-22 3M120 100l20-3M119 108l22 3" stroke="#4D648A" stroke-width="1.2" stroke-linecap="round"/>
+        <ellipse cx="62" cy="151" rx="15" ry="18" fill="#E9B7C8"/>
+        <ellipse cx="98" cy="151" rx="15" ry="18" fill="#E9B7C8"/>
+        <rect x="68" y="140" width="24" height="32" rx="4" fill="#2B2B33" stroke="#16161C" stroke-width="2"/>
+        <path d="M72 147h16" stroke="#6B6B78" stroke-width="1.2"/>
+        <ellipse cx="47" cy="185" rx="16" ry="8" fill="#E9B7C8"/>
+        <ellipse cx="113" cy="185" rx="16" ry="8" fill="#E9B7C8"/>
+      </g>
+    </svg>`;
+  }
+
+  function maoCatSVG(guest, idx){
+    const id = 'mao' + idx;
+    return `
+    <svg class="guest-svg mao-svg" viewBox="0 0 160 200" role="img" aria-label="客人 ${guest.name}">
+      <defs><linearGradient id="${id}Fur" x1="0" y1="0" x2=".8" y2="1">
+        <stop offset="0" stop-color="#F2B96B"/><stop offset=".7" stop-color="#DE9A4B"/><stop offset="1" stop-color="#BE7630"/>
+      </linearGradient></defs>
+      <ellipse cx="80" cy="193" rx="47" ry="5" fill="#3A2410" opacity=".14"/>
+      <g class="dog-bob">
+        <path d="M47 129c-15 10-20 29-13 46 6 14 19 20 31 14l10-6z" fill="url(#${id}Fur)" stroke="#93551D" stroke-width="1.4"/>
+        <path d="M113 129c15 10 20 29 13 46-6 14-19 20-31 14l-10-6z" fill="url(#${id}Fur)" stroke="#93551D" stroke-width="1.4"/>
+        <path d="M48 94c0-27 14-45 32-45s32 18 32 45c0 34-14 57-32 57S48 128 48 94z" fill="url(#${id}Fur)" stroke="#93551D" stroke-width="1.5"/>
+        <path d="M42 45c-4-13 4-21 13-15l16 12 9-5 9 5 16-12c9-6 17 2 13 15l-8 23-50 0z" fill="url(#${id}Fur)" stroke="#93551D" stroke-width="1.5"/>
+        <ellipse cx="61" cy="66" rx="10" ry="6" fill="#FFF4D8"/>
+        <ellipse cx="99" cy="66" rx="10" ry="6" fill="#FFF4D8"/>
+        <circle cx="61" cy="67" r="4.2" fill="#3A2814"/><circle cx="99" cy="67" r="4.2" fill="#3A2814"/>
+        <path d="M48 55c5-3 11-3 16 0M96 55c5-3 11-3 16 0" fill="none" stroke="#6C4119" stroke-width="2" stroke-linecap="round"/>
+        <ellipse cx="80" cy="83" rx="14" ry="10" fill="#FFF4D8"/>
+        <path d="M80 79l-4 4h8z" fill="#D67B72"/>
+        <path d="M80 84v5M75 89c2 2 8 2 10 0" fill="none" stroke="#8B5A38" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M46 78l-18-4M46 84l-20 2M114 78l18-4M114 84l20 2" stroke="#7A4A24" stroke-width="1.2" stroke-linecap="round"/>
+        <path d="M55 113c7 4 15 4 22 0M83 113c7 4 15 4 22 0" fill="none" stroke="#B8791F" stroke-width="1.3" stroke-linecap="round"/>
+        <path d="M120 170c9-2 14 3 13 10-1 6-7 8-13 5" fill="none" stroke="#93551D" stroke-width="5" stroke-linecap="round"/>
+      </g>
+    </svg>`;
+  }
+
+  function authorPhotoSrc(){
+    const img = document.querySelector('.maker img');
+    return img ? img.src : 'avatar.jpg';
+  }
   function guestSVG(guest, idx){
+    if(guest.kind === 'author') return `<img class="guest-svg author-photo" src="${authorPhotoSrc()}" alt="${guest.name}">`;
     if(guest.kind === 'cat') return catSVG(guest, idx);
     if(guest.kind === 'pig') return pigSVG(guest, idx);
     if(guest.kind === 'bird') return birdSVG(guest, idx);
@@ -1637,6 +1824,11 @@
     if(guest.kind === 'sponge') return spongeSVG(guest, idx);
     if(guest.kind === 'patrick') return patrickSVG(guest, idx);
     if(guest.kind === 'plane') return planeCatSVG(guest, idx);
+    if(guest.kind === 'bull') return bullSVG(guest, idx);
+    if(guest.kind === 'bigdog') return bigDogSVG(guest, idx);
+    if(guest.kind === 'chubby') return chubbySVG(guest, idx);
+    if(guest.kind === 'sadmouse') return sadMouseSVG(guest, idx);
+    if(guest.kind === 'mao') return maoCatSVG(guest, idx);
     return dogSVG(guest, idx);
   }
 
@@ -2461,6 +2653,7 @@
   function pickGuest(index){
     const special = specialForDay(state.day);
     if(special && special.slot === index) return special.guest;
+    if(index === 0 && !state.todayGuests.includes(AUTHOR_GUEST.name) && isAuthorDay(state.day)) return makeAuthorGuest();
     const pool = GUESTS.filter(g => !state.todayGuests.includes(g.name));
     return pool.length ? pool[randInt(0, pool.length - 1)] : GUESTS[randInt(0, GUESTS.length - 1)];
   }
@@ -2470,6 +2663,7 @@
     state.guestIndex = index;
     state.guest = pickGuest(index);
     state.todayGuests.push(state.guest.name);
+    if(state.guest.kind === 'author') toast(`彩蛋客人「奶龙学长」到店！小费 ×${state.guest.coin.toFixed(1)}`);
     state.personality = personalityFor(state.guest);
     markSeen(state.guest);
     state.patienceMs = personalityPatience(state.personality, state.guest);
@@ -2978,7 +3172,7 @@
     const remain = Math.max(0, state.deadline - performance.now());
     const speedScore = remain >= state.patienceMs * .5 ? 10 : remain >= state.patienceMs * .25 ? 7 : remain > 0 ? 4 : 0;
     const baseScore = timedOut ? 0 : Math.round(sizeScore + jarScore + peachScore + kindScore + ratioScore + boilScore + pourScore + stirScore + tempScore + toppingScore + speedScore);
-    const p = state.personality || (state.guest && personalityFor(state.guest));
+    const p = state.personality || (state.guest && state.guest.personality ? PERSONALITIES[state.guest.personality] : null);
     let score = baseScore;
     if(!timedOut && p){
       if(p.id === 'generous') score = Math.min(100, Math.round(baseScore + 5 + (100 - baseScore) * .12));
