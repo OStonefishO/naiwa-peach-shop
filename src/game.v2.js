@@ -1564,8 +1564,6 @@
         const info = GUEST_CODEX[g.name] || {icon:'🐾',bio:'奶蛙小店里的常客。'};
         return codexItem(info.icon, g.name, `${info.bio}<br>50% 无特殊性格 · 50% 随机性格`, '常客', false);
       }).join('');
-      html += codexItem(`<img src="${authorPhotoSrc()}" alt="奶龙学长">`, '奶龙学长',
-        '作者本人。每天随机出现，平均 10–30 天一次；小费 ×2–4。<br>不简化头像，真人照片出场。', '彩蛋', false);
     } else if(codexTab === 'items'){
       html = `<div class="codex-note">食材和罐子买过一次就永久解锁，会出现在后续订单里。</div>`;
       const topIcons = {mint:'🌿',osmanthus:'🌼',dates:'🫘',goji:'🍒',rock:'🍬',honeysuckle:'🌾'};
