@@ -3,6 +3,9 @@
 游戏是纯静态页面，存档默认只在本机浏览器。  
 Supabase 用来做“店长名字 + 4–8 位 PIN”的跨设备云存档。
 
+> **当前线上版已预配置**：项目 URL `https://ckwfbkqnczlsvvrhhaqb.supabase.co`，anon public key 已内置，`schema.sql` 已执行。  
+> 玩家打开「存档」只需设置 PIN，不需要自己建 Supabase。下面步骤仅用于换项目或自建。
+
 ## 1. 建项目
 
 1. 打开 https://supabase.com/dashboard ，注册/登录。

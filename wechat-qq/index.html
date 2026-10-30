@@ -2365,6 +2365,8 @@
   const GIST_FILE = 'naiwa-cloud-save.json';
   const SB_URL_KEY = 'naiwa_sb_url';
   const SB_KEY_KEY = 'naiwa_sb_key';
+  const SB_DEFAULT_URL = 'https://ckwfbkqnczlsvvrhhaqb.supabase.co';
+  const SB_DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrd2Zia3FuY3psc3Z2cmhoYXFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMzMjMyMjEsImV4cCI6MjEwODg5OTIyMX0.N1M4YxM6gmztjkFdhXViIYc7TMyLz9W1LzhXNgaYrBA';
   const FURNITURE = {
     rug:{name:'黄桃地毯', price:60, icon:'🟨', desc:'软乎乎，踩上去像踩在黄桃上'},
     plant:{name:'薄荷盆栽', price:45, icon:'🌿', desc:'让小家闻起来清清凉凉'},
@@ -2859,10 +2861,10 @@
   function sbConfig(){
     try{
       return {
-        url: (localStorage.getItem(SB_URL_KEY) || '').trim(),
-        key: (localStorage.getItem(SB_KEY_KEY) || '').trim()
+        url: (localStorage.getItem(SB_URL_KEY) || SB_DEFAULT_URL).trim(),
+        key: (localStorage.getItem(SB_KEY_KEY) || SB_DEFAULT_KEY).trim()
       };
-    }catch(e){ return { url:'', key:'' }; }
+    }catch(e){ return { url:SB_DEFAULT_URL, key:SB_DEFAULT_KEY }; }
   }
   function sbStatus(text, kind = ''){
     if(!els.sbStatus) return;
