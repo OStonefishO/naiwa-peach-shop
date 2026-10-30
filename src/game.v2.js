@@ -217,10 +217,10 @@
   }
 
   const MODES = {
-    normal:{name:'普通模式', days:14, desc:'14 天周目 · 尽可能多赚钱'},
+    normal:{name:'普通模式', days:28, desc:'4 周 · 28 天 · 尽可能多赚钱'},
     endless:{name:'无尽模式', weekDays:7, desc:'每周完成业绩 · 不达标就关门'}
   };
-  const NORMAL_DAYS = 14;
+  const NORMAL_DAYS = 28;
   const WEEK_DAYS = 7;
   const weekTargetFor = week => Math.min(900, 280 + (week - 1) * 55);
   const MUSIC = {
@@ -2968,13 +2968,13 @@
     state.introMode = mode;
     els.modeCards.forEach(card => card.classList.toggle('active', card.dataset.mode === mode));
     if(els.modeToggleName) els.modeToggleName.textContent = MODES[mode].name;
-    els.startBtn.innerHTML = `${mode === 'normal' ? '开始 14 天营业' : '开始无尽营业'}${icon('arrow')}`;
+    els.startBtn.innerHTML = `${mode === 'normal' ? `开始 ${NORMAL_DAYS} 天营业` : '开始无尽营业'}${icon('arrow')}`;
     const best = mode === 'normal' ? state.bestNormal : state.bestEndless;
     const bestText = mode === 'normal'
       ? (best ? ` · 最佳周目 ${best} 金币` : '')
       : (best ? ` · 最远第 ${best} 周` : '');
     els.introNote.textContent = (mode === 'normal'
-      ? '普通模式 · 14 天后结算总营业额'
+      ? `普通模式 · ${NORMAL_DAYS} 天后结算总营业额`
       : '无尽模式 · 每周业绩递增 · 不达标就关门') + bestText;
     setMenuGroup(els.modeToggle, els.modePanel, false);
     sfx.tap();
@@ -3663,10 +3663,10 @@
     let comment = '';
 
     if(kind === 'runEnd'){
-      ribbon = '14 天周目完成';
+      ribbon = `${NORMAL_DAYS} 天周目完成`;
       title = '周目结束 · 打烊啦';
-      sub = `14 天总营业额 <b>${state.runEarned}</b> 金币 · 当前余额 ${state.coins}`;
-      comment = `<b>14 天周目完成！</b>本轮一共赚到 ${state.runEarned} 金币。普通模式的乐趣就是不断刷新自己的最高营业额，再开一局试试能不能更上一层楼！`;
+      sub = `${NORMAL_DAYS} 天总营业额 <b>${state.runEarned}</b> 金币 · 当前余额 ${state.coins}`;
+      comment = `<b>${NORMAL_DAYS} 天周目完成！</b>本轮一共赚到 ${state.runEarned} 金币。普通模式的乐趣就是不断刷新自己的最高营业额，再开一局试试能不能更上一层楼！`;
       if(state.runEarned > state.bestNormal){ state.bestNormal = state.runEarned; saveGame(); }
     }else if(kind === 'weekPass'){
       ribbon = `第 ${state.week} 周达标`;
