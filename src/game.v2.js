@@ -144,6 +144,7 @@
     if(masterGain) masterGain.gain.value = state.sound ? settings.master / 100 * .7 : 0;
     if(!bgmEl) bgmEl = els.bgm;
     if(bgmEl) bgmEl.volume = state.sound ? settings.master / 100 * settings.music / 100 * .6 : 0;
+    if(alarmEl) alarmEl.volume = state.sound ? Math.min(1, settings.master / 100 * settings.alarm / 100 * 1.15) : 0;
   }
 
   /* -------------------- 玩家小家数据 -------------------- */
@@ -240,7 +241,7 @@
     sound:true, lastPourSfx:0, speechTimer:null, toastTimer:null, scoreResult:null,
     metaAwarded:false, homeTab:'room', skinPreview:{area:'desk', id:'classic'}, shopTab:'run'
   };
-  let bgmEl = null, bgmKey = null, bgmToken = 0, musicWanted = false;
+  let bgmEl = null, bgmKey = null, bgmToken = 0, musicWanted = false, alarmEl = null;
 
   /* -------------------- 音效 -------------------- */
   function ensureAudio(){
@@ -256,6 +257,20 @@
       if(audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
     }catch(e){ audioCtx = null; }
   }
+  function playAlarm(){
+    if(!state.sound) return;
+    try{
+      if(!alarmEl){
+        alarmEl = new Audio('music/alarm.mp3');
+        alarmEl.preload = 'auto';
+      }
+      alarmEl.volume = Math.min(1, settings.master / 100 * settings.alarm / 100 * 1.15);
+      alarmEl.currentTime = 0;
+      const p = alarmEl.play();
+      if(p && p.catch) p.catch(()=>{});
+    }catch(e){}
+  }
+  const SFX_BOOST = 1.55;
   function tone(freq, dur=.08, type='sine', vol=.05, delay=0, endFreq=null){
     if(!audioCtx || !state.sound) return;
     try{
@@ -266,7 +281,7 @@
       osc.frequency.setValueAtTime(freq, t);
       if(endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, t + dur);
       gain.gain.setValueAtTime(.0001, t);
-      gain.gain.exponentialRampToValueAtTime(vol, t + .012);
+      gain.gain.exponentialRampToValueAtTime(Math.min(.9, vol * SFX_BOOST), t + .012);
       gain.gain.exponentialRampToValueAtTime(.0001, t + dur);
       osc.connect(gain); gain.connect(masterGain);
       osc.start(t); osc.stop(t + dur + .03);
@@ -279,7 +294,7 @@
     chop(){ tone(240,.035,'square',.025,0,160); tone(620,.05,'triangle',.035,.035); },
     pour(){ tone(210 + Math.random()*70,.055,'sine',.022); },
     ding(){ tone(880,.1,'sine',.045); tone(1174,.13,'sine',.035,.08); },
-    alarm(){ const a = settings.alarm / 100; tone(1046,.09,'square',.035 * a); tone(1318,.1,'square',.03 * a,.11); },
+    alarm(){ playAlarm(); },
     error(){ tone(170,.12,'square',.025,0,140); },
     seal(){ tone(160,.1,'square',.025); tone(360,.1,'triangle',.045,.08); tone(740,.1,'sine',.028,.15); },
     serve(){ tone(523,.12,'triangle',.05); tone(659,.12,'triangle',.045,.1); tone(784,.18,'triangle',.04,.2); },

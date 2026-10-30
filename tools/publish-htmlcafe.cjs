@@ -8,7 +8,7 @@ if (!id || !key) {
   process.exit(0);
 }
 let html = fs.readFileSync(path.join(root, 'wechat-qq/index.html'), 'utf8');
-for (const name of ['title', 'desk', 'work', 'summary']) {
+for (const name of ['title', 'desk', 'work', 'summary', 'alarm']) {
   const file = path.join(root, 'wechat-qq/music', name + '.mp3');
   const data = fs.readFileSync(file).toString('base64');
   html = html.split('music/' + name + '.mp3').join('data:audio/mpeg;base64,' + data);

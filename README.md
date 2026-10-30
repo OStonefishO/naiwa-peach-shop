@@ -14,7 +14,7 @@
 ```
 wechat-qq/
   index.html      # 游戏本体（脚本、头像已内联）
-  music/          # 四首背景音乐
+  music/          # 四首背景音乐 + 闹钟音效
   qr.png / qr.svg # GitHub Pages 二维码
   qr-htmlcafe.png / qr-htmlcafe.svg # 备用站二维码
   preview.png     # 标题页预览
@@ -34,7 +34,7 @@ https://ostonefisho.github.io/naiwa-peach-shop/
 
 https://html.cafe/x8b917dbd
 
-也可以扫描 `wechat-qq/qr-htmlcafe.png`。这个版本把四首背景音乐一起内嵌进 HTML，是 3.2MB 的单文件，不依赖 GitHub 域名；适合 GitHub 访问不稳定的手机网络。GitHub Actions 每次部署都会通过仓库 Secrets（`HTMLCAFE_ID` / `HTMLCAFE_KEY`）自动同步这个镜像。
+也可以扫描 `wechat-qq/qr-htmlcafe.png`。这个版本把四首背景音乐和闹钟音效一起内嵌进 HTML，是 3.2MB 的单文件，不依赖 GitHub 域名；适合 GitHub 访问不稳定的手机网络。GitHub Actions 每次部署都会通过仓库 Secrets（`HTMLCAFE_ID` / `HTMLCAFE_KEY`）自动同步这个镜像。
 
 **同一 Wi-Fi 局域网（仅调试）**
 
@@ -177,7 +177,7 @@ http://10.18.167.201:8099/wechat-qq/
 
 ## 技术
 
-- 新版入口 `wechat-qq/index.html`：单文件 HTML，脚本、SVG、头像全部内联，不依赖 CDN；背景音乐是四个本地 MP3。
-- 背景音乐为四个本地 MP3，需和 `index.html` 同目录下的 `music/` 一起部署。
+- 新版入口 `wechat-qq/index.html`：单文件 HTML，脚本、SVG、头像全部内联，不依赖 CDN；背景音乐与闹钟音效是本地 MP3。
+- 背景音乐与闹钟音效为本地 MP3，需和 `index.html` 同目录下的 `music/` 一起部署。
 - 纯前端，直接部署到任意静态服务器即可。
 - 源码在 `src/`；改完后运行 `node src/build.cjs` 会重新生成 `wechat-qq/index.html`。
