@@ -3229,11 +3229,16 @@
   }
   function pauseRun(){
     if(state.phase !== 'playing' && state.phase !== 'summary') return;
-    if(state.phase === 'playing') saveRunToProfile();
+    const fromSummary = state.phase === 'summary';
     closeSettings();
     if(els.summaryOverlay){ els.summaryOverlay.classList.remove('show'); els.summaryOverlay.setAttribute('aria-hidden','true'); }
+    if(fromSummary){
+      startNextDay();
+      state.phase = 'playing';
+    }
+    saveRunToProfile();
     goHome();
-    setTimeout(() => toast('已暂时打烊，主菜单可以继续这一局'), 260);
+    setTimeout(() => toast('已暂时打烊，主菜单可以继续下一局'), 260);
   }
 
   function newCustomer(index){
@@ -4379,7 +4384,7 @@
   }
   function expansionItems(){
     const items = [];
-    const u = activeProfile ? activeProfile.unlocks : {toppings:[],jars:[]};
+    const u = shopUnlocks();
     EXPANSION.topping.forEach(x => items.push({
       id:'topping:'+x.id, kind:'topping', name:x.name, desc:x.desc, price:x.price,
       owned:u.toppings.includes(x.id), icon:icon(TOPPINGS[x.id].icon)
@@ -4404,9 +4409,9 @@
     const wallet = rogueActive() ? state.rogue.coins : activeProfile.wallet;
     const main = !!state.shopMain;
     if(els.shopTabs) els.shopTabs.querySelectorAll('[data-shoptab]').forEach(b => {
-      b.hidden = rogueActive() && (b.dataset.shoptab === 'furniture' || b.dataset.shoptab === 'expand');
+      b.hidden = rogueActive() && b.dataset.shoptab === 'furniture';
     });
-    if(rogueActive() && (state.shopTab === 'furniture' || state.shopTab === 'expand')) state.shopTab = 'run';
+    if(rogueActive() && state.shopTab === 'furniture') state.shopTab = 'run';
     els.shopCoins.textContent = coinText();
     if(els.shopWallet) els.shopWallet.innerHTML = `<svg class="icon"><use href="#i-coin"></use></svg>金币 <b>${coinText()}</b><small>${rogueActive() ? '本局购买 · 结束后重置' : '全局购买，永久生效'}</small>`;
     if(els.shopTitle) els.shopTitle.textContent = rogueActive() ? '肉鸽金币商店' : main ? '道具商店' : '打烊后的金币商店';
@@ -4634,11 +4639,19 @@
   }
   function buyExpansion(expandId){
     ensureAudio();
-    if(!activeProfile) return;
+    if(!activeProfile && !rogueActive()) return;
     const [kind, id] = expandId.split(':');
     const item = expansionItems().find(x => x.id === expandId);
     if(!item || item.owned) return;
     if(!spendCoins(item.price)){ toast('金币不够，先营业赚一点吧'); return; }
+    if(rogueActive()){
+      const arr = kind === 'topping' ? state.rogue.toppings : state.rogue.jars;
+      if(!arr.includes(id)) arr.push(id);
+      sfx.coin();
+      toast(`${item.name} 已解锁（本局有效）`);
+      renderShop();
+      return;
+    }
     if(kind === 'topping') activeProfile.unlocks.toppings.push(id);
     else activeProfile.unlocks.jars.push(id);
     saveProfiles();
