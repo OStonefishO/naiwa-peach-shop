@@ -3467,6 +3467,7 @@
   function rogueMaxScore(){ return 100 + 10 * shrimpLevel('overScore') + 100 * shrimpLevel('plusScore'); }
   function rogueTipMultiplier(){
     let m = 1 + .07 * shrimpLevel('fortune');
+    m *= 1 + .6 * Math.max(0, (state.week || 1) - 1);
     if(rogueHas('doubao')) m *= 1;
     return m;
   }
