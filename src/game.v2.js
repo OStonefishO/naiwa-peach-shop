@@ -339,6 +339,8 @@
       upgrades:{pots:1, alarms:0, knife:'wood', knives:['wood']},
       syrups:{honey:false, maple:false, honeysuckle:false},
       seen:{elite:[], boss:[]},
+      rogueUnlocked:false,
+      run:null,
       lastRun:null
     };
   }
@@ -588,6 +590,9 @@
     p.seen = p.seen && typeof p.seen === 'object' ? p.seen : {};
     p.seen.elite = Array.isArray(p.seen.elite) ? Array.from(new Set(p.seen.elite.filter(n => typeof n === 'string'))) : [];
     p.seen.boss = Array.isArray(p.seen.boss) ? Array.from(new Set(p.seen.boss.filter(n => typeof n === 'string'))) : [];
+    p.rogueUnlocked = !!p.rogueUnlocked;
+    p.run = (p.run && typeof p.run === 'object' && (p.run.mode === 'normal' || p.run.mode === 'endless') && Number(p.run.day) >= 1)
+      ? p.run : null;
     return p;
   }
   function availableSyrups(){
@@ -652,6 +657,7 @@
     syncProfile();
     renderPlayerBar();
     setIntroMode(state.introMode || 'normal');
+    renderResumeUI();
     renderHome();
     return name;
   }
@@ -665,6 +671,15 @@
     if(!els.playerName || !activeProfile) return;
     if(document.activeElement !== els.playerName) els.playerName.value = activeProfile.name;
     if(els.homeOwner) els.homeOwner.textContent = `店长：${activeProfile.name}`;
+    renderPlayerMenu();
+  }
+  function renderPlayerMenu(){
+    if(!els.playerMenu) return;
+    const names = Object.keys(profiles).filter(Boolean);
+    names.sort((a,b) => (a === activeProfile.name ? -1 : b === activeProfile.name ? 1 : a.localeCompare(b, 'zh-CN')));
+    els.playerMenu.innerHTML = names.length
+      ? names.map(name => `<button class="player-menu-item${name === activeProfile.name ? ' active' : ''}" type="button" data-player-name="${esc(name)}"><span>${esc(name)}</span>${name === activeProfile.name ? '<small>当前</small>' : ''}</button>`).join('')
+      : '<div class="player-menu-empty">还没有其他店长存档</div>';
   }
 
   /* -------------------- 存档 / GitHub 云同步 -------------------- */
@@ -813,6 +828,7 @@
   }
   function openSave(){
     if(!els.saveOverlay) return;
+    saveRunToProfile();
     if(els.saveExport) els.saveExport.value = encodeSaveCode();
     if(els.gistToken) els.gistToken.value = gistToken();
     if(els.saveImport) els.saveImport.value = '';
@@ -1057,17 +1073,34 @@
     els.leaderboardOverlay.classList.remove('show');
     els.leaderboardOverlay.setAttribute('aria-hidden','true');
   }
-  function askEarlyLeave(){
-    if(state.phase === 'intro') return;
+  let confirmAction = null;
+  function openConfirm(opts={}){
+    if(els.confirmTitle) els.confirmTitle.textContent = opts.title || '要提前下班吗？';
+    if(els.confirmCopy) els.confirmCopy.innerHTML = opts.copy || '';
+    if(els.confirmOk) els.confirmOk.textContent = opts.okText || '确定';
+    if(els.confirmCancel) els.confirmCancel.textContent = opts.cancelText || '取消';
+    confirmAction = typeof opts.onOk === 'function' ? opts.onOk : null;
     els.confirmOverlay.classList.add('show');
     els.confirmOverlay.setAttribute('aria-hidden','false');
     sfx.tap();
   }
+  function askEarlyLeave(){
+    if(state.phase === 'intro') return;
+    openConfirm({
+      title:'要提前下班吗？',
+      copy:'提前下班会结束本局，未完成的对局会从「继续上一局」里清除，无法再继续。<br>确定要提前下班吗？',
+      okText:'提前下班',
+      cancelText:'继续营业',
+      onOk:doEarlyLeave
+    });
+  }
   function closeConfirm(){
     els.confirmOverlay.classList.remove('show');
     els.confirmOverlay.setAttribute('aria-hidden','true');
+    confirmAction = null;
   }
   function doEarlyLeave(){
+    clearRun();
     closeConfirm();
     goHome();
     sfx.tap();
@@ -1403,7 +1436,10 @@
       'settingsEntryBtn','settingsBtn','settingsOverlay','settingsClose','settingsDone',
       'setMaster','setMusic','setAlarm','setMasterVal','setMusicVal','setAlarmVal',
       'redeemInput','redeemBtn','redeemStatus','devExitBtn',
-      'reviewPersonality','codexEntryBtn','codexOverlay','codexClose','codexTabs','codexBody','codexFromSettings','batchStrip','batchScrollWrap','batchScroll'];
+      'reviewPersonality','codexEntryBtn','codexOverlay','codexClose','codexTabs','codexBody','codexFromSettings','batchStrip','batchScrollWrap','batchScroll',
+      'startActions','continueBtn','continueMeta','rogueModeCard','rogueBadge','rogueNote',
+      'playerMenuToggle','playerMenu',
+      'settingsPauseBtn','rogueOverlay','rogueTitle','rogueStayBtn','rogueHomeBtn','confirmTitle','confirmCopy'];
     ids.forEach(id => els[id] = document.getElementById(id));
     els.panel = $('#panel');
     els.footer = $('.footer');
@@ -1430,11 +1466,13 @@
     document.addEventListener('touchstart', unlock, {once:true, passive:true});
     document.addEventListener('pointerdown', unlock, {once:true, passive:true});
     document.addEventListener('visibilitychange', () => {
+      if(document.hidden) saveRunToProfile();
       if(!bgmEl) bgmEl = els.bgm;
       if(!bgmEl) return;
       if(document.hidden) bgmEl.pause();
       else cueMusic();
     });
+    window.addEventListener('pagehide', () => saveRunToProfile());
   }
 
   function updateSoundButton(){
@@ -1503,6 +1541,7 @@
     if(els.settingsEarlyBtn){
       els.settingsEarlyBtn.hidden = !(state.phase === 'playing' || state.phase === 'reviewing');
     }
+    if(els.settingsPauseBtn) els.settingsPauseBtn.hidden = state.phase !== 'playing';
     if(!els.settingsOverlay) return;
     els.settingsOverlay.classList.add('show');
     els.settingsOverlay.setAttribute('aria-hidden', 'false');
@@ -1712,6 +1751,7 @@
     updateHud();
     applySkins();
     if(!silent){ sfx.tap(); cueMusic(); }
+    if(!restoringRun && state.phase === 'playing') saveRunToProfile();
   }
 
   function updateHud(){
@@ -2893,6 +2933,139 @@
         : `精英客人「${dg.guest.name}」到店：订单更复杂，奖励 ×${dg.guest.coin}！`), 420);
     }
     activateOrder(id, {quiet:!!opts.auto});
+    saveRunToProfile();
+  }
+
+  let restoringRun = false;
+  function snapshotRun(){
+    saveActiveOrder();
+    const raw = {
+      v:1, savedAt:Date.now(), mode:state.mode, day:state.day,
+      dayCoins:state.dayCoins, dayStars:state.dayStars, runEarned:state.runEarned,
+      week:state.week, weekEarned:state.weekEarned, weekTarget:state.weekTarget,
+      guestIndex:state.guestIndex, reviews:state.reviews,
+      dayGuests:state.dayGuests, orders:state.orders,
+      activeOrderId:state.activeOrderId, orderSeq:state.orderSeq,
+      stage:state.stage, bowl:state.bowl, batches:state.batches,
+      selectedBatch:state.selectedBatch, batchSeq,
+      pots:state.pots.map(p => ({...p, startedAt:null})),
+      todayGuests:state.todayGuests
+    };
+    return JSON.parse(JSON.stringify(raw));
+  }
+  function saveRunToProfile(){
+    if(restoringRun || !activeProfile || state.phase !== 'playing' || !state.dayGuests.length) return;
+    activeProfile.run = snapshotRun();
+    saveProfiles();
+  }
+  function clearRun(){
+    if(activeProfile) activeProfile.run = null;
+    if(activeProfile) saveProfiles();
+    renderResumeUI();
+  }
+  function restoreRun(run){
+    if(!run || !MODES[run.mode] || !Array.isArray(run.dayGuests) || !run.dayGuests.length) return false;
+    restoringRun = true;
+    state.mode = run.mode;
+    state.introMode = run.mode;
+    state.day = Number(run.day) || 1;
+    state.dayCoins = Number(run.dayCoins) || 0;
+    state.dayStars = Number(run.dayStars) || 0;
+    state.runEarned = Number(run.runEarned) || 0;
+    state.week = Number(run.week) || 1;
+    state.weekEarned = Number(run.weekEarned) || 0;
+    state.weekTarget = Number(run.weekTarget) || weekTargetFor(state.week);
+    state.reviews = Array.isArray(run.reviews) ? run.reviews : [];
+    state.dayGuests = JSON.parse(JSON.stringify(run.dayGuests));
+    state.orders = JSON.parse(JSON.stringify(run.orders || []));
+    state.orderSeq = Number(run.orderSeq) || state.orders.length;
+    state.todayGuests = Array.isArray(run.todayGuests) ? run.todayGuests : [];
+    state.bowl = run.bowl && typeof run.bowl === 'object' ? {...run.bowl} : {large:0, small:0};
+    state.batches = Array.isArray(run.batches) ? JSON.parse(JSON.stringify(run.batches)) : [];
+    state.selectedBatch = run.selectedBatch == null ? null : run.selectedBatch;
+    state.batchSeq = Number(run.batchSeq) || 0;
+    batchSeq = state.batchSeq;
+    state.pots = Array.isArray(run.pots) && run.pots.length
+      ? run.pots.map(p => {
+          const progress = clamp(Number(p.progress) || 0, 0, 100);
+          return {...p, progress, alarmFired:!!p.alarmFired,
+            startedAt:p.status === 'heating' ? performance.now() - progress / 100 * BOIL_MS : 0};
+        })
+      : makePots();
+    state.stock = Infinity;
+    state.coins = activeProfile ? activeProfile.wallet : 0;
+    state.phase = 'playing';
+    state.stage = run.stage || 'desk';
+    state.activeOrderId = null;
+    state.queueInfo = null;
+    state.orderTipShown = true;
+    state.pouring = false;
+    state.metaAwarded = false;
+    els.introOverlay.classList.remove('show');
+    els.introOverlay.setAttribute('aria-hidden','true');
+    [els.reviewOverlay, els.summaryOverlay, els.shopOverlay, els.homeOverlay, els.leaderboardOverlay, els.codexOverlay, els.saveOverlay, els.settingsOverlay].forEach(o => {
+      if(o){ o.classList.remove('show'); o.setAttribute('aria-hidden','true'); }
+    });
+    els.game.dataset.stage = state.stage;
+    applySkins();
+    const first = run.activeOrderId != null
+      ? state.orders.find(o => o.id === run.activeOrderId && !o.served)
+      : null;
+    const fallback = first || state.orders.find(o => !o.served);
+    if(!fallback){
+      restoringRun = false;
+      goHome();
+      return false;
+    }
+    activeProfile.run = run;
+    activateOrder(fallback.id, {quiet:true, keepStage:true});
+    updateHud();
+    saveRunToProfile();
+    restoringRun = false;
+    setTimeout(() => toast('已继续上一局，慢慢来～'), 300);
+    return true;
+  }
+  function resumeRun(){
+    if(!activeProfile || !activeProfile.run){ toast('没有可继续的对局'); renderResumeUI(); return; }
+    ensureAudio();
+    if(!restoreRun(activeProfile.run)) toast('上一局数据不完整，已回到主菜单');
+  }
+  function renderResumeUI(){
+    if(!els.startActions || !els.continueBtn || !els.startBtn) return;
+    const run = activeProfile ? activeProfile.run : null;
+    els.startActions.classList.toggle('has-run', !!run);
+    els.continueBtn.hidden = !run;
+    if(run){
+      const modeName = run.mode === 'normal' ? '普通' : '无尽';
+      const dayLabel = run.mode === 'normal'
+        ? `DAY ${run.day}/${NORMAL_DAYS}`
+        : `W${run.week} · DAY ${((run.day - 1) % WEEK_DAYS) + 1}/${WEEK_DAYS}`;
+      els.continueMeta.textContent = `${modeName} · ${dayLabel}`;
+    }
+    updateStartButton();
+    renderRogueMode();
+  }
+  function updateStartButton(){
+    if(!els.startBtn) return;
+    const hasRun = !!(activeProfile && activeProfile.run);
+    const label = hasRun ? '新开一局' : (state.introMode === 'normal' ? `开始 ${NORMAL_DAYS} 天营业` : '开始无尽营业');
+    els.startBtn.innerHTML = `${label}${icon('arrow')}`;
+  }
+  function renderRogueMode(){
+    if(!els.rogueModeCard) return;
+    const unlocked = !!(activeProfile && activeProfile.rogueUnlocked);
+    els.rogueModeCard.classList.toggle('locked', !unlocked);
+    if(els.rogueBadge) els.rogueBadge.textContent = unlocked ? '已解锁 · 即将开放' : '未解锁';
+    if(els.rogueNote) els.rogueNote.innerHTML = unlocked
+      ? '普通模式两周达成<br>内容制作中，敬请期待'
+      : '普通模式完成 2 周后解锁<br>内容制作中';
+  }
+  function pauseRun(){
+    if(state.phase !== 'playing') return;
+    saveRunToProfile();
+    closeSettings();
+    goHome();
+    setTimeout(() => toast('已暂时打烊，主菜单可以继续这一局'), 260);
   }
 
   function newCustomer(index){
@@ -2964,11 +3137,15 @@
     sfx.tap();
   }
   function setIntroMode(mode){
+    if(mode === 'rogue'){
+      const unlocked = !!(activeProfile && activeProfile.rogueUnlocked);
+      toast(unlocked ? '肉鸽模式内容制作中，敬请期待' : '肉鸽模式未解锁：普通模式完成 2 周后开放');
+      return;
+    }
     if(!MODES[mode]) return;
     state.introMode = mode;
     els.modeCards.forEach(card => card.classList.toggle('active', card.dataset.mode === mode));
     if(els.modeToggleName) els.modeToggleName.textContent = MODES[mode].name;
-    els.startBtn.innerHTML = `${mode === 'normal' ? `开始 ${NORMAL_DAYS} 天营业` : '开始无尽营业'}${icon('arrow')}`;
     const best = mode === 'normal' ? state.bestNormal : state.bestEndless;
     const bestText = mode === 'normal'
       ? (best ? ` · 最佳周目 ${best} 金币` : '')
@@ -2977,14 +3154,27 @@
       ? `普通模式 · ${NORMAL_DAYS} 天后结算总营业额`
       : '无尽模式 · 每周业绩递增 · 不达标就关门') + bestText;
     setMenuGroup(els.modeToggle, els.modePanel, false);
+    updateStartButton();
     sfx.tap();
   }
   function startGame(){
     if(state.phase !== 'intro') return;
+    const run = activeProfile ? activeProfile.run : null;
+    if(run){
+      openConfirm({
+        title:'要新开一局吗？',
+        copy:'新开一局会覆盖当前未完成的对局，保存进度会丢失。想继续上一局请点「继续上一局」。',
+        okText:'新开一局',
+        cancelText:'取消',
+        onOk:() => { clearRun(); beginRun(state.introMode || 'normal'); }
+      });
+      return;
+    }
     beginRun(state.introMode || 'normal');
   }
   function beginRun(mode){
     ensureAudio();
+    if(activeProfile) activeProfile.run = null;
     state.mode = MODES[mode] ? mode : 'normal';
     state.day = 1;
     state.coins = activeProfile ? activeProfile.wallet : 0;
@@ -3017,6 +3207,7 @@
     newCustomer(0);
     applySkins();
     saveGame();
+    saveRunToProfile();
   }
   function goHome(){
     state.phase = 'intro';
@@ -3046,6 +3237,7 @@
     renderPatience(1);
     updateFooter();
     renderHint();
+    renderResumeUI();
     cueMusic();
   }
 
@@ -3657,6 +3849,7 @@
     const avg = total ? Math.round(state.reviews.reduce((s,r) => s + r.score, 0) / total) : 0;
     const isEnd = kind === 'runEnd' || kind === 'gameOver';
     awardProfile(kind);
+    if(isEnd && activeProfile){ activeProfile.run = null; saveProfiles(); }
     let ribbon = '今日营业结束';
     let title = `第 ${state.day} 天 · 打烊啦`;
     let sub = '';
@@ -3754,6 +3947,22 @@
     els.canWrap.classList.remove('serving');
     newCustomer(0);
     saveGame();
+    if(state.mode === 'normal' && state.day === WEEK_DAYS * 2 + 1 && activeProfile && !activeProfile.rogueUnlocked){
+      activeProfile.rogueUnlocked = true;
+      saveProfiles();
+      renderRogueMode();
+      state.phase = 'playing';
+      saveRunToProfile();
+      state.phase = 'rogueUnlock';
+      if(els.rogueTitle) els.rogueTitle.textContent = '肉鸽模式已解锁！';
+      if(els.rogueOverlay){
+        els.rogueOverlay.classList.add('show');
+        els.rogueOverlay.setAttribute('aria-hidden','false');
+      }
+      sfx.star?.();
+    }else{
+      saveRunToProfile();
+    }
   }
   function onReplay(){
     if(state.summaryKind === 'runEnd' || state.summaryKind === 'gameOver') beginRun(state.mode);
@@ -4062,6 +4271,22 @@
   function bindEvents(){
     els.startBtn.addEventListener('click', startGame);
     els.modeCards.forEach(card => card.addEventListener('click', () => setIntroMode(card.dataset.mode)));
+    if(els.rogueStayBtn) els.rogueStayBtn.addEventListener('click', () => {
+      if(els.rogueOverlay) els.rogueOverlay.classList.remove('show');
+      if(state.phase === 'rogueUnlock'){
+        state.phase = 'playing';
+        updateHud();
+        toast('肉鸽模式已解锁，继续营业吧！');
+      }
+    });
+    if(els.rogueHomeBtn) els.rogueHomeBtn.addEventListener('click', () => {
+      if(els.rogueOverlay) els.rogueOverlay.classList.remove('show');
+      if(state.phase === 'rogueUnlock'){
+        state.phase = 'playing';
+        saveRunToProfile();
+      }
+      goHome();
+    });
     if(els.modeToggle) els.modeToggle.addEventListener('click', () => toggleMenuGroup(els.modeToggle, els.modePanel));
     if(els.shopToggle) els.shopToggle.addEventListener('click', () => toggleMenuGroup(els.shopToggle, els.shopPanel));
     [els.settingsBtn, els.settingsEntryBtn].forEach(btn => {
@@ -4284,6 +4509,28 @@
     if(els.playerName) els.playerName.addEventListener('keydown', e => {
       if(e.key === 'Enter'){ e.preventDefault(); savePlayerName(); els.playerName.blur(); }
     });
+    if(els.playerMenuToggle) els.playerMenuToggle.addEventListener('click', e => {
+      e.stopPropagation();
+      if(!els.playerMenu) return;
+      els.playerMenu.hidden = !els.playerMenu.hidden;
+      renderPlayerMenu();
+      sfx.tap();
+    });
+    if(els.playerMenu) els.playerMenu.addEventListener('click', e => {
+      const b = e.target.closest('[data-player-name]');
+      if(!b) return;
+      const name = b.dataset.playerName;
+      els.playerMenu.hidden = true;
+      switchProfile(name);
+      ensureAudio();
+      sfx.ding();
+      toast(`已切换店长「${name}」`);
+    });
+    document.addEventListener('click', e => {
+      if(!els.playerMenu || els.playerMenu.hidden) return;
+      if(e.target.closest('.player-name-wrap')) return;
+      els.playerMenu.hidden = true;
+    });
     if(els.saveEntryBtn) els.saveEntryBtn.addEventListener('click', openSave);
     if(els.saveClose) els.saveClose.addEventListener('click', closeSave);
     if(els.saveOverlay) els.saveOverlay.addEventListener('click', e => { if(e.target === els.saveOverlay) closeSave(); });
@@ -4323,8 +4570,14 @@
       closeSettings();
       askEarlyLeave();
     });
+    if(els.settingsPauseBtn) els.settingsPauseBtn.addEventListener('click', pauseRun);
+    if(els.continueBtn) els.continueBtn.addEventListener('click', resumeRun);
     if(els.confirmCancel) els.confirmCancel.addEventListener('click', closeConfirm);
-    if(els.confirmOk) els.confirmOk.addEventListener('click', doEarlyLeave);
+    if(els.confirmOk) els.confirmOk.addEventListener('click', () => {
+      const action = confirmAction;
+      if(action) action();
+      closeConfirm();
+    });
     if(els.homeOverlay) els.homeOverlay.addEventListener('click', e => { if(e.target === els.homeOverlay) closeHome(); });
     if(els.leaderboardOverlay) els.leaderboardOverlay.addEventListener('click', e => { if(e.target === els.leaderboardOverlay) closeLeaderboard(); });
     els.homeTabs.forEach(t => t.addEventListener('click', () => setHomeTab(t.dataset.homeTab)));
@@ -4384,6 +4637,7 @@
     applySkins();
     setIntroMode('normal');
     updateHud();
+    renderResumeUI();
     renderPatience(1);
     renderOrderTicket();
     renderDesk();
@@ -4395,7 +4649,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests };
+      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode };
     }
   }
 

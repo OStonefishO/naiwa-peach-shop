@@ -1192,6 +1192,21 @@
   .player-input{flex:1;min-width:0;border:0;background:transparent;outline:none;text-align:center;
     font-family:inherit;font-size:10px;font-weight:900;color:#5A3B20}
   .player-input::placeholder{font-size:7.5px;font-weight:700;color:#B79A73}
+  .player-name-wrap{position:relative;flex:1;min-width:0;display:flex;align-items:center;gap:2px}
+  .player-name-wrap .player-input{flex:1}
+  .player-menu-toggle{flex:0 0 auto;width:22px;height:22px;border:1px solid #E2C185;border-radius:7px;
+    background:#FFFDF5;color:#8F6B3D;font:900 10px/1 inherit;padding:0;cursor:pointer}
+  .player-menu{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:60;padding:4px;
+    max-height:148px;overflow-y:auto;scrollbar-width:thin;
+    border:1.5px solid #D9B57A;border-radius:11px;background:#FFFDF4;box-shadow:0 8px 20px rgba(80,50,15,.18)}
+  .player-menu[hidden]{display:none}
+  .player-menu-item{display:flex;align-items:center;justify-content:space-between;width:100%;height:29px;
+    padding:0 8px;border:0;border-radius:7px;background:transparent;color:#6E4E27;
+    font-family:inherit;font-size:8px;font-weight:800;cursor:pointer;text-align:left}
+  .player-menu-item + .player-menu-item{margin-top:1px}
+  .player-menu-item.active{background:#FFF0C9;color:#4E3417}
+  .player-menu-item small{font-size:6.7px;color:#A58659;font-weight:800}
+  .player-menu-empty{padding:7px 8px;font-size:7px;color:#A58659;text-align:center}
   .player-hint{text-align:center;font-size:6.8px;font-weight:800;color:#A3845B;margin:-1px 0 6px;letter-spacing:.2px}
   .mini-btn{flex:0 0 auto;height:25px;padding:0 9px;border-radius:8px;border:1.2px solid #D39D0D;
     background:linear-gradient(180deg,#FFE16C,#FFC62C);font-family:inherit;font-size:7.5px;font-weight:900;color:#5C3D05}
@@ -1761,6 +1776,34 @@
   .rest-accept{border:1.4px solid #D6A52F;border-radius:8px;background:#FFD85C;color:#5A3D08;font-family:inherit;font-size:6.5px;font-weight:900;padding:5px 6px;cursor:pointer;white-space:nowrap}
   .rest-accept:disabled{border-color:#D8C9AE;background:#F1E6D2;color:#A18A68;cursor:default}
   .rest-tag{display:inline-block;margin-left:3px;padding:0 3px;border-radius:4px;background:#F1E2C2;color:#8B652E;font-size:5.6px}
+  .mode-card[data-mode="rogue"]{grid-column:1/-1}
+  .mode-card.locked{opacity:.66;border-style:dashed;background:#FFF9E9}
+  .mode-badge{display:inline-block;margin-left:4px;padding:1px 5px;border-radius:999px;background:#EADFC8;color:#8E7549;font-size:6.5px;font-weight:900;vertical-align:middle}
+  .mode-card:not(.locked) .mode-badge{background:#DDF1E0;color:#367A4C}
+  .start-actions{display:grid;gap:8px;margin-top:2px}
+  .start-actions.has-run{grid-template-columns:1fr 1fr}
+  .start-actions .primary-btn{min-width:0;padding-left:6px;padding-right:6px}
+  .resume-btn{background:linear-gradient(180deg,#6AC58F,#3F9F69);box-shadow:0 5px 0 #2A7549,0 8px 14px rgba(42,117,73,.22)}
+  #continueBtn[hidden]{display:none!important}
+  .resume-meta{display:block;margin-top:2px;font-size:6.4px;line-height:1.2;opacity:.82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  @media (max-width:380px){
+    .start-actions.has-run{gap:6px}
+    .start-actions.has-run .primary-btn{font-size:12.5px;line-height:1.05}
+    .resume-btn{flex-direction:column;gap:1px;font-size:11.5px}
+    .resume-meta{margin-top:0;font-size:6.2px;max-width:100%}
+  }
+  .settings-pause{width:100%;height:34px;margin-top:7px;border:1px solid #A9C8A9;border-radius:10px;background:#F0FAF1;color:#3E7B4A;font:900 9px/1 inherit;cursor:pointer}
+  .rogue-overlay{align-items:center;padding:14px;background:rgba(14,30,21,.78);z-index:460}
+  .rogue-card{
+    width:min(100%,360px);padding:20px 17px calc(17px + var(--safe-bottom));text-align:center;
+    border:3px solid #5B4420;border-radius:22px;background:linear-gradient(180deg,#FFFDF1,#FFEDC4);
+    box-shadow:0 14px 0 rgba(80,50,15,.2),0 30px 60px rgba(0,0,0,.4)
+  }
+  .rogue-icon{font-size:40px;line-height:1}
+  .rogue-kicker{margin-top:6px;font-size:7px;letter-spacing:1.8px;color:#B4863E;font-weight:900}
+  .rogue-title{margin:3px 0 6px;font-size:21px;color:#4A3215;letter-spacing:.5px}
+  .rogue-copy{font-size:8px;line-height:1.55;color:#8F7041;font-weight:700}
+  .rogue-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:15px}
 </style>
 </head>
 <body>
@@ -2248,16 +2291,29 @@
             <button class="mode-card" type="button" data-mode="endless">
               <b>无尽模式</b><small>每周完成业绩<br>不达标就关门</small>
             </button>
+            <button class="mode-card locked" type="button" data-mode="rogue" id="rogueModeCard">
+              <b>肉鸽模式 <span class="mode-badge" id="rogueBadge">未解锁</span></b>
+              <small id="rogueNote">普通模式完成 2 周后解锁<br>内容制作中</small>
+            </button>
           </div>
         </div>
       </div>
       <div class="player-strip">
         <span class="player-label">店长</span>
-        <input class="player-input" id="playerName" maxlength="10" autocomplete="off" spellcheck="false" placeholder="输入名字，名字就是存档">
+        <div class="player-name-wrap">
+          <input class="player-input" id="playerName" maxlength="10" autocomplete="off" spellcheck="false" placeholder="输入名字，名字就是存档">
+          <button class="player-menu-toggle" id="playerMenuToggle" type="button" aria-label="切换店长">▾</button>
+          <div class="player-menu" id="playerMenu" hidden></div>
+        </div>
         <button class="mini-btn" id="savePlayerBtn" type="button">保存</button>
       </div>
       <div class="player-hint">名字就是你的存档 · 输入新名字会切换店长</div>
-      <button class="primary-btn" id="startBtn" type="button">开始 28 天营业<svg class="icon"><use href="#i-arrow"></use></svg></button>
+      <div class="start-actions" id="startActions">
+        <button class="primary-btn" id="startBtn" type="button">开始 28 天营业<svg class="icon"><use href="#i-arrow"></use></svg></button>
+        <button class="primary-btn resume-btn" id="continueBtn" type="button" hidden>
+          继续上一局<span class="resume-meta" id="continueMeta"></span>
+        </button>
+      </div>
       <div class="menu-group" id="shopGroup">
         <button class="menu-toggle" id="shopToggle" type="button" aria-expanded="false" aria-controls="shopPanel">
           <span class="menu-toggle-copy"><small>我的小店</small><b>小家和店铺</b></span>
@@ -2531,6 +2587,7 @@
         <button id="devExitBtn" class="redeem-exit" type="button" hidden>退出开发者模式</button>
       </div>
       <button class="settings-codex" id="codexFromSettings" type="button">📖 打开奶蛙图鉴</button>
+      <button class="settings-pause" id="settingsPauseBtn" type="button" hidden>暂时打烊（保存进度）</button>
       <button class="settings-early" id="settingsEarlyBtn" type="button" hidden>提前下班</button>
       <button class="settings-done" id="settingsDone" type="button">完成</button>
     </div>
@@ -2552,11 +2609,24 @@
     </div>
   </div>
 
+  <div class="overlay rogue-overlay" id="rogueOverlay" aria-hidden="true">
+    <div class="rogue-card" role="dialog" aria-modal="true" aria-labelledby="rogueTitle">
+      <div class="rogue-icon">🎲</div>
+      <div class="rogue-kicker">NEW MODE UNLOCKED</div>
+      <h2 class="rogue-title" id="rogueTitle">肉鸽模式已解锁！</h2>
+      <p class="rogue-copy">你已经在普通模式坚持了整整两周。<br>肉鸽模式正在准备中，解锁记录已经保存。</p>
+      <div class="rogue-actions">
+        <button class="ghost-btn" id="rogueHomeBtn" type="button">回主菜单</button>
+        <button class="primary-btn" id="rogueStayBtn" type="button">继续营业</button>
+      </div>
+    </div>
+  </div>
+
   <div class="overlay confirm-overlay" id="confirmOverlay" aria-hidden="true">
     <div class="confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
       <div class="confirm-icon">🚪</div>
       <h2 class="confirm-title" id="confirmTitle">要提前下班吗？</h2>
-      <p class="confirm-copy">本局进度会结束，奶蛙会回到主界面。<br>确定要提前下班吗？</p>
+      <p class="confirm-copy" id="confirmCopy">本局进度会结束，奶蛙会回到主界面。<br>确定要提前下班吗？</p>
       <div class="confirm-actions">
         <button class="ghost-btn" id="confirmCancel" type="button">继续营业</button>
         <button class="primary-btn" id="confirmOk" type="button">提前下班</button>
