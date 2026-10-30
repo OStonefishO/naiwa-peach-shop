@@ -2494,9 +2494,10 @@
   const SYRUPS = {
     classic:{name:'经典糖浆', short:'经典', color:'#F3BC45', grad:['#FFD76B','#F19A2D'], price:0, desc:'黄桃罐头的招牌糖水'},
     honey:{name:'蜂蜜', short:'蜂蜜', color:'#E7A12B', grad:['#FFD36A','#D98812'], price:120, desc:'更浓更甜，带一点花香'},
-    maple:{name:'枫糖浆', short:'枫糖', color:'#A96532', grad:['#D79A5B','#8B4B23'], price:150, desc:'焦糖木香，和蜂蜜很搭'}
+    maple:{name:'枫糖浆', short:'枫糖', color:'#A96532', grad:['#D79A5B','#8B4B23'], price:150, desc:'焦糖木香，和蜂蜜很搭'},
+    honeysuckle:{name:'金银花糖浆', short:'金银花', color:'#B7C95A', grad:['#E6F0A6','#93AA39'], price:160, desc:'清爽草本香，和蜂蜜很搭'}
   };
-  const SYRUP_IDS = ['classic','honey','maple'];
+  const SYRUP_IDS = ['classic','honey','maple','honeysuckle'];
   const ALARM_PRICE = 35;
   const SAVE_KEY = 'naiwa_v2_save';
   const POT_PRICES = {1:28, 2:48, 3:75};
@@ -2590,7 +2591,7 @@
       equippedSkins:{desk:'classic', work:'classic', kitchen:'classic'},
       unlocks:{toppings:[], jars:[]},
       upgrades:{pots:1, alarms:0, knife:'wood', knives:['wood']},
-      syrups:{honey:false, maple:false},
+      syrups:{honey:false, maple:false, honeysuckle:false},
       lastRun:null
     };
   }
@@ -2603,7 +2604,7 @@
   let batchSeq = 0;
 
   function emptyCan(){
-    return {size:null, jar:'classic', pieces:[], syrup:0, components:{classic:0,honey:0,maple:0}, stirred:false, temp:null, toppings:[], toppingTouched:false, sealed:false, batchIds:[]};
+    return {size:null, jar:'classic', pieces:[], syrup:0, components:{classic:0,honey:0,maple:0,honeysuckle:0}, stirred:false, temp:null, toppings:[], toppingTouched:false, sealed:false, batchIds:[]};
   }
   function makePots(){
     return Array.from({length:4}, (_,i) => ({id:i, sugar:0, types:['classic'], progress:0, status:'idle', quality:null, startedAt:0, alarm:false, alarmFired:false}));
@@ -2790,11 +2791,12 @@
     p.syrups = p.syrups && typeof p.syrups === 'object' ? p.syrups : {};
     p.syrups.honey = !!p.syrups.honey;
     p.syrups.maple = !!p.syrups.maple;
+    p.syrups.honeysuckle = !!p.syrups.honeysuckle;
     return p;
   }
   function availableSyrups(){
     const owned = activeProfile && activeProfile.syrups ? activeProfile.syrups : {};
-    return ['classic'].concat(['honey','maple'].filter(id => owned[id]));
+    return ['classic'].concat(['honey','maple','honeysuckle'].filter(id => owned[id]));
   }
   function unlockedToppings(){
     const extra = activeProfile && activeProfile.unlocks ? activeProfile.unlocks.toppings : [];
@@ -3715,12 +3717,12 @@
       }
       const tol = Math.max(3, SUGAR[sugar].tol + (guest && guest.tolDelta || 0));
       const poolS = availableSyrups();
-      const sCount = poolS.length > 1 && Math.random() < .46 ? 2 : 1;
+      const sCount = poolS.length > 1 && Math.random() < (hard ? .78 : .46) ? 2 : 1;
       const picked = poolS.slice().sort(() => Math.random() - .5).slice(0, sCount);
       let ratios = sCount === 2 ? [50,50] : [100];
       if(sCount === 2 && Math.random() < .5) ratios = Math.random() < .5 ? [60,40] : [40,60];
       const syrups = picked.map((id,i) => ({id, ratio:ratios[i]}));
-      const stirred = sCount === 2 && Math.random() < .5;
+      const stirred = sCount === 2 && Math.random() < (hard ? .72 : .38);
       const boilStyle = sCount === 2 ? (Math.random() < .5 ? 'together' : 'separate') : 'single';
       order = {size, jar, peaches:{large, small:total-large}, sugar, temp, toppings:tops, tol, syrups, stirred, boilStyle};
       sig = `${size}|${jar}|${large}|${total-large}|${sugar}|${temp}|${tops.map(t=>`${t.id}:${t.qty}`).join(',')}|${syrups.map(s=>`${s.id}${s.ratio}`).join('+')}|${stirred}`;
@@ -4237,7 +4239,7 @@
       </g>`;
     }).join('');
 
-    const syrupY = 132 - clamp(c.syrup,0,100) * 0.9;
+    const syrupY = 93 - clamp(c.syrup,0,100) * 0.51;
     const syrupH = Math.max(0, 132 - syrupY);
     const hasSyrup = c.syrup > 0;
     const iceCubes = c.temp === 'ice' ? `<g class="ice-shine">
@@ -4306,7 +4308,7 @@
     const surf = document.getElementById('canSyrupSurface');
     const layers = document.getElementById('canSyrupLayers');
     if(!rect || !surf || !layers) return;
-    const y = 132 - clamp(c.syrup,0,100) * .9;
+    const y = 93 - clamp(c.syrup,0,100) * .51;
     const h = Math.max(0,132-y);
     rect.setAttribute('y', y); rect.setAttribute('height', h);
     surf.setAttribute('cy', y);
@@ -4324,9 +4326,10 @@
     rect.setAttribute('fill', 'rgba(248,229,179,.55)');
     rect.setAttribute('opacity', '1');
     let offset = 0;
+    const visibleH = Math.max(0, 93 - y);
     layers.innerHTML = parts.map(part => {
-      const ph = h * part.v / total;
-      const py = 132 - offset - ph;
+      const ph = visibleH * part.v / total;
+      const py = 93 - offset - ph;
       offset += ph;
       return `<rect x="24" y="${py.toFixed(2)}" width="92" height="${Math.max(.5,ph).toFixed(2)}" fill="${SYRUPS[part.id].color}" opacity=".9"/>`;
     }).join('');
@@ -5386,7 +5389,7 @@
     return items;
   }
   function syrupItems(){
-    return ['honey','maple'].map(id => {
+    return ['honey','maple','honeysuckle'].map(id => {
       const s = SYRUPS[id], owned = !!(activeProfile && activeProfile.syrups[id]);
       return {id, name:s.name, desc:s.desc, price:s.price, owned,
         icon:`<span style="display:block;width:26px;height:26px;border-radius:50%;background:${s.color};border:2px solid #C58B3A"></span>`,
