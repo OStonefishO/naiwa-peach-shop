@@ -1858,6 +1858,18 @@
   .rogue-hud-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:6px}
   .rogue-bag-btn{height:28px;border:1px solid #B7D3E0;border-radius:8px;background:#FFF;color:#3D6478;font:900 7.6px/1 inherit;cursor:pointer}
   .rogue-bag-btn b{color:#B45A38}
+  .rogue-market-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .rogue-market-links{display:flex;gap:5px}
+  .rogue-market-links button{height:27px;padding:0 8px;border:1px solid #A9C6A0;border-radius:8px;background:#EEF7DF;color:#50652F;font:900 7px/1 inherit;cursor:pointer}
+  .bag-overlay{align-items:center;padding:14px;background:rgba(14,30,21,.7);z-index:370;transition:none}
+  .bag-card{position:relative;width:min(100%,360px);max-height:86dvh;overflow-y:auto;padding:17px 14px calc(14px + var(--safe-bottom));border:3px solid #6B4A1B;border-radius:20px;background:linear-gradient(180deg,#FFFDF2,#FFF0C9);text-align:left;scrollbar-width:none}
+  .bag-card::-webkit-scrollbar{display:none}
+  .bag-card h2{margin:2px 0 9px;font-size:21px;color:#4A3215}
+  .bag-body{display:grid;gap:6px}
+  .bag-row{display:flex;justify-content:space-between;gap:8px;padding:7px 9px;border:1px solid #E8D3A8;border-radius:10px;background:#FFFDF5;font-size:7.6px;font-weight:800;color:#785A31}
+  .bag-row b{color:#4A3418;font-size:8.2px}
+  .bag-empty{padding:12px;text-align:center;font-size:8px;color:#A08B65;font-weight:700}
+  .bag-kind{margin:6px 2px 2px;font-size:7px;letter-spacing:1px;color:#B08A4C;font-weight:900}
 </style>
 </head>
 <body>
@@ -2198,11 +2210,6 @@
       <div class="desk-note">小提示：多接的订单会堆在置物棍上。封盖后把订单拖到「订单架」出餐。</div>
       <div class="rogue-hud-panel" id="rogueHudPanel" hidden>
         <div class="rogue-day-line"><span class="rogue-day-tag" id="rogueDayTag">普通日</span><span class="rogue-event-line" id="rogueEventLine">今日事件：无</span></div>
-        <div class="rogue-hud-actions">
-          <button class="rogue-bag-btn" id="buffBagBtn" type="button">🎒 增益袋 <b id="buffCount">0</b></button>
-          <button class="rogue-bag-btn" id="rogueCoinShopBtn" type="button">🛒 金币商店</button>
-          <button class="rogue-bag-btn" id="rogueShopBtn" type="button">🏮 肉鸽夜市</button>
-        </div>
       </div>
     </div>
 
@@ -2452,7 +2459,8 @@
         <button class="primary-btn" id="shopBtn" type="button">逛金币商店<svg class="icon"><use href="#i-arrow"></use></svg></button>
         <button class="ghost-btn" id="replayBtn" type="button">直接开始下一天</button>
         <button class="ghost-btn" id="summaryRankBtn" type="button" style="display:none">查看无尽排行榜</button>
-        <button class="ghost-btn" id="summaryEarlyBtn" type="button" style="height:32px">提前下班回主菜单</button>
+        <button class="ghost-btn" id="summaryPauseBtn" type="button" style="height:32px;display:none">暂时打样（保存进度）</button>
+        <button class="ghost-btn" id="summaryEarlyBtn" type="button" style="height:32px">提前下班</button>
         <button class="ghost-btn" id="homeBtn" type="button" style="display:none;height:34px">回到标题</button>
       </div>
     </div>
@@ -4235,6 +4243,7 @@
       'rogueShopOverlay','rogueShopCoins','rogueShopList','rogueShopNext','shrimpOverlay','shrimpTitle','shrimpSub','shrimpChoices','shrimpSkip','shrimpReroll',
       'eventOverlay','eventIcon','eventTitle','eventDesc','eventContinue','changelogOverlay','changelogClose','changelogDone','changelogBtn',
       'rogueHudPanel','rogueDayTag','rogueEventLine','buffBagBtn','buffCount','rogueShopBtn','rogueCoinShopBtn',
+      'rogueMarketCoin','rogueMarketBag','buffBagOverlay','buffBagClose','buffBagBody','summaryPauseBtn',
       'startActions','continueBtn','continueMeta','rogueModeCard','rogueBadge','rogueNote',
       'playerMenuToggle','playerMenu',
       'settingsPauseBtn','rogueOverlay','rogueTitle','rogueStayBtn','rogueHomeBtn','confirmTitle','confirmCopy'];
@@ -5917,9 +5926,10 @@
       : '普通模式完成 2 周后解锁<br>每周指标 · 辣虾 · 随机事件';
   }
   function pauseRun(){
-    if(state.phase !== 'playing') return;
-    saveRunToProfile();
+    if(state.phase !== 'playing' && state.phase !== 'summary') return;
+    if(state.phase === 'playing') saveRunToProfile();
     closeSettings();
+    if(els.summaryOverlay){ els.summaryOverlay.classList.remove('show'); els.summaryOverlay.setAttribute('aria-hidden','true'); }
     goHome();
     setTimeout(() => toast('已暂时打烊，主菜单可以继续这一局'), 260);
   }
@@ -6084,10 +6094,17 @@
     state.phase = 'playing';
   }
   function showBuffBag(){
-    if(!rogueActive()) return;
-    const sh = state.rogue.shrimp.map(id => SHRIMPS.find(s => s.id === id)?.name).filter(Boolean);
-    const its = Object.entries(state.rogue.items).filter(([,n]) => n > 0).map(([id,n]) => `${ROGUE_ITEMS.find(i=>i.id===id)?.name || id}×${n}`);
-    toast(`辣虾：${sh.length ? sh.join('、') : '暂无'} ｜ 道具：${its.length ? its.join('、') : '暂无'}`);
+    if(!rogueActive() || !els.buffBagBody) return;
+    const sh = state.rogue.shrimp.map((id,i) => {
+      const s = SHRIMPS.find(x => x.id === id);
+      return s ? `<div class="bag-row"><b>${s.name}</b><span>${ROGUE_RARITY[s.rarity].name} · 已叠加</span></div>` : '';
+    }).filter(Boolean);
+    const its = Object.entries(state.rogue.items).filter(([,n]) => n > 0).map(([id,n]) => {
+      const item = ROGUE_ITEMS.find(i=>i.id===id);
+      return item ? `<div class="bag-row"><b>${item.name} ×${n}</b><span>${item.desc}</span></div>` : '';
+    }).filter(Boolean);
+    els.buffBagBody.innerHTML = `${sh.length ? `<div class="bag-kind">辣虾</div>${sh.join('')}` : ''}${its.length ? `<div class="bag-kind">道具</div>${its.join('')}` : ''}${!sh.length && !its.length ? '<div class="bag-empty">袋子还是空的。去精英日/BOSS日抽辣虾，或逛肉鸽夜市。</div>' : ''}`;
+    if(els.buffBagOverlay){ els.buffBagOverlay.classList.add('show'); els.buffBagOverlay.setAttribute('aria-hidden','false'); }
   }
   function startRogueRun(){
     state.rogue = {
@@ -6917,6 +6934,7 @@
     els.shopBtn.hidden = isEnd || rogueEnd;
     els.shopBtn.style.display = (isEnd || rogueEnd) ? 'none' : '';
     if(state.mode === 'rogue') els.shopBtn.innerHTML = `逛肉鸽夜市${icon('arrow')}`;
+    if(els.summaryPauseBtn) els.summaryPauseBtn.style.display = (state.mode === 'rogue' && !isEnd && !rogueEnd) ? '' : 'none';
     els.homeBtn.style.display = (isEnd || rogueEnd) ? '' : 'none';
     if(els.summaryRankBtn){
       els.summaryRankBtn.style.display = (kind === 'gameOver' && state.mode !== 'rogue') ? '' : 'none';
@@ -7677,9 +7695,18 @@
     });
     if(els.rogueShopNext) els.rogueShopNext.addEventListener('click', () => {
       if(els.rogueShopOverlay){ els.rogueShopOverlay.classList.remove('show'); els.rogueShopOverlay.setAttribute('aria-hidden','true'); }
-      state.rogue.shopStock = null;
-      startNextDay();
+      state.phase = 'summary';
+      if(els.summaryOverlay){ els.summaryOverlay.classList.add('show'); els.summaryOverlay.setAttribute('aria-hidden','false'); }
     });
+    if(els.rogueMarketCoin) els.rogueMarketCoin.addEventListener('click', () => {
+      if(els.rogueShopOverlay){ els.rogueShopOverlay.classList.remove('show'); els.rogueShopOverlay.setAttribute('aria-hidden','true'); }
+      openShop(true);
+    });
+    if(els.rogueMarketBag) els.rogueMarketBag.addEventListener('click', showBuffBag);
+    if(els.buffBagClose) els.buffBagClose.addEventListener('click', () => {
+      if(els.buffBagOverlay){ els.buffBagOverlay.classList.remove('show'); els.buffBagOverlay.setAttribute('aria-hidden','true'); }
+    });
+    if(els.summaryPauseBtn) els.summaryPauseBtn.addEventListener('click', pauseRun);
     if(els.shrimpSkip) els.shrimpSkip.addEventListener('click', () => finishShrimp(null));
     if(els.shrimpReroll) els.shrimpReroll.addEventListener('click', () => rerollShrimp());
     if(els.shrimpChoices) els.shrimpChoices.addEventListener('click', e => {
@@ -7851,11 +7878,26 @@
   <div class="overlay rogue-shop-overlay" id="rogueShopOverlay" aria-hidden="true">
     <div class="rogue-shop-card">
       <div class="rogue-kicker">ROGUE MARKET</div>
-      <h2>肉鸽夜市</h2>
+      <div class="rogue-market-head">
+        <h2>肉鸽夜市</h2>
+        <div class="rogue-market-links">
+          <button id="rogueMarketCoin" type="button">金币商店</button>
+          <button id="rogueMarketBag" type="button">增益袋</button>
+        </div>
+      </div>
       <p class="rogue-sub">每天打烊后随机进货，最多 5 件；固定「好评返现福利」。</p>
       <div class="rogue-money">肉鸽金币 <b id="rogueShopCoins">0</b></div>
       <div class="rogue-shop-list" id="rogueShopList"></div>
-      <button class="primary-btn" id="rogueShopNext" type="button">开始下一天</button>
+      <button class="primary-btn" id="rogueShopNext" type="button">返回</button>
+    </div>
+  </div>
+
+  <div class="overlay bag-overlay" id="buffBagOverlay" aria-hidden="true">
+    <div class="bag-card">
+      <button class="codex-close" id="buffBagClose" type="button">✕</button>
+      <div class="rogue-kicker">BUFF BAG</div>
+      <h2>增益收纳袋</h2>
+      <div class="bag-body" id="buffBagBody"></div>
     </div>
   </div>
 

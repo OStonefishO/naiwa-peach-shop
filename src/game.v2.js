@@ -1530,6 +1530,7 @@
       'rogueShopOverlay','rogueShopCoins','rogueShopList','rogueShopNext','shrimpOverlay','shrimpTitle','shrimpSub','shrimpChoices','shrimpSkip','shrimpReroll',
       'eventOverlay','eventIcon','eventTitle','eventDesc','eventContinue','changelogOverlay','changelogClose','changelogDone','changelogBtn',
       'rogueHudPanel','rogueDayTag','rogueEventLine','buffBagBtn','buffCount','rogueShopBtn','rogueCoinShopBtn',
+      'rogueMarketCoin','rogueMarketBag','buffBagOverlay','buffBagClose','buffBagBody','summaryPauseBtn',
       'startActions','continueBtn','continueMeta','rogueModeCard','rogueBadge','rogueNote',
       'playerMenuToggle','playerMenu',
       'settingsPauseBtn','rogueOverlay','rogueTitle','rogueStayBtn','rogueHomeBtn','confirmTitle','confirmCopy'];
@@ -3212,9 +3213,10 @@
       : '普通模式完成 2 周后解锁<br>每周指标 · 辣虾 · 随机事件';
   }
   function pauseRun(){
-    if(state.phase !== 'playing') return;
-    saveRunToProfile();
+    if(state.phase !== 'playing' && state.phase !== 'summary') return;
+    if(state.phase === 'playing') saveRunToProfile();
     closeSettings();
+    if(els.summaryOverlay){ els.summaryOverlay.classList.remove('show'); els.summaryOverlay.setAttribute('aria-hidden','true'); }
     goHome();
     setTimeout(() => toast('已暂时打烊，主菜单可以继续这一局'), 260);
   }
@@ -3379,10 +3381,17 @@
     state.phase = 'playing';
   }
   function showBuffBag(){
-    if(!rogueActive()) return;
-    const sh = state.rogue.shrimp.map(id => SHRIMPS.find(s => s.id === id)?.name).filter(Boolean);
-    const its = Object.entries(state.rogue.items).filter(([,n]) => n > 0).map(([id,n]) => `${ROGUE_ITEMS.find(i=>i.id===id)?.name || id}×${n}`);
-    toast(`辣虾：${sh.length ? sh.join('、') : '暂无'} ｜ 道具：${its.length ? its.join('、') : '暂无'}`);
+    if(!rogueActive() || !els.buffBagBody) return;
+    const sh = state.rogue.shrimp.map((id,i) => {
+      const s = SHRIMPS.find(x => x.id === id);
+      return s ? `<div class="bag-row"><b>${s.name}</b><span>${ROGUE_RARITY[s.rarity].name} · 已叠加</span></div>` : '';
+    }).filter(Boolean);
+    const its = Object.entries(state.rogue.items).filter(([,n]) => n > 0).map(([id,n]) => {
+      const item = ROGUE_ITEMS.find(i=>i.id===id);
+      return item ? `<div class="bag-row"><b>${item.name} ×${n}</b><span>${item.desc}</span></div>` : '';
+    }).filter(Boolean);
+    els.buffBagBody.innerHTML = `${sh.length ? `<div class="bag-kind">辣虾</div>${sh.join('')}` : ''}${its.length ? `<div class="bag-kind">道具</div>${its.join('')}` : ''}${!sh.length && !its.length ? '<div class="bag-empty">袋子还是空的。去精英日/BOSS日抽辣虾，或逛肉鸽夜市。</div>' : ''}`;
+    if(els.buffBagOverlay){ els.buffBagOverlay.classList.add('show'); els.buffBagOverlay.setAttribute('aria-hidden','false'); }
   }
   function startRogueRun(){
     state.rogue = {
@@ -4212,6 +4221,7 @@
     els.shopBtn.hidden = isEnd || rogueEnd;
     els.shopBtn.style.display = (isEnd || rogueEnd) ? 'none' : '';
     if(state.mode === 'rogue') els.shopBtn.innerHTML = `逛肉鸽夜市${icon('arrow')}`;
+    if(els.summaryPauseBtn) els.summaryPauseBtn.style.display = (state.mode === 'rogue' && !isEnd && !rogueEnd) ? '' : 'none';
     els.homeBtn.style.display = (isEnd || rogueEnd) ? '' : 'none';
     if(els.summaryRankBtn){
       els.summaryRankBtn.style.display = (kind === 'gameOver' && state.mode !== 'rogue') ? '' : 'none';
@@ -4972,9 +4982,18 @@
     });
     if(els.rogueShopNext) els.rogueShopNext.addEventListener('click', () => {
       if(els.rogueShopOverlay){ els.rogueShopOverlay.classList.remove('show'); els.rogueShopOverlay.setAttribute('aria-hidden','true'); }
-      state.rogue.shopStock = null;
-      startNextDay();
+      state.phase = 'summary';
+      if(els.summaryOverlay){ els.summaryOverlay.classList.add('show'); els.summaryOverlay.setAttribute('aria-hidden','false'); }
     });
+    if(els.rogueMarketCoin) els.rogueMarketCoin.addEventListener('click', () => {
+      if(els.rogueShopOverlay){ els.rogueShopOverlay.classList.remove('show'); els.rogueShopOverlay.setAttribute('aria-hidden','true'); }
+      openShop(true);
+    });
+    if(els.rogueMarketBag) els.rogueMarketBag.addEventListener('click', showBuffBag);
+    if(els.buffBagClose) els.buffBagClose.addEventListener('click', () => {
+      if(els.buffBagOverlay){ els.buffBagOverlay.classList.remove('show'); els.buffBagOverlay.setAttribute('aria-hidden','true'); }
+    });
+    if(els.summaryPauseBtn) els.summaryPauseBtn.addEventListener('click', pauseRun);
     if(els.shrimpSkip) els.shrimpSkip.addEventListener('click', () => finishShrimp(null));
     if(els.shrimpReroll) els.shrimpReroll.addEventListener('click', () => rerollShrimp());
     if(els.shrimpChoices) els.shrimpChoices.addEventListener('click', e => {
