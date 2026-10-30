@@ -128,6 +128,23 @@
     sakura:{name:'樱花刀', price:35, color:'#E39AAE'},
     gold:{name:'黄金刀', price:60, color:'#E8B53A'}
   };
+  const SETTINGS_KEY = 'naiwa_settings_v1';
+  const DEFAULT_SETTINGS = {master:80, music:70, alarm:80};
+  let settings = {...DEFAULT_SETTINGS};
+  try{
+    const raw = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    ['master','music','alarm'].forEach(k => {
+      if(Number.isFinite(raw[k])) settings[k] = clamp(Math.round(raw[k]), 0, 100);
+    });
+  }catch(e){}
+  function saveSettings(){
+    try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }catch(e){}
+  }
+  function applyAudioVolumes(){
+    if(masterGain) masterGain.gain.value = state.sound ? settings.master / 100 * .7 : 0;
+    if(!bgmEl) bgmEl = els.bgm;
+    if(bgmEl) bgmEl.volume = state.sound ? settings.master / 100 * settings.music / 100 * .6 : 0;
+  }
 
   /* -------------------- 玩家小家数据 -------------------- */
   const PROFILE_KEY = 'naiwa_profiles_v1';
@@ -233,7 +250,7 @@
         if(!AC) return;
         audioCtx = new AC();
         masterGain = audioCtx.createGain();
-        masterGain.gain.value = state.sound ? .55 : 0;
+        masterGain.gain.value = state.sound ? settings.master / 100 * .7 : 0;
         masterGain.connect(audioCtx.destination);
       }
       if(audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
@@ -262,7 +279,7 @@
     chop(){ tone(240,.035,'square',.025,0,160); tone(620,.05,'triangle',.035,.035); },
     pour(){ tone(210 + Math.random()*70,.055,'sine',.022); },
     ding(){ tone(880,.1,'sine',.045); tone(1174,.13,'sine',.035,.08); },
-    alarm(){ tone(1046,.09,'square',.035); tone(1318,.1,'square',.03,.11); },
+    alarm(){ const a = settings.alarm / 100; tone(1046,.09,'square',.035 * a); tone(1318,.1,'square',.03 * a,.11); },
     error(){ tone(170,.12,'square',.025,0,140); },
     seal(){ tone(160,.1,'square',.025); tone(360,.1,'triangle',.045,.08); tone(740,.1,'sine',.028,.15); },
     serve(){ tone(523,.12,'triangle',.05); tone(659,.12,'triangle',.045,.1); tone(784,.18,'triangle',.04,.2); },
@@ -292,7 +309,7 @@
     try{
       bgmEl.pause();
       bgmEl.src = MUSIC[key];
-      bgmEl.volume = .3;
+      applyAudioVolumes();
       const p = bgmEl.play();
       if(p && p.catch) p.catch(()=>{});
     }catch(e){}
@@ -1150,7 +1167,10 @@
       'dressClose','dressDoneBtn','frogWear','orderRod',
       'saveEntryBtn','saveOverlay','saveClose','saveExport','saveImport','copySaveBtn','downloadSaveBtn',
       'importSaveBtn','gistToken','gistSyncBtn','gistRestoreBtn','gistClearBtn','saveStatus',
-      'sbUrl','sbKey','sbPin','sbSaveBtn','sbLoadBtn','sbStatus'];
+      'sbUrl','sbKey','sbPin','sbSaveBtn','sbLoadBtn','sbStatus',
+      'modeGroup','modeToggle','modeToggleName','modePanel','shopGroup','shopToggle','shopPanel',
+      'settingsEntryBtn','settingsBtn','settingsOverlay','settingsClose','settingsDone',
+      'setMaster','setMusic','setAlarm','setMasterVal','setMusicVal','setAlarmVal'];
     ids.forEach(id => els[id] = document.getElementById(id));
     els.panel = $('#panel');
     els.footer = $('.footer');
@@ -1187,7 +1207,34 @@
   function updateSoundButton(){
     if(!els.soundBtn) return;
     els.soundBtn.innerHTML = icon(state.sound ? 'sound' : 'muted');
-    if(masterGain) masterGain.gain.value = state.sound ? .55 : 0;
+    applyAudioVolumes();
+  }
+  function syncSettingsUI(){
+    [['Master','master'],['Music','music'],['Alarm','alarm']].forEach(([id,key]) => {
+      const input = els['set' + id];
+      const out = els['set' + id + 'Val'];
+      if(input) input.value = settings[key];
+      if(out) out.textContent = settings[key] + '%';
+    });
+  }
+  function openSettings(){
+    syncSettingsUI();
+    if(!els.settingsOverlay) return;
+    els.settingsOverlay.classList.add('show');
+    els.settingsOverlay.setAttribute('aria-hidden', 'false');
+    sfx.tap();
+  }
+  function closeSettings(){
+    if(!els.settingsOverlay) return;
+    els.settingsOverlay.classList.remove('show');
+    els.settingsOverlay.setAttribute('aria-hidden', 'true');
+  }
+  function setSetting(key, value){
+    if(!(key in settings)) return;
+    settings[key] = clamp(Math.round(Number(value) || 0), 0, 100);
+    saveSettings();
+    syncSettingsUI();
+    applyAudioVolumes();
   }
   function toast(text){
     if(!els.toast) return;
@@ -2084,10 +2131,23 @@
     cueMusic();
   }
 
+  function setMenuGroup(toggle, panel, open){
+    if(!toggle || !panel) return;
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    panel.hidden = !open;
+    const group = toggle.closest('.menu-group');
+    if(group) group.classList.toggle('open', open);
+  }
+  function toggleMenuGroup(toggle, panel){
+    const open = toggle.getAttribute('aria-expanded') === 'true';
+    setMenuGroup(toggle, panel, !open);
+    sfx.tap();
+  }
   function setIntroMode(mode){
     if(!MODES[mode]) return;
     state.introMode = mode;
     els.modeCards.forEach(card => card.classList.toggle('active', card.dataset.mode === mode));
+    if(els.modeToggleName) els.modeToggleName.textContent = MODES[mode].name;
     els.startBtn.innerHTML = `${mode === 'normal' ? '开始 14 天营业' : '开始无尽营业'}${icon('arrow')}`;
     const best = mode === 'normal' ? state.bestNormal : state.bestEndless;
     const bestText = mode === 'normal'
@@ -2096,6 +2156,7 @@
     els.introNote.textContent = (mode === 'normal'
       ? '普通模式 · 14 天后结算总营业额'
       : '无尽模式 · 每周业绩递增 · 不达标就关门') + bestText;
+    setMenuGroup(els.modeToggle, els.modePanel, false);
     sfx.tap();
   }
   function startGame(){
@@ -2941,6 +3002,21 @@
   function bindEvents(){
     els.startBtn.addEventListener('click', startGame);
     els.modeCards.forEach(card => card.addEventListener('click', () => setIntroMode(card.dataset.mode)));
+    if(els.modeToggle) els.modeToggle.addEventListener('click', () => toggleMenuGroup(els.modeToggle, els.modePanel));
+    if(els.shopToggle) els.shopToggle.addEventListener('click', () => toggleMenuGroup(els.shopToggle, els.shopPanel));
+    [els.settingsBtn, els.settingsEntryBtn].forEach(btn => {
+      if(btn) btn.addEventListener('click', openSettings);
+    });
+    [els.settingsClose, els.settingsDone].forEach(btn => {
+      if(btn) btn.addEventListener('click', closeSettings);
+    });
+    if(els.settingsOverlay) els.settingsOverlay.addEventListener('click', e => {
+      if(e.target === els.settingsOverlay) closeSettings();
+    });
+    [['Master','master'],['Music','music'],['Alarm','alarm']].forEach(([id,key]) => {
+      const input = els['set' + id];
+      if(input) input.addEventListener('input', () => setSetting(key, input.value));
+    });
     els.soundBtn.addEventListener('click', () => {
       ensureAudio();
       state.sound = !state.sound;
@@ -3097,6 +3173,7 @@
     els.game.dataset.stage = 'desk';
     bgmEl = els.bgm;
     updateSoundButton();
+    syncSettingsUI();
     renderPlayerBar();
     renderFrogWear();
     applySkins();

@@ -1182,8 +1182,9 @@
   .player-hint{text-align:center;font-size:6.8px;font-weight:800;color:#A3845B;margin:-1px 0 6px;letter-spacing:.2px}
   .mini-btn{flex:0 0 auto;height:25px;padding:0 9px;border-radius:8px;border:1.2px solid #D39D0D;
     background:linear-gradient(180deg,#FFE16C,#FFC62C);font-family:inherit;font-size:7.5px;font-weight:900;color:#5C3D05}
-  .intro-links{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:7px}
-  .intro-links .ghost-btn{height:30px;font-size:6.8px;padding:0 2px;white-space:nowrap}
+  .intro-links{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:7px}
+  .intro-links.three{grid-template-columns:repeat(3,1fr)}
+  .intro-links .ghost-btn{height:34px;font-size:8px;padding:0 5px;white-space:nowrap}
 
   .home-overlay{align-items:center;padding:10px;background:rgba(16,36,25,.72)}
   .home-card{position:relative;width:min(100%,410px);max-height:92dvh;overflow-y:auto;scrollbar-width:none;
@@ -1564,6 +1565,42 @@
   .save-status{font-size:7.5px;font-weight:800;color:#7A684E;background:#fff;border-radius:7px;padding:5px 6px;margin-top:4px;word-break:break-word}
   .save-status.ok{color:#2E7D4F;background:#EDF8F0}
   .save-status.err{color:#B3442E;background:#FFF0EA}
+  /* 主界面折叠菜单 */
+  .menu-group{margin:6px 0 0;border:1.5px solid #E7D4B0;border-radius:14px;background:#FFF9EC;overflow:hidden}
+  .menu-toggle{width:100%;display:flex;align-items:center;gap:8px;padding:8px 10px;border:0;background:transparent;cursor:pointer;text-align:left;font-family:inherit;color:#6B4A2F}
+  .menu-toggle-copy{display:block;min-width:0}
+  .menu-toggle-copy small{display:block;font-size:6.5px;letter-spacing:1px;color:#A98052;font-weight:700;line-height:1.2}
+  .menu-toggle-copy b{display:block;margin-top:1px;font-size:10.5px;color:#5A3A22;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .menu-chevron{margin-left:auto;flex:0 0 auto;width:21px;height:21px;display:grid;place-items:center;border-radius:50%;background:#FFE6A3;color:#9A6512;font-size:10px;line-height:1;transition:transform .2s ease}
+  .menu-group.open .menu-chevron{transform:rotate(180deg)}
+  .menu-panel{padding:0 8px 8px}
+  .menu-panel[hidden]{display:none}
+  .menu-panel .mode-pick{margin:2px 0 0}
+  .intro-links.two{margin-top:2px}
+  .intro-links.two .ghost-btn{height:32px;font-size:8px}
+  .intro-links.three{margin-top:7px}
+  .intro-links.three .ghost-btn{height:32px;font-size:7.6px}
+
+  /* 设置 */
+  .settings-overlay{position:fixed;inset:0;z-index:260;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(40,26,10,.48);backdrop-filter:blur(3px)}
+  .settings-overlay.show{display:flex}
+  .settings-card{width:min(86vw,350px);background:#FFFBF0;border:1.5px solid #E2C68C;border-radius:20px;box-shadow:0 18px 40px rgba(56,36,8,.25);padding:17px 16px 15px;position:relative;max-height:82dvh;overflow:auto}
+  .settings-close{position:absolute;right:9px;top:9px;width:26px;height:26px;border-radius:50%;border:1.5px solid #E7D4B0;background:#FFF6DD;color:#8D6330;font-size:12px;line-height:1;cursor:pointer}
+  .settings-kicker{font-size:6.5px;letter-spacing:2px;color:#B0844C;font-weight:800}
+  .settings-title{margin:3px 0 2px;font-size:19px;color:#5A3A22;font-weight:900}
+  .settings-sub{margin:0 0 10px;font-size:8px;line-height:1.5;color:#9A7B5E}
+  .setting-row{display:grid;grid-template-columns:64px 1fr 34px;align-items:center;gap:8px;padding:10px 0;border-top:1px dashed #EAD8B6}
+  .setting-row label{font-size:9px;font-weight:800;color:#6B4A2F}
+  .setting-row input[type=range]{width:100%;accent-color:#E0A416;height:22px;cursor:pointer}
+  .setting-val{font-size:9px;font-weight:900;color:#A06A13;text-align:right}
+  .settings-note{margin:8px 0 11px;font-size:7px;line-height:1.6;color:#A88B70}
+  .settings-done{width:100%;height:42px;border:0;border-radius:13px;background:linear-gradient(#FFD45F,#F0B52A);box-shadow:0 3px 0 #C48A15;color:#5D3A10;font-family:inherit;font-size:11px;font-weight:900;cursor:pointer}
+  @media (max-height:650px){
+    .menu-toggle{padding:6px 9px}
+    .menu-toggle-copy b{font-size:9.5px}
+    .settings-card{padding:14px 13px 12px}
+    .setting-row{padding:7px 0}
+  }
 </style>
 </head>
 <body>
@@ -1664,6 +1701,10 @@
   </symbol>
   <symbol id="i-x" viewBox="0 0 24 24">
     <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="1.9"/>
+    <path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M18.5 5.5l-2.1 2.1M7.6 16.4l-2.1 2.1" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
   </symbol>
   <symbol id="i-clock" viewBox="0 0 24 24">
     <circle cx="12" cy="12" r="8.7" fill="none" stroke="currentColor" stroke-width="1.8"/>
@@ -1768,6 +1809,7 @@
     <div class="hud">
       <div class="coin-chip" aria-label="金币"><svg class="icon"><use href="#i-coin"></use></svg><span id="coins">0</span></div>
       <button class="early-btn" id="earlyBtn" type="button">提前下班</button>
+      <button class="icon-btn" id="settingsBtn" type="button" aria-label="设置"><svg class="icon"><use href="#i-gear"></use></svg></button>
       <button class="icon-btn" id="soundBtn" type="button" aria-label="开关声音"><svg class="icon"><use href="#i-sound"></use></svg></button>
     </div>
   </header>
@@ -1991,13 +2033,21 @@
         <img src="avatar.jpg" alt="奶龙学长头像">
         <div class="maker-copy"><small>MADE WITH LOVE</small><b>大连大学奶龙学长出品</b><span>奶蛙的夏日小店 · 三场景经营</span></div>
       </div>
-      <div class="mode-pick" role="group" aria-label="选择游戏模式">
-        <button class="mode-card active" type="button" data-mode="normal">
-          <b>普通模式</b><small>14 天一个周目<br>尽可能多赚钱</small>
+      <div class="menu-group" id="modeGroup">
+        <button class="menu-toggle" id="modeToggle" type="button" aria-expanded="false" aria-controls="modePanel">
+          <span class="menu-toggle-copy"><small>游戏模式</small><b id="modeToggleName">普通模式</b></span>
+          <span class="menu-chevron">▾</span>
         </button>
-        <button class="mode-card" type="button" data-mode="endless">
-          <b>无尽模式</b><small>每周完成业绩<br>不达标就关门</small>
-        </button>
+        <div class="menu-panel" id="modePanel" hidden>
+          <div class="mode-pick" role="group" aria-label="选择游戏模式">
+            <button class="mode-card active" type="button" data-mode="normal">
+              <b>普通模式</b><small>14 天一个周目<br>尽可能多赚钱</small>
+            </button>
+            <button class="mode-card" type="button" data-mode="endless">
+              <b>无尽模式</b><small>每周完成业绩<br>不达标就关门</small>
+            </button>
+          </div>
+        </div>
       </div>
       <div class="player-strip">
         <span class="player-label">店长</span>
@@ -2006,11 +2056,22 @@
       </div>
       <div class="player-hint">名字就是你的存档 · 输入新名字会切换店长</div>
       <button class="primary-btn" id="startBtn" type="button">开始 14 天营业<svg class="icon"><use href="#i-arrow"></use></svg></button>
-      <div class="intro-links">
-        <button class="ghost-btn" id="homeEntryBtn" type="button">奶蛙的小家</button>
-        <button class="ghost-btn" id="dressEntryBtn" type="button">更衣室</button>
+      <div class="menu-group" id="shopGroup">
+        <button class="menu-toggle" id="shopToggle" type="button" aria-expanded="false" aria-controls="shopPanel">
+          <span class="menu-toggle-copy"><small>我的小店</small><b>小家与衣橱</b></span>
+          <span class="menu-chevron">▾</span>
+        </button>
+        <div class="menu-panel" id="shopPanel" hidden>
+          <div class="intro-links two">
+            <button class="ghost-btn" id="homeEntryBtn" type="button">奶蛙的小家</button>
+            <button class="ghost-btn" id="dressEntryBtn" type="button">更衣室</button>
+          </div>
+        </div>
+      </div>
+      <div class="intro-links three">
         <button class="ghost-btn" id="rankEntryBtn" type="button">无尽排行榜</button>
         <button class="ghost-btn" id="saveEntryBtn" type="button">存档</button>
+        <button class="ghost-btn" id="settingsEntryBtn" type="button">设置</button>
       </div>
       <div class="intro-note" id="introNote">普通模式 · 14 天后结算总营业额 · 建议竖屏</div>
     </div>
@@ -2227,6 +2288,32 @@
   </div>
 
   <!-- 提前下班确认 -->
+  <div class="settings-overlay" id="settingsOverlay" aria-hidden="true">
+    <div class="settings-card">
+      <button class="settings-close" id="settingsClose" type="button" aria-label="关闭设置">✕</button>
+      <div class="settings-kicker">NAIWA OPTIONS</div>
+      <h2 class="settings-title">设置</h2>
+      <p class="settings-sub">调好音量再开张，奶蛙和客人都听得舒服。</p>
+      <div class="setting-row">
+        <label for="setMaster">主音量</label>
+        <input id="setMaster" type="range" min="0" max="100" step="1" value="80">
+        <output class="setting-val" id="setMasterVal">80%</output>
+      </div>
+      <div class="setting-row">
+        <label for="setMusic">音乐音量</label>
+        <input id="setMusic" type="range" min="0" max="100" step="1" value="70">
+        <output class="setting-val" id="setMusicVal">70%</output>
+      </div>
+      <div class="setting-row">
+        <label for="setAlarm">闹钟音量</label>
+        <input id="setAlarm" type="range" min="0" max="100" step="1" value="80">
+        <output class="setting-val" id="setAlarmVal">80%</output>
+      </div>
+      <div class="settings-note">主音量控制所有声音；音乐音量只影响四首 BGM；闹钟音量只影响熬糖锅的提醒铃声。</div>
+      <button class="settings-done" id="settingsDone" type="button">完成</button>
+    </div>
+  </div>
+
   <div class="overlay confirm-overlay" id="confirmOverlay" aria-hidden="true">
     <div class="confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
       <div class="confirm-icon">🚪</div>
