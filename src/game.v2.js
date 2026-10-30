@@ -1390,7 +1390,7 @@
       'playerName','savePlayerBtn','homeEntryBtn','rankEntryBtn','summaryRankBtn','homeOverlay','homeCoins','homeOwner',
       'homeTabs','homeRoom','homeRoomTip','furnitureGrid','closetGrid','skinShop','homeClose','homePlayBtn','homeRankBtn',
       'leaderboardOverlay','leaderboardList','leaderboardClose',
-      'earlyBtn','reviewEarlyBtn','summaryEarlyBtn','shopEarlyBtn','confirmOverlay','confirmCancel','confirmOk',
+      'reviewEarlyBtn','summaryEarlyBtn','shopEarlyBtn','settingsEarlyBtn','confirmOverlay','confirmCancel','confirmOk',
       'jarSwitchBtn','toppingChips','toppingQtyRow','toppingMinus','toppingQtyVal','toppingPlus',
       'shopTabs','shopWallet','shopExpandGrid','shopSyrupGrid','shopFurnGrid','itemShopEntryBtn','shopTitle','shopSub',
       'syrupComposition','stirBtn','alarmTray','alarmTrayItems',
@@ -1500,6 +1500,9 @@
   function openSettings(){
     syncSettingsUI();
     syncDevModeUI();
+    if(els.settingsEarlyBtn){
+      els.settingsEarlyBtn.hidden = !(state.phase === 'playing' || state.phase === 'reviewing');
+    }
     if(!els.settingsOverlay) return;
     els.settingsOverlay.classList.add('show');
     els.settingsOverlay.setAttribute('aria-hidden', 'false');
@@ -1715,7 +1718,6 @@
 
   function updateHud(){
     if(els.coins) els.coins.textContent = coinText();
-    if(els.earlyBtn) els.earlyBtn.style.display = state.phase === 'intro' ? 'none' : '';
     if(els.daySub){
       const label = state.phase === 'intro' ? '准备营业' : state.stage === 'desk' ? '服务台' : state.stage === 'restaurant' ? '餐厅' : state.stage === 'work' ? '工作台' : '厨房';
       const special = specialForDay(state.day);
@@ -4316,8 +4318,12 @@
     if(els.homePlayBtn) els.homePlayBtn.addEventListener('click', () => { closeHome(); startGame(); });
     if(els.homeRankBtn) els.homeRankBtn.addEventListener('click', () => { closeHome(); openLeaderboard(); });
     if(els.leaderboardClose) els.leaderboardClose.addEventListener('click', closeLeaderboard);
-    [els.earlyBtn, els.reviewEarlyBtn, els.summaryEarlyBtn, els.shopEarlyBtn].forEach(btn => {
+    [els.reviewEarlyBtn, els.summaryEarlyBtn, els.shopEarlyBtn].forEach(btn => {
       if(btn) btn.addEventListener('click', askEarlyLeave);
+    });
+    if(els.settingsEarlyBtn) els.settingsEarlyBtn.addEventListener('click', () => {
+      closeSettings();
+      askEarlyLeave();
     });
     if(els.confirmCancel) els.confirmCancel.addEventListener('click', closeConfirm);
     if(els.confirmOk) els.confirmOk.addEventListener('click', doEarlyLeave);

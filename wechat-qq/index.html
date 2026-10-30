@@ -1678,6 +1678,11 @@
     background:#FFF9E8;color:#8B5E21;font-family:inherit;font-size:9.5px;font-weight:900;cursor:pointer
   }
   .settings-codex:active{transform:translateY(1px)}
+  .settings-early{
+    width:100%;height:34px;margin-top:7px;border:1px solid #D9A295;border-radius:10px;
+    background:#FFF2EE;color:#A6483C;font-family:inherit;font-size:9.5px;font-weight:900;cursor:pointer
+  }
+  .settings-early:active{transform:translateY(1px)}
   .codex-overlay{align-items:center;padding:12px;background:rgba(14,30,21,.72);z-index:320}
   .codex-card{
     position:relative;width:min(100%,410px);max-height:90dvh;overflow-y:auto;scrollbar-width:none;
@@ -1965,7 +1970,6 @@
     </div>
     <div class="hud">
       <div class="coin-chip" aria-label="金币"><svg class="icon"><use href="#i-coin"></use></svg><span id="coins">0</span></div>
-      <button class="early-btn" id="earlyBtn" type="button">提前下班</button>
       <button class="icon-btn" id="settingsBtn" type="button" aria-label="设置"><svg class="icon"><use href="#i-gear"></use></svg></button>
       <button class="icon-btn" id="soundBtn" type="button" aria-label="开关声音"><svg class="icon"><use href="#i-sound"></use></svg></button>
     </div>
@@ -2527,6 +2531,7 @@
         <button id="devExitBtn" class="redeem-exit" type="button" hidden>退出开发者模式</button>
       </div>
       <button class="settings-codex" id="codexFromSettings" type="button">📖 打开奶蛙图鉴</button>
+      <button class="settings-early" id="settingsEarlyBtn" type="button" hidden>提前下班</button>
       <button class="settings-done" id="settingsDone" type="button">完成</button>
     </div>
   </div>
@@ -3953,7 +3958,7 @@
       'playerName','savePlayerBtn','homeEntryBtn','rankEntryBtn','summaryRankBtn','homeOverlay','homeCoins','homeOwner',
       'homeTabs','homeRoom','homeRoomTip','furnitureGrid','closetGrid','skinShop','homeClose','homePlayBtn','homeRankBtn',
       'leaderboardOverlay','leaderboardList','leaderboardClose',
-      'earlyBtn','reviewEarlyBtn','summaryEarlyBtn','shopEarlyBtn','confirmOverlay','confirmCancel','confirmOk',
+      'reviewEarlyBtn','summaryEarlyBtn','shopEarlyBtn','settingsEarlyBtn','confirmOverlay','confirmCancel','confirmOk',
       'jarSwitchBtn','toppingChips','toppingQtyRow','toppingMinus','toppingQtyVal','toppingPlus',
       'shopTabs','shopWallet','shopExpandGrid','shopSyrupGrid','shopFurnGrid','itemShopEntryBtn','shopTitle','shopSub',
       'syrupComposition','stirBtn','alarmTray','alarmTrayItems',
@@ -4063,6 +4068,9 @@
   function openSettings(){
     syncSettingsUI();
     syncDevModeUI();
+    if(els.settingsEarlyBtn){
+      els.settingsEarlyBtn.hidden = !(state.phase === 'playing' || state.phase === 'reviewing');
+    }
     if(!els.settingsOverlay) return;
     els.settingsOverlay.classList.add('show');
     els.settingsOverlay.setAttribute('aria-hidden', 'false');
@@ -4278,7 +4286,6 @@
 
   function updateHud(){
     if(els.coins) els.coins.textContent = coinText();
-    if(els.earlyBtn) els.earlyBtn.style.display = state.phase === 'intro' ? 'none' : '';
     if(els.daySub){
       const label = state.phase === 'intro' ? '准备营业' : state.stage === 'desk' ? '服务台' : state.stage === 'restaurant' ? '餐厅' : state.stage === 'work' ? '工作台' : '厨房';
       const special = specialForDay(state.day);
@@ -6879,8 +6886,12 @@
     if(els.homePlayBtn) els.homePlayBtn.addEventListener('click', () => { closeHome(); startGame(); });
     if(els.homeRankBtn) els.homeRankBtn.addEventListener('click', () => { closeHome(); openLeaderboard(); });
     if(els.leaderboardClose) els.leaderboardClose.addEventListener('click', closeLeaderboard);
-    [els.earlyBtn, els.reviewEarlyBtn, els.summaryEarlyBtn, els.shopEarlyBtn].forEach(btn => {
+    [els.reviewEarlyBtn, els.summaryEarlyBtn, els.shopEarlyBtn].forEach(btn => {
       if(btn) btn.addEventListener('click', askEarlyLeave);
+    });
+    if(els.settingsEarlyBtn) els.settingsEarlyBtn.addEventListener('click', () => {
+      closeSettings();
+      askEarlyLeave();
     });
     if(els.confirmCancel) els.confirmCancel.addEventListener('click', closeConfirm);
     if(els.confirmOk) els.confirmOk.addEventListener('click', doEarlyLeave);
