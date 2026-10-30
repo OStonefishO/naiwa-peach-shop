@@ -76,15 +76,15 @@
       happy:'耳朵都竖起来了！这罐真的好好吃！',
       okay:'嗯……还行吧，我没有很失望。'}
   ];
-  const ELITE_GUEST = {name:'寸头猪', kind:'pig', tier:'elite', badge:'精英', patience:.8, coin:1.35, tolDelta:-2,
+  const ELITE_GUEST = {name:'寸头猪', kind:'pig', tier:'elite', badge:'精英', personality:'strict', patience:.8, coin:1.35, tolDelta:-2,
     greet:'我从沙漠一路溜达来的。给我做罐讲究点的，别糊弄。',
     happy:'行啊，这手艺在沙漠里能开分店。',
     okay:'凑合吧，下次糖水可别倒歪了。'};
-  const BOSS_GUEST = {name:'认真狗', kind:'serious', tier:'boss', badge:'BOSS', patience:.62, coin:2, tolDelta:-3,
+  const BOSS_GUEST = {name:'认真狗', kind:'serious', tier:'boss', badge:'BOSS', personality:'strict', patience:.62, coin:2, tolDelta:-3,
     greet:'我只说一遍：罐型、块数、糖水比例，全部按单子来。',
     happy:'……合格。今天的检查，你通过了。',
     okay:'有几个细节不达标。下次我会带放大镜来。'};
-  const PATRICK_GUEST = {name:'派大星', kind:'patrick', tier:'boss', badge:'BOSS', patience:.7, coin:1.9, tolDelta:-2,
+  const PATRICK_GUEST = {name:'派大星', kind:'patrick', tier:'boss', badge:'BOSS', personality:'irritable', patience:.7, coin:1.9, tolDelta:-2,
     greet:'我是一颗星……听说这里有黄桃罐头？我要用全部零花钱买！',
     happy:'太——好——吃——啦！我要把它当枕头抱着睡！',
     okay:'我有点没吃明白……不过没关系，再来一罐！'};
@@ -92,6 +92,39 @@
     const week = Math.floor((day - 1) / WEEK_DAYS) + 1;
     return week % 2 === 0 ? PATRICK_GUEST : BOSS_GUEST;
   }
+  const PERSONALITIES = {
+    patient:{
+      id:'patient', name:'有耐心', icon:'☕', color:'#4E9A7A',
+      delta:[60000,120000],
+      desc:'愿意多等一会儿的客人，通常也会点更复杂的东西。',
+      effect:'等待时间 +1~2 分钟 · 订单更复杂'
+    },
+    generous:{
+      id:'generous', name:'大方', icon:'💛', color:'#D7A11E',
+      delta:[0,0],
+      desc:'对不完美和小错误很包容，吃到好吃的就开心。',
+      effect:'最终评分更宽松 · 小错误扣分更少'
+    },
+    strict:{
+      id:'strict', name:'苛刻', icon:'📏', color:'#C15A4A',
+      delta:[-60000,-20000],
+      desc:'对细节要求很高，订单也更复杂，而且不太愿意等。',
+      effect:'等待 −20~60 秒 · 订单更复杂 · 评分更严格'
+    },
+    impatient:{
+      id:'impatient', name:'缺乏耐心', icon:'⏳', color:'#C77A3A',
+      delta:[-60000,-30000],
+      desc:'不想等太久，通常只点简单的东西。',
+      effect:'等待 −30~60 秒 · 订单更简单'
+    },
+    irritable:{
+      id:'irritable', name:'易怒', icon:'💢', color:'#B64C58',
+      delta:[-10000,-10000],
+      desc:'一点小错误就会让心情变差，评价掉得很快。',
+      effect:'扣分被放大 · 小错误代价很高'
+    }
+  };
+  const PERSONALITY_IDS = ['patient','generous','strict','impatient','irritable'];
   const SPECIAL_SLOT = {elite:1, boss:2};
   function specialForDay(day){
     const d = ((day - 1) % WEEK_DAYS) + 1;
@@ -99,6 +132,36 @@
     if(d === 5) return {type:'elite', slot:SPECIAL_SLOT.elite, guest:ELITE_GUEST};
     return null;
   }
+  function personalityFor(guest){
+    if(guest && guest.personality && PERSONALITIES[guest.personality]) return PERSONALITIES[guest.personality];
+    return PERSONALITIES[PERSONALITY_IDS[randInt(0, PERSONALITY_IDS.length - 1)]];
+  }
+  function personalityTag(p){
+    if(!p) return '';
+    return `<span class="personality-tag" style="--pc:${p.color}">${p.icon} ${p.name}</span>`;
+  }
+  function personalityWaitText(p){
+    if(!p) return '';
+    if(p.delta[0] >= 60000) return `等待 +${Math.round(p.delta[0]/60000)}~${Math.round(p.delta[1]/60000)} 分钟`;
+    if(p.delta[0] <= -20000) return `等待 ${Math.round(p.delta[0]/1000)}~${Math.round(p.delta[1]/1000)} 秒`;
+    if(p.id === 'irritable') return '小错误扣分放大';
+    return '评分更宽松';
+  }
+  function personalityPatience(p, guest){
+    const base = PATIENCE_MS * (guest.patience || 1);
+    const delta = p && p.delta ? randInt(p.delta[0], p.delta[1]) : 0;
+    return clamp(Math.round(base + delta), 90000, 360000);
+  }
+  function markSeen(guest){
+    if(!activeProfile || !guest || (guest.tier !== 'elite' && guest.tier !== 'boss')) return;
+    const key = guest.tier;
+    activeProfile.seen[key] = activeProfile.seen[key] || [];
+    if(!activeProfile.seen[key].includes(guest.name)){
+      activeProfile.seen[key].push(guest.name);
+      saveProfiles();
+    }
+  }
+
   const MODES = {
     normal:{name:'普通模式', days:14, desc:'14 天周目 · 尽可能多赚钱'},
     endless:{name:'无尽模式', weekDays:7, desc:'每周完成业绩 · 不达标就关门'}
@@ -152,7 +215,7 @@
     if(masterGain) masterGain.gain.value = state.sound ? settings.master / 100 * .7 : 0;
     if(!bgmEl) bgmEl = els.bgm;
     if(bgmEl) bgmEl.volume = state.sound ? settings.master / 100 * settings.music / 100 * .6 : 0;
-    if(alarmEl) alarmEl.volume = state.sound ? Math.min(1, settings.master / 100 * settings.alarm / 100 * 1.15) : 0;
+    if(alarmEl) alarmEl.volume = state.sound ? Math.min(.55, settings.master / 100 * settings.alarm / 100 * .38) : 0;
   }
 
   /* -------------------- 玩家小家数据 -------------------- */
@@ -221,6 +284,7 @@
       unlocks:{toppings:[], jars:[]},
       upgrades:{pots:1, alarms:0, knife:'wood', knives:['wood']},
       syrups:{honey:false, maple:false, honeysuckle:false},
+      seen:{elite:[], boss:[]},
       lastRun:null
     };
   }
@@ -243,7 +307,7 @@
     phase:'intro', stage:'desk', day:1, coins:0, best:0,
     mode:'normal', introMode:'normal', runEarned:0, week:1, weekEarned:0, weekTarget:weekTargetFor(1),
     summaryKind:'day', bestNormal:0, bestEndless:0,
-    dayCoins:0, dayStars:0, guestIndex:0, guest:null, order:null, todayGuests:[],
+    dayCoins:0, dayStars:0, guestIndex:0, guest:null, personality:null, order:null, todayGuests:[],
     can:emptyCan(), bowl:{large:0,small:0}, stock:Infinity,
     pots:makePots(), batches:[], selectedBatch:null,
     upgrade:{pots:1, alarms:0, knife:'wood', knives:['wood']},
@@ -274,7 +338,7 @@
         alarmEl = new Audio('music/alarm.mp3');
         alarmEl.preload = 'auto';
       }
-      alarmEl.volume = Math.min(1, settings.master / 100 * settings.alarm / 100 * 1.15);
+      alarmEl.volume = state.sound ? Math.min(.55, settings.master / 100 * settings.alarm / 100 * .38) : 0;
       alarmEl.currentTime = 0;
       const p = alarmEl.play();
       if(p && p.catch) p.catch(()=>{});
@@ -421,6 +485,9 @@
     p.syrups.honey = !!p.syrups.honey;
     p.syrups.maple = !!p.syrups.maple;
     p.syrups.honeysuckle = !!p.syrups.honeysuckle;
+    p.seen = p.seen && typeof p.seen === 'object' ? p.seen : {};
+    p.seen.elite = Array.isArray(p.seen.elite) ? Array.from(new Set(p.seen.elite.filter(n => typeof n === 'string'))) : [];
+    p.seen.boss = Array.isArray(p.seen.boss) ? Array.from(new Set(p.seen.boss.filter(n => typeof n === 'string'))) : [];
     return p;
   }
   function availableSyrups(){
@@ -1233,7 +1300,8 @@
       'sbUrl','sbKey','sbPin','sbSaveBtn','sbLoadBtn','sbStatus',
       'modeGroup','modeToggle','modeToggleName','modePanel','shopGroup','shopToggle','shopPanel',
       'settingsEntryBtn','settingsBtn','settingsOverlay','settingsClose','settingsDone',
-      'setMaster','setMusic','setAlarm','setMasterVal','setMusicVal','setAlarmVal'];
+      'setMaster','setMusic','setAlarm','setMasterVal','setMusicVal','setAlarmVal',
+      'reviewPersonality','codexEntryBtn','codexOverlay','codexClose','codexTabs','codexBody','codexFromSettings','batchStrip','batchScrollWrap','batchScroll'];
     ids.forEach(id => els[id] = document.getElementById(id));
     els.panel = $('#panel');
     els.footer = $('.footer');
@@ -1299,6 +1367,77 @@
     syncSettingsUI();
     applyAudioVolumes();
   }
+
+  let codexTab = 'personality';
+  function openCodex(tab){
+    codexTab = tab || codexTab || 'personality';
+    renderCodex();
+    if(!els.codexOverlay) return;
+    els.codexOverlay.classList.add('show');
+    els.codexOverlay.setAttribute('aria-hidden', 'false');
+    sfx.tap();
+  }
+  function closeCodex(){
+    if(!els.codexOverlay) return;
+    els.codexOverlay.classList.remove('show');
+    els.codexOverlay.setAttribute('aria-hidden', 'true');
+  }
+  function setCodexTab(tab){
+    codexTab = tab;
+    renderCodex();
+    sfx.tap();
+  }
+  function codexItem(icon, name, desc, tag, locked){
+    return `<div class="codex-item${locked ? ' locked' : ''}">
+      <div class="ci-icon">${locked ? '？' : icon}</div>
+      <div><b>${name}${tag ? `<span class="ci-tag">${tag}</span>` : ''}</b><small>${desc}</small></div>
+    </div>`;
+  }
+  function renderCodex(){
+    if(!els.codexBody) return;
+    const profile = activeProfile || defaultProfile('奶蛙店长');
+    const tabs = els.codexTabs ? [...els.codexTabs.querySelectorAll('[data-codex-tab]')] : [];
+    tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.codexTab === codexTab));
+    let html = '';
+    if(codexTab === 'personality'){
+      html = `<div class="codex-note">性格会影响客人的耐心、订单复杂度与评分修正。精英和 BOSS 有固定性格。</div>`;
+      html += PERSONALITY_IDS.map(id => {
+        const p = PERSONALITIES[id];
+        return codexItem(p.icon, p.name, `${p.desc}<br>${p.effect}`, '', false);
+      }).join('');
+    } else if(codexTab === 'items'){
+      html = `<div class="codex-note">食材和罐子买过一次就永久解锁，会出现在后续订单里。</div>`;
+      const topIcons = {mint:'🌿',osmanthus:'🌼',dates:'🫘',goji:'🍒',rock:'🍬',honeysuckle:'🌾'};
+      const jarDesc = {classic:'基础罐型，容量 180 / 300 / 420ml', narrow:'瓶口更窄，倒糖水要更稳', wide:'大口装桃，摆盘更豪放'};
+      html += `<div class="codex-section-title">加料</div>`;
+      html += Object.entries(TOPPINGS).filter(([id]) => id !== 'none').map(([id, t]) => {
+        const unlocked = BASE_TOPPINGS.includes(id) || (profile.unlocks.toppings || []).includes(id);
+        return codexItem(topIcons[id] || '✦', t.name, unlocked ? '已解锁 · 客人可能会点 1–3 勺' : '未解锁 · 在道具商店购买', unlocked ? '已解锁' : '未解锁', !unlocked);
+      }).join('');
+      html += `<div class="codex-section-title">罐子</div>`;
+      html += Object.entries(JARS).map(([id, j]) => {
+        const unlocked = id === 'classic' || (profile.unlocks.jars || []).includes(id);
+        return codexItem('🥫', j.name, unlocked ? (j.desc || jarDesc[id] || '已解锁') : '未解锁 · 在道具商店购买', unlocked ? '已解锁' : '未解锁', !unlocked);
+      }).join('');
+      html += `<div class="codex-section-title">糖浆</div>`;
+      html += SYRUP_IDS.map(id => {
+        const s = SYRUPS[id];
+        const unlocked = id === 'classic' || !!profile.syrups[id];
+        return codexItem('🍯', s.name, unlocked ? s.desc : '未解锁 · 在道具商店购买', unlocked ? '已解锁' : '未解锁', !unlocked);
+      }).join('');
+    } else {
+      const specials = [ELITE_GUEST, BOSS_GUEST, PATRICK_GUEST];
+      html = `<div class="codex-note">只有在店里接待过，才会记录精英与 BOSS 的完整情报。</div>`;
+      html += specials.map(g => {
+        const seen = (g.tier === 'elite' ? profile.seen.elite : profile.seen.boss).includes(g.name);
+        if(!seen){
+          return codexItem('？', '？？？', `尚未遇见 · ${g.tier === 'elite' ? '精英客人' : '周末 BOSS'}`, '', true);
+        }
+        return codexItem(g.tier === 'elite' ? '🐷' : (g.kind === 'patrick' ? '⭐' : '🐶'), g.name, `${g.greet}<br>耐心 ${Math.round(PATIENCE_MS * g.patience / 1000)} 秒 · 奖励 ×${g.coin}`, g.tier === 'elite' ? '精英' : 'BOSS', false);
+      }).join('');
+    }
+    els.codexBody.innerHTML = html;
+  }
   function toast(text){
     if(!els.toast) return;
     els.toast.textContent = text;
@@ -1325,33 +1464,39 @@
   let lastOrderSig = '';
   function makeOrder(index, guest){
     const hard = guest && (guest.tier === 'elite' || guest.tier === 'boss');
+    const p = state.personality || personalityFor(guest);
+    const complex = hard || p.id === 'patient' || p.id === 'strict';
+    const simple = p.id === 'impatient';
     let order = null, sig = '';
     for(let tries=0; tries<16; tries++){
       const size = ['small','medium','large'][randInt(0,2)];
-      const total = hard ? randInt(3,4) : state.day <= 2 ? randInt(2,3) : randInt(2,4);
+      const total = complex ? randInt(3,4) : simple ? 2 : state.day <= 2 ? randInt(2,3) : randInt(2,4);
       let large = randInt(0,total);
-      if(total >= 2 && Math.random() < (hard ? .86 : .78)) large = clamp(large, 1, total-1);
-      const sugar = hard ? randInt(2,3) : randInt(1,3);
+      if(total >= 2 && Math.random() < (complex ? .88 : simple ? .5 : .78)) large = clamp(large, 1, total-1);
+      const sugar = complex ? randInt(2,3) : simple ? randInt(1,2) : randInt(1,3);
       const temp = ['ice','room','warm'][randInt(0,2)];
       const jars = unlockedJars();
       const jar = jars.length > 1 && Math.random() < .38 ? jars[randInt(1,jars.length-1)] : 'classic';
       const pool = unlockedToppings().slice();
       const tops = [];
-      if(pool.length && Math.random() >= .24){
-        const want = hard ? (Math.random() < .6 ? 2 : 1) : (Math.random() < .35 ? 2 : 1);
+      if(pool.length && Math.random() >= (simple ? .42 : .24)){
+        const want = complex ? (Math.random() < .65 ? 2 : 1) : (Math.random() < .35 ? 2 : 1);
         for(let t=0; t<want && pool.length; t++){
           const pick = pool.splice(randInt(0,pool.length-1),1)[0];
           tops.push({id:pick, qty:randInt(1,3)});
         }
       }
-      const tol = Math.max(3, SUGAR[sugar].tol + (guest && guest.tolDelta || 0));
+      const tolBase = SUGAR[sugar].tol + (guest && guest.tolDelta || 0) + (p.id === 'strict' ? -1 : p.id === 'generous' ? 1 : 0);
+      const tol = Math.max(3, tolBase);
       const poolS = availableSyrups();
-      const sCount = poolS.length > 1 && Math.random() < (hard ? .78 : .46) ? 2 : 1;
+      const twoSyrupChance = complex ? .62 : simple ? .18 : .46;
+      const sCount = poolS.length > 1 && Math.random() < twoSyrupChance ? 2 : 1;
       const picked = poolS.slice().sort(() => Math.random() - .5).slice(0, sCount);
       let ratios = sCount === 2 ? [50,50] : [100];
       if(sCount === 2 && Math.random() < .5) ratios = Math.random() < .5 ? [60,40] : [40,60];
       const syrups = picked.map((id,i) => ({id, ratio:ratios[i]}));
-      const stirred = sCount === 2 && Math.random() < (hard ? .72 : .38);
+      const stirChance = complex ? .5 : simple ? .25 : .38;
+      const stirred = sCount === 2 && Math.random() < stirChance;
       const boilStyle = sCount === 2 ? (Math.random() < .5 ? 'together' : 'separate') : 'single';
       order = {size, jar, peaches:{large, small:total-large}, sugar, temp, toppings:tops, tol, syrups, stirred, boilStyle};
       sig = `${size}|${jar}|${large}|${total-large}|${sugar}|${temp}|${tops.map(t=>`${t.id}:${t.qty}`).join(',')}|${syrups.map(s=>`${s.id}${s.ratio}`).join('+')}|${stirred}`;
@@ -1463,7 +1608,7 @@
 
   function renderGuest(){
     if(!state.guest){ els.guestWrap.innerHTML = ''; return; }
-    els.guestWrap.innerHTML = `<div class="guest-name">${state.guest.name}${guestTag(state.guest)}</div>${guestSVG(state.guest, state.guestIndex)}`;
+    els.guestWrap.innerHTML = `<div class="guest-name">${state.guest.name}${guestTag(state.guest)}${personalityTag(state.personality)}</div>${guestSVG(state.guest, state.guestIndex)}`;
     els.guestWrap.classList.remove('guest-enter');
     void els.guestWrap.offsetWidth;
     els.guestWrap.classList.add('guest-enter');
@@ -1983,7 +2128,7 @@
   function renderDesk(){
     if(!state.guest) return;
     els.deskAvatar.innerHTML = guestSVG(state.guest, state.guestIndex);
-    els.deskGuestName.innerHTML = `${state.guest.name}${guestTag(state.guest)}`;
+    els.deskGuestName.innerHTML = `${state.guest.name}${guestTag(state.guest)}${personalityTag(state.personality)}`;
     const remain = Math.max(0, state.deadline - performance.now());
     els.deskGuestMood.textContent = state.guest.tier === 'boss'
       ? (state.can.sealed ? '检查中…这次能不能通过？' : '认真检查中 · 耐心很短')
@@ -2071,6 +2216,15 @@
     els.pourBtn.classList.toggle('pouring', state.pouring);
     renderSyrupComposition();
     updateFooter();
+    requestAnimationFrame(updateBatchScroll);
+  }
+
+  function updateBatchScroll(){
+    if(!els.batchStrip || !els.batchScroll) return;
+    const max = Math.max(0, els.batchStrip.scrollWidth - els.batchStrip.clientWidth);
+    if(els.batchScrollWrap) els.batchScrollWrap.hidden = max < 2;
+    els.batchScroll.max = max;
+    els.batchScroll.value = els.batchStrip.scrollLeft;
   }
 
   function renderSyrupComposition(){
@@ -2301,7 +2455,9 @@
     state.guestIndex = index;
     state.guest = pickGuest(index);
     state.todayGuests.push(state.guest.name);
-    state.patienceMs = Math.round(PATIENCE_MS * (state.guest.patience || 1));
+    state.personality = personalityFor(state.guest);
+    markSeen(state.guest);
+    state.patienceMs = personalityPatience(state.personality, state.guest);
     state.order = makeOrder(index, state.guest);
     state.can = emptyCan();
     state.selectedBatch = null;
@@ -2806,7 +2962,15 @@
     const toppingScore = toppingKindScore + toppingQtyScore;
     const remain = Math.max(0, state.deadline - performance.now());
     const speedScore = remain >= state.patienceMs * .5 ? 10 : remain >= state.patienceMs * .25 ? 7 : remain > 0 ? 4 : 0;
-    const score = timedOut ? 0 : Math.round(sizeScore + jarScore + peachScore + kindScore + ratioScore + boilScore + pourScore + stirScore + tempScore + toppingScore + speedScore);
+    const baseScore = timedOut ? 0 : Math.round(sizeScore + jarScore + peachScore + kindScore + ratioScore + boilScore + pourScore + stirScore + tempScore + toppingScore + speedScore);
+    const p = state.personality || (state.guest && personalityFor(state.guest));
+    let score = baseScore;
+    if(!timedOut && p){
+      if(p.id === 'generous') score = Math.min(100, Math.round(baseScore + 5 + (100 - baseScore) * .12));
+      else if(p.id === 'strict') score = Math.max(0, Math.round(baseScore - (baseScore < 100 ? 4 : 0)));
+      else if(p.id === 'irritable') score = Math.max(0, Math.round(100 - (100 - baseScore) * 1.75));
+    }
+    const pDelta = score - baseScore;
     const perfect = !timedOut && score >= 100;
     const stars = score >= 90 ? 3 : score >= 70 ? 2 : score >= 45 ? 1 : 0;
     const baseCoins = timedOut ? 0 : 8 + Math.round(score * .12) + (perfect ? 5 : 0);
@@ -2824,12 +2988,20 @@
     details.push({ok:tempScore===10, label:'温度', text: c.temp ? `${TEMPS[c.temp]}${tempScore===10 ? ' ✓' : ` / 要${TEMPS[o.temp]}`}` : '没选温度'});
     details.push({ok:toppingScore>=9.5, label:'加料', text: c.toppingTouched ? `${toppingText(gotTops)}${toppingScore>=9.5 ? ' ✓' : ` / 要${toppingText(wantTops)}`}` : '没选加料'});
     details.push({ok:speedScore===10, label:'出餐速度', text: timedOut ? '超时了…' : speedScore===10 ? '手速超快' : speedScore===7 ? '稍微有点慢' : '客人等急了'});
-    return {score, stars, perfect, coins, details, timedOut, guest:state.guest};
+    return {score, baseScore, pDelta, personality:p, stars, perfect, coins, details, timedOut, guest:state.guest};
   }
 
   function commentFor(result){
-    if(result.timedOut) return `等太久啦，我的黄桃罐头还没好吗？下次要快一点哦……`;
+    const p = result.personality;
+    if(result.timedOut){
+      if(p && p.id === 'patient') return '我已经很有耐心地等了……可罐头还是没来，下次要快一点点哦。';
+      if(p && p.id === 'irritable') return '等这么久？我现在很不高兴。';
+      return `等太久啦，我的黄桃罐头还没好吗？下次要快一点哦……`;
+    }
     if(result.perfect) return result.guest.happy;
+    if(p && p.id === 'generous' && result.score >= 65) return '已经很不错啦！这点小差别我不介意，好吃最重要～';
+    if(p && p.id === 'irritable' && result.score < 80) return '就这一点小错，已经够让我生气了。';
+    if(p && p.id === 'strict' && result.score < 90) return '细节还不够。我的订单上写得很清楚。';
     if(result.score >= 80) return '整体很不错！如果细节再准一点，就是满分罐头啦～';
     if(result.score >= 55) return '味道还行，不过有些地方和订单不太一样，下次注意哦。';
     return '这次的罐头和我想的不太一样……再仔细看看订单吧。';
@@ -2867,6 +3039,15 @@
       if(g.badge){
         els.reviewSpecial.className = `review-special ${g.tier}`;
         els.reviewSpecial.textContent = g.tier === 'boss' ? '周末 BOSS 挑战 · 奖励 ×2' : '精英客人挑战 · 奖励 ×1.35';
+      }
+    }
+    if(els.reviewPersonality){
+      const p = result.personality;
+      els.reviewPersonality.hidden = !p;
+      if(p){
+        els.reviewPersonality.style.setProperty('--pc', p.color);
+        const delta = result.pDelta ? ` · 性格修正 ${result.pDelta > 0 ? '+' : ''}${result.pDelta}` : '';
+        els.reviewPersonality.innerHTML = `<span class="personality-tag" style="--pc:${p.color}">${p.icon} ${p.name}</span><small>${personalityWaitText(p)}${delta}</small>`;
       }
     }
     els.reviewQuote.innerHTML = `<b>${result.guest.name}：</b>${result.comment}`;
@@ -3334,6 +3515,45 @@
       const input = els['set' + id];
       if(input) input.addEventListener('input', () => setSetting(key, input.value));
     });
+    if(els.codexEntryBtn) els.codexEntryBtn.addEventListener('click', () => openCodex('personality'));
+    if(els.codexFromSettings) els.codexFromSettings.addEventListener('click', () => { closeSettings(); openCodex('personality'); });
+    if(els.codexClose) els.codexClose.addEventListener('click', closeCodex);
+    if(els.codexOverlay) els.codexOverlay.addEventListener('click', e => { if(e.target === els.codexOverlay) closeCodex(); });
+    if(els.codexTabs) els.codexTabs.addEventListener('click', e => {
+      const tab = e.target.closest('[data-codex-tab]');
+      if(tab) setCodexTab(tab.dataset.codexTab);
+    });
+    if(els.batchStrip){
+      els.batchStrip.addEventListener('scroll', () => {
+        if(els.batchScroll) els.batchScroll.value = els.batchStrip.scrollLeft;
+      });
+      if(els.batchScroll) els.batchScroll.addEventListener('input', () => {
+        els.batchStrip.scrollLeft = Number(els.batchScroll.value) || 0;
+      });
+      els.batchStrip.addEventListener('wheel', e => {
+        if(els.batchStrip.scrollWidth <= els.batchStrip.clientWidth) return;
+        if(Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+        e.preventDefault();
+        els.batchStrip.scrollLeft += e.deltaY;
+      }, {passive:false});
+      let dragStartX = 0, dragStartLeft = 0, dragMoved = false, dragPointer = null;
+      els.batchStrip.addEventListener('pointerdown', e => {
+        if(e.pointerType === 'mouse' && e.button !== 0) return;
+        dragPointer = e.pointerId; dragStartX = e.clientX; dragStartLeft = els.batchStrip.scrollLeft; dragMoved = false;
+      });
+      els.batchStrip.addEventListener('pointermove', e => {
+        if(dragPointer !== e.pointerId) return;
+        const dx = e.clientX - dragStartX;
+        if(Math.abs(dx) > 5){ dragMoved = true; els.batchStrip.classList.add('dragging'); els.batchStrip.scrollLeft = dragStartLeft - dx; }
+      });
+      const endDrag = e => {
+        if(dragPointer !== e.pointerId) return;
+        dragPointer = null; els.batchStrip.classList.remove('dragging');
+        if(dragMoved){ e.preventDefault(); e.stopPropagation(); }
+      };
+      els.batchStrip.addEventListener('pointerup', endDrag);
+      els.batchStrip.addEventListener('pointercancel', endDrag);
+    }
     els.soundBtn.addEventListener('click', () => {
       ensureAudio();
       state.sound = !state.sound;
@@ -3585,7 +3805,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm };
+      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex };
     }
   }
 
