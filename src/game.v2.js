@@ -4222,6 +4222,7 @@
     els.shopBtn.style.display = (isEnd || rogueEnd) ? 'none' : '';
     if(state.mode === 'rogue') els.shopBtn.innerHTML = `逛肉鸽夜市${icon('arrow')}`;
     if(els.summaryPauseBtn) els.summaryPauseBtn.style.display = (state.mode === 'rogue' && !isEnd && !rogueEnd) ? '' : 'none';
+    if(els.summaryEarlyBtn) els.summaryEarlyBtn.style.display = (isEnd || rogueEnd) ? 'none' : '';
     els.homeBtn.style.display = (isEnd || rogueEnd) ? '' : 'none';
     if(els.summaryRankBtn){
       els.summaryRankBtn.style.display = (kind === 'gameOver' && state.mode !== 'rogue') ? '' : 'none';
