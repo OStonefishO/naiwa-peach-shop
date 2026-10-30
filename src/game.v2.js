@@ -1530,7 +1530,7 @@
       'rogueShopOverlay','rogueShopCoins','rogueShopList','rogueShopNext','shrimpOverlay','shrimpTitle','shrimpSub','shrimpChoices','shrimpSkip','shrimpReroll',
       'eventOverlay','eventIcon','eventTitle','eventDesc','eventContinue','changelogOverlay','changelogClose','changelogDone','changelogBtn',
       'rogueHudPanel','rogueDayTag','rogueEventLine','buffBagBtn','buffCount','rogueShopBtn','rogueCoinShopBtn',
-      'rogueMarketCoin','rogueMarketBag','buffBagOverlay','buffBagClose','buffBagBody','summaryPauseBtn',
+      'rogueMarketCoin','rogueMarketBag','buffBagOverlay','buffBagClose','buffBagBody','summaryPauseBtn','devEndDayBtn',
       'startActions','continueBtn','continueMeta','rogueModeCard','rogueBadge','rogueNote',
       'playerMenuToggle','playerMenu',
       'settingsPauseBtn','rogueOverlay','rogueTitle','rogueStayBtn','rogueHomeBtn','confirmTitle','confirmCopy'];
@@ -1588,6 +1588,7 @@
       els.redeemStatus.className = 'redeem-status' + (state.devMode ? ' ok' : '');
     }
     if(els.devExitBtn) els.devExitBtn.hidden = !state.devMode;
+    if(els.devEndDayBtn) els.devEndDayBtn.hidden = !state.devMode || (state.phase !== 'playing' && state.phase !== 'event');
     if(els.redeemInput) els.redeemInput.placeholder = state.devMode ? '已开启 · 可输入关闭码' : '输入兑换码';
   }
   function setDevMode(on){
@@ -1870,6 +1871,7 @@
 
   function updateHud(){
     if(els.coins) els.coins.textContent = coinText();
+    if(els.devEndDayBtn) els.devEndDayBtn.hidden = !state.devMode || (state.phase !== 'playing' && state.phase !== 'event');
     if(els.daySub){
       const label = state.phase === 'intro' ? '准备营业' : state.stage === 'desk' ? '服务台' : state.stage === 'restaurant' ? '餐厅' : state.stage === 'work' ? '工作台' : '厨房';
       const special = specialForDay(state.day);
@@ -3211,6 +3213,19 @@
     if(els.rogueNote) els.rogueNote.innerHTML = unlocked
       ? '每周金币指标 · 辣虾 · 随机事件<br>每局重置'
       : '普通模式完成 2 周后解锁<br>每周指标 · 辣虾 · 随机事件';
+  }
+  function devEndDay(){
+    if(!state.devMode) return;
+    if(state.phase === 'event') closeRogueEventPopup();
+    if(state.phase !== 'playing') return;
+    state.pouring = false;
+    stopAllHeating();
+    (state.dayGuests || []).forEach(d => { d.served = true; });
+    if(rogueActive() && (state.day % WEEK_DAYS === 5 || state.day % WEEK_DAYS === 0)){
+      showShrimpChoice(state.day % WEEK_DAYS === 0 ? 'boss' : 'elite');
+    }else{
+      showSummary();
+    }
   }
   function pauseRun(){
     if(state.phase !== 'playing' && state.phase !== 'summary') return;
@@ -4996,6 +5011,7 @@
       if(els.buffBagOverlay){ els.buffBagOverlay.classList.remove('show'); els.buffBagOverlay.setAttribute('aria-hidden','true'); }
     });
     if(els.summaryPauseBtn) els.summaryPauseBtn.addEventListener('click', pauseRun);
+    if(els.devEndDayBtn) els.devEndDayBtn.addEventListener('click', devEndDay);
     if(els.shrimpSkip) els.shrimpSkip.addEventListener('click', () => finishShrimp(null));
     if(els.shrimpReroll) els.shrimpReroll.addEventListener('click', () => rerollShrimp());
     if(els.shrimpChoices) els.shrimpChoices.addEventListener('click', e => {

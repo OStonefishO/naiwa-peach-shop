@@ -1870,6 +1870,8 @@
   .bag-row b{color:#4A3418;font-size:8.2px}
   .bag-empty{padding:12px;text-align:center;font-size:8px;color:#A08B65;font-weight:700}
   .bag-kind{margin:6px 2px 2px;font-size:7px;letter-spacing:1px;color:#B08A4C;font-weight:900}
+  .dev-end-btn{flex:0 0 auto;height:26px;padding:0 7px;border:1px solid #C98C7E;border-radius:8px;background:#FFF0EC;color:#9C4638;font:900 7.4px/1 inherit;cursor:pointer}
+  .dev-end-btn[hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -2081,6 +2083,7 @@
     </div>
     <div class="hud">
       <div class="coin-chip" aria-label="金币"><svg class="icon"><use href="#i-coin"></use></svg><span id="coins">0</span></div>
+      <button class="dev-end-btn" id="devEndDayBtn" type="button" hidden>结束今天</button>
       <button class="icon-btn" id="settingsBtn" type="button" aria-label="设置"><svg class="icon"><use href="#i-gear"></use></svg></button>
       <button class="icon-btn" id="soundBtn" type="button" aria-label="开关声音"><svg class="icon"><use href="#i-sound"></use></svg></button>
     </div>
