@@ -26,6 +26,11 @@ jobs:
           node-version: 22
       - name: Build single-file game
         run: node src/build.cjs
+      - name: Mirror to html.cafe
+        env:
+          HTMLCAFE_ID: ${{ secrets.HTMLCAFE_ID }}
+          HTMLCAFE_KEY: ${{ secrets.HTMLCAFE_KEY }}
+        run: node tools/publish-htmlcafe.cjs
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

@@ -15,19 +15,26 @@
 wechat-qq/
   index.html      # 游戏本体（脚本、头像已内联）
   music/          # 四首背景音乐
-  qr.png / qr.svg # 公网试玩二维码
+  qr.png / qr.svg # GitHub Pages 二维码
+  qr-htmlcafe.png / qr-htmlcafe.svg # 备用站二维码
   preview.png     # 标题页预览
 ```
 
 ## 手机试玩
 
-**永久直玩（GitHub Pages）**
+**永久直玩（GitHub Pages，主站）**
 
 https://ostonefisho.github.io/naiwa-peach-shop/
 
 手机微信 / QQ 里直接点开；也可以扫描 `wechat-qq/qr.png`。
 
 > 这是永久地址，电脑关机也能玩。仓库每次更新后，GitHub Actions 会自动重新部署，等一两分钟刷新即可。
+
+**永久备用站（html.cafe，单文件镜像）**
+
+https://html.cafe/x8b917dbd
+
+也可以扫描 `wechat-qq/qr-htmlcafe.png`。这个版本把四首背景音乐一起内嵌进 HTML，是 3.2MB 的单文件，不依赖 GitHub 域名；适合 GitHub 访问不稳定的手机网络。GitHub Actions 每次部署都会通过仓库 Secrets（`HTMLCAFE_ID` / `HTMLCAFE_KEY`）自动同步这个镜像。
 
 **同一 Wi-Fi 局域网（仅调试）**
 

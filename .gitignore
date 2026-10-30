@@ -1,5 +1,8 @@
 # local test artifacts
 _*.mjs
+_*.cjs
+_*.py
+deploy/
 *.tmp
 *.log
 
