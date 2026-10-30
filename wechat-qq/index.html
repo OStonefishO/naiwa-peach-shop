@@ -1496,6 +1496,8 @@
   .frog-wear{position:absolute;left:50%;bottom:0;width:124px;height:142px;transform:translateX(-50%) scale(.57);transform-origin:bottom center;pointer-events:none;z-index:3}
   .frog-wear .wear-hat,.frog-wear .wear-top{z-index:9}
   .frog-wear .wear-top.apron{display:none}
+  .frog.has-hat,.room-doll.has-hat,.dress-doll.has-hat{--chef-hat:none}
+  .frog.has-top,.room-doll.has-top,.dress-doll.has-top{--chef-apron:none}
   @media (max-height:650px){ .frog-wear{transform:translateX(-50%) scale(.44)} }
 
   /* 订单收纳棍 */
@@ -1571,7 +1573,7 @@
   .menu-toggle-copy{display:block;min-width:0}
   .menu-toggle-copy small{display:block;font-size:6.5px;letter-spacing:1px;color:#A98052;font-weight:700;line-height:1.2}
   .menu-toggle-copy b{display:block;margin-top:1px;font-size:10.5px;color:#5A3A22;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .menu-chevron{margin-left:auto;flex:0 0 auto;width:21px;height:21px;display:grid;place-items:center;border-radius:50%;background:#FFE6A3;color:#9A6512;font-size:10px;line-height:1;transition:transform .2s ease}
+  .menu-chevron{margin-left:auto;flex:0 0 auto;width:31px;height:31px;display:grid;place-items:center;border-radius:50%;background:#FFE6A3;color:#9A6512;font-size:16px;line-height:1;padding-top:1px;transition:transform .2s ease}
   .menu-group.open .menu-chevron{transform:rotate(180deg)}
   .menu-panel{padding:0 8px 8px}
   .menu-panel[hidden]{display:none}
@@ -1744,9 +1746,11 @@
       <circle cx="34" cy="118" r="5" fill="#74713A"/>
       <circle cx="106" cy="118" r="5" fill="#74713A"/>
       <ellipse cx="70" cy="127" rx="35" ry="35" fill="url(#frogBelly)"/>
-      <path d="M52 111c4-5 10-7 18-7s14 2 18 7" fill="none" stroke="#F0DDBB" stroke-width="1.4" stroke-linecap="round"/>
-      <path d="M57 131c0-7 6-12 13-12s13 5 13 12v9H57z" fill="#FFFDF6" stroke="#E5D3B3" stroke-width="1.2"/>
-      <path d="M61 131c0-4 4-7 9-7s9 3 9 7" fill="none" stroke="#6CA378" stroke-width="2" stroke-linecap="round"/>
+      <g class="chef-apron" style="display:var(--chef-apron,inline)">
+        <path d="M52 111c4-5 10-7 18-7s14 2 18 7" fill="none" stroke="#F0DDBB" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M57 131c0-7 6-12 13-12s13 5 13 12v9H57z" fill="#FFFDF6" stroke="#E5D3B3" stroke-width="1.2"/>
+        <path d="M61 131c0-4 4-7 9-7s9 3 9 7" fill="none" stroke="#6CA378" stroke-width="2" stroke-linecap="round"/>
+      </g>
       <g>
         <ellipse cx="51" cy="62" rx="18" ry="19" fill="#5C9B5D" stroke="#437B47" stroke-width="1.5"/>
         <ellipse cx="51" cy="63" rx="11.5" ry="12.5" fill="#1D2718"/>
@@ -1762,7 +1766,7 @@
       <path d="M61 81c5 5 13 5 18 0" fill="none" stroke="#4A371B" stroke-width="2.6" stroke-linecap="round"/>
       <ellipse cx="44" cy="78" rx="6" ry="3.2" fill="#FF9C7A" opacity=".45"/>
       <ellipse cx="96" cy="78" rx="6" ry="3.2" fill="#FF9C7A" opacity=".45"/>
-      <g>
+      <g class="chef-hat" style="display:var(--chef-hat,inline)">
         <path d="M37 32c-3-11 6-19 16-18 2-10 15-13 22-6 8-7 20-1 20 9 10-1 16 7 14 16-1 5-6 8-11 8H49c-6 0-10-4-12-9z" fill="url(#hatShade)" stroke="#DDCBAE" stroke-width="1.4"/>
         <path d="M47 38h46v11H47z" fill="#FFFDF7" stroke="#DDCBAE" stroke-width="1.3"/>
         <path d="M55 38v11M73 38v11M91 38v11" stroke="#EFE3CF" stroke-width="1.2"/>
@@ -2143,7 +2147,7 @@
         <button type="button" data-shoptab="run" class="active">本局升级</button>
         <button type="button" data-shoptab="expand">永久拓展</button>
       </div>
-      <div class="shop-wallet" id="shopWallet" hidden><svg class="icon"><use href="#i-coin"></use></svg>小家金币 <b>0</b><small>永久解锁，不用重复购买</small></div>
+      <div class="shop-wallet" id="shopWallet" hidden><svg class="icon"><use href="#i-coin"></use></svg>金币 <b>0</b><small>永久解锁，不用重复购买</small></div>
       <div class="shop-event" id="shopEvent" hidden></div>
       <div class="shop-grid" id="shopGrid"></div>
       <div class="shop-grid" id="shopExpandGrid" hidden></div>
@@ -2164,7 +2168,7 @@
           <h2 class="home-title" id="homeTitle">奶蛙的小家</h2>
           <div class="home-owner" id="homeOwner">店长：奶蛙店长</div>
         </div>
-        <div class="home-wallet"><svg class="icon"><use href="#i-coin"></use></svg><b id="homeCoins">0</b><small>小家金币</small></div>
+        <div class="home-wallet"><svg class="icon"><use href="#i-coin"></use></svg><b id="homeCoins">0</b><small>金币</small></div>
         <button class="home-close" id="homeClose" type="button" aria-label="关闭">×</button>
       </div>
       <div class="home-tabs" id="homeTabs">
@@ -2204,7 +2208,7 @@
       <button class="home-close" id="dressClose" type="button" aria-label="关闭">×</button>
       <div class="home-eyebrow">NAIWA'S CLOSET</div>
       <h2 class="home-title">更衣室</h2>
-      <div class="dress-sub"><span id="dressCoins">200 小家金币</span><span>给奶蛙换一身，店里也会穿</span></div>
+      <div class="dress-sub"><span id="dressCoins">200 金币</span><span>给奶蛙换一身，店里也会穿</span></div>
       <div class="dress-stage">
         <div class="dress-doll" id="dressDoll"></div>
       </div>
@@ -2756,6 +2760,11 @@
     if(!activeProfile) return;
     state.bestNormal = activeProfile.bestNormal || 0;
     state.bestEndless = activeProfile.bestEndless || 0;
+    state.coins = activeProfile.wallet || 0;
+    if(els.coins) els.coins.textContent = state.coins;
+    if(els.homeCoins) els.homeCoins.textContent = state.coins;
+    if(els.shopCoins) els.shopCoins.textContent = state.coins;
+    if(els.dressCoins) els.dressCoins.textContent = `${state.coins} 金币`;
   }
   function playerNameSafe(name){
     return String(name || '').trim().replace(/\s+/g, ' ').slice(0, 10);
@@ -3103,8 +3112,23 @@
   function addWallet(n){
     if(!activeProfile || !Number.isFinite(n) || n <= 0) return;
     activeProfile.wallet += n;
+    state.coins = activeProfile.wallet;
     saveProfiles();
-    if(els.homeCoins) els.homeCoins.textContent = activeProfile.wallet;
+    if(els.coins) els.coins.textContent = state.coins;
+    if(els.homeCoins) els.homeCoins.textContent = state.coins;
+    if(els.shopCoins) els.shopCoins.textContent = state.coins;
+    if(els.dressCoins) els.dressCoins.textContent = `${state.coins} 金币`;
+  }
+  function spendCoins(n){
+    if(!activeProfile || !Number.isFinite(n) || activeProfile.wallet < n) return false;
+    activeProfile.wallet -= n;
+    state.coins = activeProfile.wallet;
+    saveProfiles();
+    if(els.coins) els.coins.textContent = state.coins;
+    if(els.homeCoins) els.homeCoins.textContent = state.coins;
+    if(els.shopCoins) els.shopCoins.textContent = state.coins;
+    if(els.dressCoins) els.dressCoins.textContent = `${state.coins} 金币`;
+    return true;
   }
   function awardProfile(kind){
     if(!activeProfile) return 0;
@@ -3114,15 +3138,11 @@
     }
     if(kind !== 'runEnd' && kind !== 'gameOver') return 0;
     if(state.metaAwarded) return 0;
-    let bonus = 0;
     if(kind === 'runEnd'){
-      bonus = Math.max(30, Math.round(state.runEarned * .12));
       activeProfile.bestNormal = Math.max(activeProfile.bestNormal, state.runEarned);
     }else{
-      bonus = Math.max(20, Math.round(state.runEarned * .08));
       activeProfile.bestEndless = Math.max(activeProfile.bestEndless, state.week);
     }
-    activeProfile.wallet += bonus;
     activeProfile.totalRuns += 1;
     activeProfile.lastRun = {
       mode:state.mode, day:state.day, week:state.week, earned:state.runEarned,
@@ -3131,7 +3151,7 @@
     state.metaAwarded = true;
     syncProfile();
     saveProfiles();
-    return bonus;
+    return 0;
   }
   function leaderboardProfiles(){
     return Object.values(profiles)
@@ -3183,14 +3203,16 @@
     return `<div class="wear-hat ${id}"></div>`;
   }
   function topHTML(id){
-    if(!id) return '';
+    if(!id || id === 'apron') return '';
     return `<div class="wear-top ${id}"></div>`;
   }
   function dollHTML(){
-    return `<div class="room-doll">
+    const head = activeProfile.equipped.head;
+    const top = activeProfile.equipped.top;
+    return `<div class="room-doll${head !== 'chef' ? ' has-hat' : ''}${top !== 'apron' ? ' has-top' : ''}">
       <svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>
-      ${hatHTML(activeProfile.equipped.head)}
-      ${topHTML(activeProfile.equipped.top)}
+      ${hatHTML(head)}
+      ${topHTML(top)}
     </div>`;
   }
   function furnitureHTML(id){
@@ -3374,8 +3396,7 @@
     if(!f || !activeProfile) return;
     const owned = activeProfile.ownedFurniture.includes(id);
     if(!owned){
-      if(activeProfile.wallet < f.price){ toast('小家金币不够，先去营业赚一点吧'); sfx.error(); return; }
-      activeProfile.wallet -= f.price;
+      if(!spendCoins(f.price)){ toast('金币不够，先去营业赚一点吧'); sfx.error(); return; }
       activeProfile.ownedFurniture.push(id);
       if(activeProfile.placedFurniture.length < 4){
         activeProfile.placedFurniture.push(id);
@@ -3402,8 +3423,7 @@
     if(!item) return;
     const owned = activeProfile.clothes[kind].includes(id);
     if(!owned){
-      if(activeProfile.wallet < item.price){ toast('小家金币不够，先去营业赚一点吧'); sfx.error(); return; }
-      activeProfile.wallet -= item.price;
+      if(!spendCoins(item.price)){ toast('金币不够，先去营业赚一点吧'); sfx.error(); return; }
       activeProfile.clothes[kind].push(id);
       sfx.coin();
     }else sfx.tap();
@@ -3416,19 +3436,24 @@
   }
   function renderFrogWear(){
     if(!els.frogWear || !activeProfile) return;
+    const head = activeProfile.equipped.head;
     const top = activeProfile.equipped.top;
-    els.frogWear.innerHTML = hatHTML(activeProfile.equipped.head) + (top === 'apron' ? '' : topHTML(top));
-  }
-  function dressDollHTML(){
-    return `<div class="room-doll"><svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>
-      ${hatHTML(activeProfile.equipped.head)}
-      ${topHTML(activeProfile.equipped.top)}</div>`;
+    const frog = els.frogWear.parentElement;
+    if(frog){
+      frog.classList.toggle('has-hat', head !== 'chef');
+      frog.classList.toggle('has-top', top !== 'apron');
+    }
+    els.frogWear.innerHTML = hatHTML(head) + topHTML(top);
   }
   function renderDress(){
     if(!els.dressOverlay || !activeProfile) return;
-    els.dressCoins.textContent = `${activeProfile.wallet} 小家金币`;
+    const head = activeProfile.equipped.head;
+    const top = activeProfile.equipped.top;
+    els.dressCoins.textContent = `${activeProfile.wallet} 金币`;
+    els.dressDoll.classList.toggle('has-hat', head !== 'chef');
+    els.dressDoll.classList.toggle('has-top', top !== 'apron');
     els.dressDoll.innerHTML = `<svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>
-      ${hatHTML(activeProfile.equipped.head)}${topHTML(activeProfile.equipped.top)}`;
+      ${hatHTML(head)}${topHTML(top)}`;
     const group = (kind,title) => `<div class="dress-section"><h4><span>${title}</span><span>${kind === 'head' ? '帽子 / 眼镜' : '上衣'}</span></h4>
       <div class="dress-row">${CLOTHES[kind].map(item => {
         const owned = activeProfile.clothes[kind].includes(item.id);
@@ -3457,8 +3482,7 @@
     if(!skin) return;
     const owned = activeProfile.skins[area].includes(id);
     if(!owned){
-      if(activeProfile.wallet < skin.price){ toast('小家金币不够，先去营业赚一点吧'); sfx.error(); return; }
-      activeProfile.wallet -= skin.price;
+      if(!spendCoins(skin.price)){ toast('金币不够，先去营业赚一点吧'); sfx.error(); return; }
       activeProfile.skins[area].push(id);
       sfx.coin();
     }else sfx.tap();
@@ -3660,7 +3684,7 @@
   }
 
   function updateHud(){
-    if(els.coins) els.coins.textContent = state.coins;
+    if(els.coins) els.coins.textContent = activeProfile ? activeProfile.wallet : state.coins;
     if(els.earlyBtn) els.earlyBtn.style.display = state.phase === 'intro' ? 'none' : '';
     if(els.daySub){
       const label = state.phase === 'intro' ? '准备营业' : state.stage === 'desk' ? '服务台' : state.stage === 'work' ? '工作台' : '厨房';
@@ -4497,7 +4521,7 @@
     ensureAudio();
     state.mode = MODES[mode] ? mode : 'normal';
     state.day = 1;
-    state.coins = 0;
+    state.coins = activeProfile ? activeProfile.wallet : 0;
     state.dayCoins = 0;
     state.dayStars = 0;
     state.runEarned = 0;
@@ -4920,7 +4944,7 @@
     state.reviews.push(result);
     state.dayStars += result.stars;
     state.dayCoins += result.coins;
-    state.coins += result.coins;
+    addWallet(result.coins);
     state.runEarned += result.coins;
     state.weekEarned += result.coins;
     saveGame();
@@ -4993,7 +5017,7 @@
     const perfect = state.reviews.filter(r => r.perfect).length;
     const avg = total ? Math.round(state.reviews.reduce((s,r) => s + r.score, 0) / total) : 0;
     const isEnd = kind === 'runEnd' || kind === 'gameOver';
-    const metaBonus = awardProfile(kind);
+    awardProfile(kind);
     let ribbon = '今日营业结束';
     let title = `第 ${state.day} 天 · 打烊啦`;
     let sub = '';
@@ -5025,7 +5049,7 @@
       else if(stars >= 4) comment = `<b>还不错哦～</b>再仔细看看订单，把糖水和加料都配对，客人会更开心。`;
       else comment = `<b>明天继续加油！</b>先看清订单再动手，奶蛙一定能做出完美的黄桃罐头。`;
     }
-    if(metaBonus > 0) comment += `<br><b>小家金币 +${metaBonus}</b> 已存入「奶蛙的小家」，可以去买家具和衣服啦。`;
+
 
     els.summaryRibbon.textContent = ribbon;
     els.summaryTitle.textContent = title;
@@ -5139,8 +5163,9 @@
     if(els.shopWallet){ els.shopWallet.hidden = state.shopTab !== 'expand'; els.shopWallet.style.display = state.shopTab === 'expand' ? 'flex' : 'none'; }
   }
   function renderShop(){
-    els.shopCoins.textContent = state.coins;
-    if(els.shopWallet) els.shopWallet.innerHTML = `<svg class="icon"><use href="#i-coin"></use></svg>小家金币 <b>${activeProfile ? activeProfile.wallet : 0}</b>`;
+    const wallet = activeProfile ? activeProfile.wallet : state.coins;
+    els.shopCoins.textContent = wallet;
+    if(els.shopWallet) els.shopWallet.innerHTML = `<svg class="icon"><use href="#i-coin"></use></svg>金币 <b>${wallet}</b>`;
     setShopTab(state.shopTab || 'run');
     if(els.shopExpandGrid){
       els.shopExpandGrid.innerHTML = expansionItems().map(item => {
@@ -5171,7 +5196,7 @@
       }
     }
     els.shopGrid.innerHTML = shopItems().map(item => {
-      const disabled = item.owned || (!item.id.startsWith('knife:') && state.coins < item.price) || (item.id.startsWith('knife:') && !state.upgrade.knives.includes(item.id.split(':')[1]) && state.coins < item.price);
+      const disabled = item.owned || (!item.id.startsWith('knife:') && wallet < item.price) || (item.id.startsWith('knife:') && !state.upgrade.knives.includes(item.id.split(':')[1]) && wallet < item.price);
       return `<div class="shop-item">
         <div class="shop-icon">${item.icon}</div>
         <div class="shop-copy"><b>${item.name}</b><small>${item.desc}</small></div>
@@ -5184,14 +5209,12 @@
     if(itemId === 'pot'){
       if(state.upgrade.pots >= 4) return;
       const price = potPrice();
-      if(state.coins < price){ toast('金币不够，再卖几罐吧'); return; }
-      state.coins -= price;
+      if(!spendCoins(price)){ toast('金币不够，再卖几罐吧'); return; }
       state.upgrade.pots++;
       sfx.coin(); toast('新锅到手！厨房里多了一口熬糖锅');
     }else if(itemId === 'alarm'){
       if(state.upgrade.alarm) return;
-      if(state.coins < 35){ toast('金币不够'); return; }
-      state.coins -= 35;
+      if(!spendCoins(35)){ toast('金币不够'); return; }
       state.upgrade.alarm = true;
       sfx.coin(); toast('闹钟装好了！熬糖时会提前提醒');
     }else if(itemId.startsWith('knife:')){
@@ -5202,8 +5225,7 @@
         state.upgrade.knife = id;
         sfx.tap(); toast(`换上了${k.name}`);
       }else{
-        if(state.coins < k.price){ toast('金币不够'); return; }
-        state.coins -= k.price;
+        if(!spendCoins(k.price)){ toast('金币不够'); return; }
         state.upgrade.knives.push(id);
         state.upgrade.knife = id;
         sfx.coin(); toast(`买下并装备了${k.name}`);
@@ -5220,8 +5242,7 @@
     const [kind, id] = expandId.split(':');
     const item = expansionItems().find(x => x.id === expandId);
     if(!item || item.owned) return;
-    if(activeProfile.wallet < item.price){ toast('小家金币不够，先营业赚一点吧'); return; }
-    activeProfile.wallet -= item.price;
+    if(!spendCoins(item.price)){ toast('金币不够，先营业赚一点吧'); return; }
     if(kind === 'topping') activeProfile.unlocks.toppings.push(id);
     else activeProfile.unlocks.jars.push(id);
     saveProfiles();

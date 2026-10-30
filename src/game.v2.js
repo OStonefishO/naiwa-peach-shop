@@ -426,6 +426,11 @@
     if(!activeProfile) return;
     state.bestNormal = activeProfile.bestNormal || 0;
     state.bestEndless = activeProfile.bestEndless || 0;
+    state.coins = activeProfile.wallet || 0;
+    if(els.coins) els.coins.textContent = state.coins;
+    if(els.homeCoins) els.homeCoins.textContent = state.coins;
+    if(els.shopCoins) els.shopCoins.textContent = state.coins;
+    if(els.dressCoins) els.dressCoins.textContent = `${state.coins} 金币`;
   }
   function playerNameSafe(name){
     return String(name || '').trim().replace(/\s+/g, ' ').slice(0, 10);
@@ -773,8 +778,23 @@
   function addWallet(n){
     if(!activeProfile || !Number.isFinite(n) || n <= 0) return;
     activeProfile.wallet += n;
+    state.coins = activeProfile.wallet;
     saveProfiles();
-    if(els.homeCoins) els.homeCoins.textContent = activeProfile.wallet;
+    if(els.coins) els.coins.textContent = state.coins;
+    if(els.homeCoins) els.homeCoins.textContent = state.coins;
+    if(els.shopCoins) els.shopCoins.textContent = state.coins;
+    if(els.dressCoins) els.dressCoins.textContent = `${state.coins} 金币`;
+  }
+  function spendCoins(n){
+    if(!activeProfile || !Number.isFinite(n) || activeProfile.wallet < n) return false;
+    activeProfile.wallet -= n;
+    state.coins = activeProfile.wallet;
+    saveProfiles();
+    if(els.coins) els.coins.textContent = state.coins;
+    if(els.homeCoins) els.homeCoins.textContent = state.coins;
+    if(els.shopCoins) els.shopCoins.textContent = state.coins;
+    if(els.dressCoins) els.dressCoins.textContent = `${state.coins} 金币`;
+    return true;
   }
   function awardProfile(kind){
     if(!activeProfile) return 0;
@@ -784,15 +804,11 @@
     }
     if(kind !== 'runEnd' && kind !== 'gameOver') return 0;
     if(state.metaAwarded) return 0;
-    let bonus = 0;
     if(kind === 'runEnd'){
-      bonus = Math.max(30, Math.round(state.runEarned * .12));
       activeProfile.bestNormal = Math.max(activeProfile.bestNormal, state.runEarned);
     }else{
-      bonus = Math.max(20, Math.round(state.runEarned * .08));
       activeProfile.bestEndless = Math.max(activeProfile.bestEndless, state.week);
     }
-    activeProfile.wallet += bonus;
     activeProfile.totalRuns += 1;
     activeProfile.lastRun = {
       mode:state.mode, day:state.day, week:state.week, earned:state.runEarned,
@@ -801,7 +817,7 @@
     state.metaAwarded = true;
     syncProfile();
     saveProfiles();
-    return bonus;
+    return 0;
   }
   function leaderboardProfiles(){
     return Object.values(profiles)
@@ -853,14 +869,16 @@
     return `<div class="wear-hat ${id}"></div>`;
   }
   function topHTML(id){
-    if(!id) return '';
+    if(!id || id === 'apron') return '';
     return `<div class="wear-top ${id}"></div>`;
   }
   function dollHTML(){
-    return `<div class="room-doll">
+    const head = activeProfile.equipped.head;
+    const top = activeProfile.equipped.top;
+    return `<div class="room-doll${head !== 'chef' ? ' has-hat' : ''}${top !== 'apron' ? ' has-top' : ''}">
       <svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>
-      ${hatHTML(activeProfile.equipped.head)}
-      ${topHTML(activeProfile.equipped.top)}
+      ${hatHTML(head)}
+      ${topHTML(top)}
     </div>`;
   }
   function furnitureHTML(id){
@@ -1044,8 +1062,7 @@
     if(!f || !activeProfile) return;
     const owned = activeProfile.ownedFurniture.includes(id);
     if(!owned){
-      if(activeProfile.wallet < f.price){ toast('小家金币不够，先去营业赚一点吧'); sfx.error(); return; }
-      activeProfile.wallet -= f.price;
+      if(!spendCoins(f.price)){ toast('金币不够，先去营业赚一点吧'); sfx.error(); return; }
       activeProfile.ownedFurniture.push(id);
       if(activeProfile.placedFurniture.length < 4){
         activeProfile.placedFurniture.push(id);
@@ -1072,8 +1089,7 @@
     if(!item) return;
     const owned = activeProfile.clothes[kind].includes(id);
     if(!owned){
-      if(activeProfile.wallet < item.price){ toast('小家金币不够，先去营业赚一点吧'); sfx.error(); return; }
-      activeProfile.wallet -= item.price;
+      if(!spendCoins(item.price)){ toast('金币不够，先去营业赚一点吧'); sfx.error(); return; }
       activeProfile.clothes[kind].push(id);
       sfx.coin();
     }else sfx.tap();
@@ -1086,19 +1102,24 @@
   }
   function renderFrogWear(){
     if(!els.frogWear || !activeProfile) return;
+    const head = activeProfile.equipped.head;
     const top = activeProfile.equipped.top;
-    els.frogWear.innerHTML = hatHTML(activeProfile.equipped.head) + (top === 'apron' ? '' : topHTML(top));
-  }
-  function dressDollHTML(){
-    return `<div class="room-doll"><svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>
-      ${hatHTML(activeProfile.equipped.head)}
-      ${topHTML(activeProfile.equipped.top)}</div>`;
+    const frog = els.frogWear.parentElement;
+    if(frog){
+      frog.classList.toggle('has-hat', head !== 'chef');
+      frog.classList.toggle('has-top', top !== 'apron');
+    }
+    els.frogWear.innerHTML = hatHTML(head) + topHTML(top);
   }
   function renderDress(){
     if(!els.dressOverlay || !activeProfile) return;
-    els.dressCoins.textContent = `${activeProfile.wallet} 小家金币`;
+    const head = activeProfile.equipped.head;
+    const top = activeProfile.equipped.top;
+    els.dressCoins.textContent = `${activeProfile.wallet} 金币`;
+    els.dressDoll.classList.toggle('has-hat', head !== 'chef');
+    els.dressDoll.classList.toggle('has-top', top !== 'apron');
     els.dressDoll.innerHTML = `<svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>
-      ${hatHTML(activeProfile.equipped.head)}${topHTML(activeProfile.equipped.top)}`;
+      ${hatHTML(head)}${topHTML(top)}`;
     const group = (kind,title) => `<div class="dress-section"><h4><span>${title}</span><span>${kind === 'head' ? '帽子 / 眼镜' : '上衣'}</span></h4>
       <div class="dress-row">${CLOTHES[kind].map(item => {
         const owned = activeProfile.clothes[kind].includes(item.id);
@@ -1127,8 +1148,7 @@
     if(!skin) return;
     const owned = activeProfile.skins[area].includes(id);
     if(!owned){
-      if(activeProfile.wallet < skin.price){ toast('小家金币不够，先去营业赚一点吧'); sfx.error(); return; }
-      activeProfile.wallet -= skin.price;
+      if(!spendCoins(skin.price)){ toast('金币不够，先去营业赚一点吧'); sfx.error(); return; }
       activeProfile.skins[area].push(id);
       sfx.coin();
     }else sfx.tap();
@@ -1330,7 +1350,7 @@
   }
 
   function updateHud(){
-    if(els.coins) els.coins.textContent = state.coins;
+    if(els.coins) els.coins.textContent = activeProfile ? activeProfile.wallet : state.coins;
     if(els.earlyBtn) els.earlyBtn.style.display = state.phase === 'intro' ? 'none' : '';
     if(els.daySub){
       const label = state.phase === 'intro' ? '准备营业' : state.stage === 'desk' ? '服务台' : state.stage === 'work' ? '工作台' : '厨房';
@@ -2167,7 +2187,7 @@
     ensureAudio();
     state.mode = MODES[mode] ? mode : 'normal';
     state.day = 1;
-    state.coins = 0;
+    state.coins = activeProfile ? activeProfile.wallet : 0;
     state.dayCoins = 0;
     state.dayStars = 0;
     state.runEarned = 0;
@@ -2590,7 +2610,7 @@
     state.reviews.push(result);
     state.dayStars += result.stars;
     state.dayCoins += result.coins;
-    state.coins += result.coins;
+    addWallet(result.coins);
     state.runEarned += result.coins;
     state.weekEarned += result.coins;
     saveGame();
@@ -2663,7 +2683,7 @@
     const perfect = state.reviews.filter(r => r.perfect).length;
     const avg = total ? Math.round(state.reviews.reduce((s,r) => s + r.score, 0) / total) : 0;
     const isEnd = kind === 'runEnd' || kind === 'gameOver';
-    const metaBonus = awardProfile(kind);
+    awardProfile(kind);
     let ribbon = '今日营业结束';
     let title = `第 ${state.day} 天 · 打烊啦`;
     let sub = '';
@@ -2695,7 +2715,7 @@
       else if(stars >= 4) comment = `<b>还不错哦～</b>再仔细看看订单，把糖水和加料都配对，客人会更开心。`;
       else comment = `<b>明天继续加油！</b>先看清订单再动手，奶蛙一定能做出完美的黄桃罐头。`;
     }
-    if(metaBonus > 0) comment += `<br><b>小家金币 +${metaBonus}</b> 已存入「奶蛙的小家」，可以去买家具和衣服啦。`;
+
 
     els.summaryRibbon.textContent = ribbon;
     els.summaryTitle.textContent = title;
@@ -2809,8 +2829,9 @@
     if(els.shopWallet){ els.shopWallet.hidden = state.shopTab !== 'expand'; els.shopWallet.style.display = state.shopTab === 'expand' ? 'flex' : 'none'; }
   }
   function renderShop(){
-    els.shopCoins.textContent = state.coins;
-    if(els.shopWallet) els.shopWallet.innerHTML = `<svg class="icon"><use href="#i-coin"></use></svg>小家金币 <b>${activeProfile ? activeProfile.wallet : 0}</b>`;
+    const wallet = activeProfile ? activeProfile.wallet : state.coins;
+    els.shopCoins.textContent = wallet;
+    if(els.shopWallet) els.shopWallet.innerHTML = `<svg class="icon"><use href="#i-coin"></use></svg>金币 <b>${wallet}</b>`;
     setShopTab(state.shopTab || 'run');
     if(els.shopExpandGrid){
       els.shopExpandGrid.innerHTML = expansionItems().map(item => {
@@ -2841,7 +2862,7 @@
       }
     }
     els.shopGrid.innerHTML = shopItems().map(item => {
-      const disabled = item.owned || (!item.id.startsWith('knife:') && state.coins < item.price) || (item.id.startsWith('knife:') && !state.upgrade.knives.includes(item.id.split(':')[1]) && state.coins < item.price);
+      const disabled = item.owned || (!item.id.startsWith('knife:') && wallet < item.price) || (item.id.startsWith('knife:') && !state.upgrade.knives.includes(item.id.split(':')[1]) && wallet < item.price);
       return `<div class="shop-item">
         <div class="shop-icon">${item.icon}</div>
         <div class="shop-copy"><b>${item.name}</b><small>${item.desc}</small></div>
@@ -2854,14 +2875,12 @@
     if(itemId === 'pot'){
       if(state.upgrade.pots >= 4) return;
       const price = potPrice();
-      if(state.coins < price){ toast('金币不够，再卖几罐吧'); return; }
-      state.coins -= price;
+      if(!spendCoins(price)){ toast('金币不够，再卖几罐吧'); return; }
       state.upgrade.pots++;
       sfx.coin(); toast('新锅到手！厨房里多了一口熬糖锅');
     }else if(itemId === 'alarm'){
       if(state.upgrade.alarm) return;
-      if(state.coins < 35){ toast('金币不够'); return; }
-      state.coins -= 35;
+      if(!spendCoins(35)){ toast('金币不够'); return; }
       state.upgrade.alarm = true;
       sfx.coin(); toast('闹钟装好了！熬糖时会提前提醒');
     }else if(itemId.startsWith('knife:')){
@@ -2872,8 +2891,7 @@
         state.upgrade.knife = id;
         sfx.tap(); toast(`换上了${k.name}`);
       }else{
-        if(state.coins < k.price){ toast('金币不够'); return; }
-        state.coins -= k.price;
+        if(!spendCoins(k.price)){ toast('金币不够'); return; }
         state.upgrade.knives.push(id);
         state.upgrade.knife = id;
         sfx.coin(); toast(`买下并装备了${k.name}`);
@@ -2890,8 +2908,7 @@
     const [kind, id] = expandId.split(':');
     const item = expansionItems().find(x => x.id === expandId);
     if(!item || item.owned) return;
-    if(activeProfile.wallet < item.price){ toast('小家金币不够，先营业赚一点吧'); return; }
-    activeProfile.wallet -= item.price;
+    if(!spendCoins(item.price)){ toast('金币不够，先营业赚一点吧'); return; }
     if(kind === 'topping') activeProfile.unlocks.toppings.push(id);
     else activeProfile.unlocks.jars.push(id);
     saveProfiles();
