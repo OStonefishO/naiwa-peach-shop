@@ -132,6 +132,9 @@
   /* -------------------- 玩家小家数据 -------------------- */
   const PROFILE_KEY = 'naiwa_profiles_v1';
   const ACTIVE_KEY = 'naiwa_active_v1';
+  const GIST_TOKEN_KEY = 'naiwa_gist_token';
+  const GIST_ID_KEY = 'naiwa_gist_id';
+  const GIST_FILE = 'naiwa-cloud-save.json';
   const FURNITURE = {
     rug:{name:'黄桃地毯', price:60, icon:'🟨', desc:'软乎乎，踩上去像踩在黄桃上'},
     plant:{name:'薄荷盆栽', price:45, icon:'🌿', desc:'让小家闻起来清清凉凉'},
@@ -191,6 +194,8 @@
   }
   let profiles = {};
   let activeProfile = null;
+  let cloudSuppress = false;
+  let cloudTimer = null;
 
   let audioCtx = null, masterGain = null;
   let batchSeq = 0;
@@ -394,6 +399,7 @@
       localStorage.setItem(PROFILE_KEY, JSON.stringify(profiles));
       if(activeProfile) localStorage.setItem(ACTIVE_KEY, activeProfile.name);
     }catch(e){}
+    if(!cloudSuppress) scheduleCloudSync();
   }
   function syncProfile(){
     if(!activeProfile) return;
@@ -425,6 +431,220 @@
     if(!els.playerName || !activeProfile) return;
     if(document.activeElement !== els.playerName) els.playerName.value = activeProfile.name;
     if(els.homeOwner) els.homeOwner.textContent = `店长：${activeProfile.name}`;
+  }
+
+  /* -------------------- 存档 / GitHub 云同步 -------------------- */
+  function cloudPayload(){
+    return {
+      app: 'naiwa-peach-shop',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      active: activeProfile ? activeProfile.name : '',
+      profiles
+    };
+  }
+  function encodeSaveCode(){
+    const bytes = new TextEncoder().encode(JSON.stringify(cloudPayload()));
+    let bin = '';
+    bytes.forEach(b => { bin += String.fromCharCode(b); });
+    return 'NAIWA1:' + btoa(bin);
+  }
+  function decodeSaveCode(code){
+    code = String(code || '').trim();
+    if(code.startsWith('NAIWA1:')) code = code.slice(7);
+    const bin = atob(code.replace(/\s+/g, ''));
+    const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+    const data = JSON.parse(new TextDecoder().decode(bytes));
+    if(!data || typeof data.profiles !== 'object' || !data.profiles) throw new Error('存档码格式不正确');
+    return data;
+  }
+  function importCloudPayload(data){
+    const names = Object.keys(data.profiles);
+    if(!names.length) throw new Error('存档里没有店长数据');
+    cloudSuppress = true;
+    try{
+      names.forEach(name => {
+        const p = data.profiles[name];
+        if(!p || typeof p !== 'object') return;
+        p.name = name;
+        profiles[name] = normalizeProfile(p);
+      });
+      const wanted = data.active && profiles[data.active] ? data.active : names[0];
+      activeProfile = profiles[wanted];
+      localStorage.setItem(PROFILE_KEY, JSON.stringify(profiles));
+      localStorage.setItem(ACTIVE_KEY, activeProfile.name);
+      syncProfile();
+    } finally { cloudSuppress = false; }
+    renderPlayerBar();
+    setIntroMode(state.introMode || 'normal');
+    renderHome();
+    scheduleCloudSync();
+    return names.length;
+  }
+  function gistToken(){
+    try{ return localStorage.getItem(GIST_TOKEN_KEY) || ''; }catch(e){ return ''; }
+  }
+  function gistIds(){
+    try{ return JSON.parse(localStorage.getItem(GIST_ID_KEY) || '{}') || {}; }catch(e){ return {}; }
+  }
+  function setGistId(name, id){
+    const ids = gistIds();
+    ids[name] = id;
+    try{ localStorage.setItem(GIST_ID_KEY, JSON.stringify(ids)); }catch(e){}
+  }
+  async function gistApi(path, options = {}){
+    const token = gistToken();
+    if(!token) throw new Error('请先填写 GitHub Token');
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000);
+    let res;
+    try{
+      res = await fetch('https://api.github.com' + path, {
+        ...options,
+        signal: ctrl.signal,
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'Authorization': 'Bearer ' + token,
+          'X-GitHub-Api-Version': '2022-11-28',
+          ...(options.headers || {})
+        }
+      });
+    }catch(err){
+      clearTimeout(timer);
+      throw new Error(err.name === 'AbortError' ? '连接 GitHub 超时，请检查网络' : '无法连接 GitHub，请检查网络');
+    }
+    clearTimeout(timer);
+    if(!res.ok){
+      let msg = '';
+      try{ msg = (await res.json()).message || ''; }catch(e){}
+      if(res.status === 401) throw new Error('Token 无效或已过期');
+      if(res.status === 403) throw new Error('Token 权限不足，需要 gist 权限');
+      if(res.status === 404) throw new Error('Token 没有 gist 权限（GitHub 404）');
+      throw new Error('GitHub ' + res.status + (msg ? '：' + msg : ''));
+    }
+    if(res.status === 204) return null;
+    return res.json();
+  }
+  async function findGist(name){
+    const cached = gistIds()[name];
+    if(cached){
+      try{ return await gistApi('/gists/' + cached); }catch(e){ if(!/404/.test(e.message)) throw e; }
+    }
+    const list = await gistApi('/gists?per_page=100');
+    const hit = (list || []).find(g => g.description === 'naiwa-save:' + name);
+    if(hit) setGistId(name, hit.id);
+    return hit || null;
+  }
+  async function syncGist(){
+    if(!activeProfile) throw new Error('没有店长存档');
+    const name = activeProfile.name;
+    const existing = await findGist(name);
+    const body = JSON.stringify({
+      description: 'naiwa-save:' + name,
+      public: false,
+      files: { [GIST_FILE]: { content: JSON.stringify(cloudPayload()) } }
+    });
+    const gist = existing
+      ? await gistApi('/gists/' + existing.id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body })
+      : await gistApi('/gists', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    setGistId(name, gist.id);
+    return gist;
+  }
+  async function restoreGist(){
+    if(!activeProfile) throw new Error('没有店长存档');
+    const gist = await findGist(activeProfile.name);
+    if(!gist) throw new Error('云端没有找到「' + activeProfile.name + '」的存档');
+    let content = gist.files && gist.files[GIST_FILE] && gist.files[GIST_FILE].content;
+    if(!content && gist.files && gist.files[GIST_FILE] && gist.files[GIST_FILE].raw_url){
+      const r = await fetch(gist.files[GIST_FILE].raw_url);
+      content = await r.text();
+    }
+    if(!content) throw new Error('云存档文件为空');
+    const data = JSON.parse(content);
+    return importCloudPayload(data);
+  }
+  function scheduleCloudSync(){
+    if(!gistToken() || !activeProfile) return;
+    clearTimeout(cloudTimer);
+    cloudTimer = setTimeout(() => {
+      syncGist().catch(err => {
+        if(els.saveStatus) renderSaveStatus(err.message, 'err');
+      });
+    }, 2200);
+  }
+  function renderSaveStatus(text, kind = ''){
+    if(!els.saveStatus) return;
+    els.saveStatus.textContent = text;
+    els.saveStatus.className = 'save-status' + (kind ? ' ' + kind : '');
+  }
+  function openSave(){
+    if(!els.saveOverlay) return;
+    if(els.saveExport) els.saveExport.value = encodeSaveCode();
+    if(els.gistToken) els.gistToken.value = gistToken();
+    if(els.saveImport) els.saveImport.value = '';
+    renderSaveStatus(gistToken() ? '已填写 Token · 点“同步到 GitHub”验证并上传' : '未连接 · 存档只在本机浏览器', gistToken() ? 'ok' : '');
+    els.saveOverlay.classList.add('show');
+    els.saveOverlay.setAttribute('aria-hidden','false');
+    sfx.tap();
+  }
+  function closeSave(){
+    if(!els.saveOverlay) return;
+    els.saveOverlay.classList.remove('show');
+    els.saveOverlay.setAttribute('aria-hidden','true');
+  }
+  async function doGistSync(){
+    const token = (els.gistToken.value || '').trim();
+    if(!token){ renderSaveStatus('请先填写 GitHub Token', 'err'); return; }
+    try{ localStorage.setItem(GIST_TOKEN_KEY, token); }catch(e){}
+    renderSaveStatus('正在同步…');
+    try{
+      const gist = await syncGist();
+      renderSaveStatus('已同步到私有 Gist · ' + new Date().toLocaleTimeString(), 'ok');
+      toast('云存档已同步');
+      if(gist && gist.html_url) console.log('gist', gist.html_url);
+    }catch(err){ renderSaveStatus(err.message, 'err'); }
+  }
+  async function doGistRestore(){
+    const token = (els.gistToken.value || '').trim();
+    if(!token){ renderSaveStatus('请先填写 GitHub Token', 'err'); return; }
+    try{ localStorage.setItem(GIST_TOKEN_KEY, token); }catch(e){}
+    renderSaveStatus('正在读取云存档…');
+    try{
+      const n = await restoreGist();
+      renderSaveStatus('已从云端恢复 ' + n + ' 个店长存档', 'ok');
+      toast('云存档已恢复');
+      if(els.saveExport) els.saveExport.value = encodeSaveCode();
+    }catch(err){ renderSaveStatus(err.message, 'err'); }
+  }
+  function doGistClear(){
+    try{ localStorage.removeItem(GIST_TOKEN_KEY); }catch(e){}
+    if(els.gistToken) els.gistToken.value = '';
+    renderSaveStatus('已断开 · 本机存档仍然保留');
+  }
+  function doExportCopy(){
+    const code = encodeSaveCode();
+    if(els.saveExport) els.saveExport.value = code;
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(code).then(() => toast('存档码已复制')).catch(() => toast('复制失败，请手动选中'));
+    }else{
+      els.saveExport.select(); document.execCommand('copy'); toast('存档码已复制');
+    }
+  }
+  function doExportDownload(){
+    const blob = new Blob([JSON.stringify(cloudPayload(), null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'naiwa-save-' + (activeProfile ? activeProfile.name : 'player') + '.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  function doImportCode(){
+    try{
+      const n = importCloudPayload(decodeSaveCode(els.saveImport.value));
+      renderSaveStatus('已导入 ' + n + ' 个店长存档', 'ok');
+      toast('存档已导入');
+      if(els.saveExport) els.saveExport.value = encodeSaveCode();
+    }catch(err){ renderSaveStatus(err.message, 'err'); }
   }
   function addWallet(n){
     if(!activeProfile || !Number.isFinite(n) || n <= 0) return;
@@ -820,7 +1040,9 @@
       'earlyBtn','reviewEarlyBtn','summaryEarlyBtn','shopEarlyBtn','confirmOverlay','confirmCancel','confirmOk',
       'jarSwitchBtn','toppingChips','toppingQtyRow','toppingMinus','toppingQtyVal','toppingPlus',
       'shopTabs','shopWallet','shopExpandGrid','dressEntryBtn','dressOverlay','dressCoins','dressDoll','dressSlots',
-      'dressClose','dressDoneBtn','frogWear','orderRod'];
+      'dressClose','dressDoneBtn','frogWear','orderRod',
+      'saveEntryBtn','saveOverlay','saveClose','saveExport','saveImport','copySaveBtn','downloadSaveBtn',
+      'importSaveBtn','gistToken','gistSyncBtn','gistRestoreBtn','gistClearBtn','saveStatus'];
     ids.forEach(id => els[id] = document.getElementById(id));
     els.panel = $('#panel');
     els.footer = $('.footer');
@@ -2679,6 +2901,15 @@
     if(els.playerName) els.playerName.addEventListener('keydown', e => {
       if(e.key === 'Enter'){ e.preventDefault(); savePlayerName(); els.playerName.blur(); }
     });
+    if(els.saveEntryBtn) els.saveEntryBtn.addEventListener('click', openSave);
+    if(els.saveClose) els.saveClose.addEventListener('click', closeSave);
+    if(els.saveOverlay) els.saveOverlay.addEventListener('click', e => { if(e.target === els.saveOverlay) closeSave(); });
+    if(els.copySaveBtn) els.copySaveBtn.addEventListener('click', doExportCopy);
+    if(els.downloadSaveBtn) els.downloadSaveBtn.addEventListener('click', doExportDownload);
+    if(els.importSaveBtn) els.importSaveBtn.addEventListener('click', doImportCode);
+    if(els.gistSyncBtn) els.gistSyncBtn.addEventListener('click', doGistSync);
+    if(els.gistRestoreBtn) els.gistRestoreBtn.addEventListener('click', doGistRestore);
+    if(els.gistClearBtn) els.gistClearBtn.addEventListener('click', doGistClear);
     if(els.homeEntryBtn) els.homeEntryBtn.addEventListener('click', () => openHome('room'));
     if(els.dressEntryBtn) els.dressEntryBtn.addEventListener('click', openDress);
     if(els.dressClose) els.dressClose.addEventListener('click', closeDress);

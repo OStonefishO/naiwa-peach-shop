@@ -1182,8 +1182,8 @@
   .player-hint{text-align:center;font-size:6.8px;font-weight:800;color:#A3845B;margin:-1px 0 6px;letter-spacing:.2px}
   .mini-btn{flex:0 0 auto;height:25px;padding:0 9px;border-radius:8px;border:1.2px solid #D39D0D;
     background:linear-gradient(180deg,#FFE16C,#FFC62C);font-family:inherit;font-size:7.5px;font-weight:900;color:#5C3D05}
-  .intro-links{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:7px}
-  .intro-links .ghost-btn{height:30px;font-size:7px;padding:0 3px}
+  .intro-links{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:7px}
+  .intro-links .ghost-btn{height:30px;font-size:6.8px;padding:0 2px;white-space:nowrap}
 
   .home-overlay{align-items:center;padding:10px;background:rgba(16,36,25,.72)}
   .home-card{position:relative;width:min(100%,410px);max-height:92dvh;overflow-y:auto;scrollbar-width:none;
@@ -1538,6 +1538,26 @@
   #toppingChips .chip svg{width:11px;height:11px}
   .ticket-row .row-label{white-space:nowrap}
   .ticket-row.topping b{font-size:7.6px;line-height:1.25}
+  /* 存档 / 云同步 */
+  .save-overlay{z-index:210}
+  .save-card{width:min(94vw,402px);max-height:88dvh;overflow-y:auto;background:#FFFDF6;border:2px solid #D9B36A;
+    border-radius:22px;padding:22px 16px 16px;box-shadow:0 18px 60px rgba(40,25,5,.35)}
+  .save-card::-webkit-scrollbar{display:none}
+  .save-title{font-size:22px;margin:3px 0 2px;color:#4A3113}
+  .save-sub{font-size:8px;line-height:1.5;color:#8A6842;margin:0 0 12px}
+  .save-section{background:#FFF8E7;border:1.5px solid #E8CFA0;border-radius:13px;padding:9px;margin-bottom:9px}
+  .save-label{font-size:8px;font-weight:900;color:#6B4A1B;margin-bottom:5px;display:flex;align-items:center;gap:5px}
+  .save-badge{font-size:6px;background:#E7F4E9;color:#357A49;border-radius:99px;padding:2px 5px}
+  .save-textarea{width:100%;height:62px;resize:none;border:1.5px solid #E4C995;border-radius:9px;background:#fff;
+    padding:6px;font-family:ui-monospace,Consolas,monospace;font-size:8px;color:#6B4A1B;line-height:1.35}
+  .save-token{width:100%;height:31px;border:1.5px solid #E4C995;border-radius:9px;background:#fff;padding:0 8px;
+    font-family:ui-monospace,Consolas,monospace;font-size:8px;color:#6B4A1B;margin-bottom:6px}
+  .save-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+  .save-row .primary-btn,.save-row .ghost-btn{height:31px;font-size:8px;padding:0 4px}
+  .save-note{font-size:7px;line-height:1.5;color:#8A6842;margin:7px 0 4px}
+  .save-status{font-size:7.5px;font-weight:800;color:#7A684E;background:#fff;border-radius:7px;padding:5px 6px;margin-top:4px;word-break:break-word}
+  .save-status.ok{color:#2E7D4F;background:#EDF8F0}
+  .save-status.err{color:#B3442E;background:#FFF0EA}
 </style>
 </head>
 <body>
@@ -1984,6 +2004,7 @@
         <button class="ghost-btn" id="homeEntryBtn" type="button">奶蛙的小家</button>
         <button class="ghost-btn" id="dressEntryBtn" type="button">更衣室</button>
         <button class="ghost-btn" id="rankEntryBtn" type="button">无尽排行榜</button>
+        <button class="ghost-btn" id="saveEntryBtn" type="button">存档</button>
       </div>
       <div class="intro-note" id="introNote">普通模式 · 14 天后结算总营业额 · 建议竖屏</div>
     </div>
@@ -2134,6 +2155,45 @@
       <p class="leaderboard-sub">本机排行榜 · 用名字区分存档</p>
       <div class="leaderboard-list" id="leaderboardList"></div>
       <div class="leaderboard-foot">每周目标递增，活得越久排名越高</div>
+    </div>
+  </div>
+
+  <!-- 存档 / GitHub 云同步 -->
+  <div class="overlay save-overlay" id="saveOverlay" aria-hidden="true">
+    <div class="save-card" role="dialog" aria-modal="true" aria-labelledby="saveTitle">
+      <button class="home-close" id="saveClose" type="button" aria-label="关闭">×</button>
+      <div class="home-eyebrow">NAIWA SAVE FILE</div>
+      <h2 class="save-title" id="saveTitle">存档与云同步</h2>
+      <p class="save-sub">店长名字是本机存档 · 云同步使用你自己的 GitHub 私有 Gist</p>
+
+      <div class="save-section">
+        <div class="save-label">导出存档码</div>
+        <textarea class="save-textarea" id="saveExport" readonly></textarea>
+        <div class="save-row">
+          <button class="ghost-btn" id="copySaveBtn" type="button">复制存档码</button>
+          <button class="ghost-btn" id="downloadSaveBtn" type="button">下载 JSON</button>
+        </div>
+      </div>
+
+      <div class="save-section">
+        <div class="save-label">导入存档码</div>
+        <textarea class="save-textarea" id="saveImport" placeholder="粘贴以 NAIWA1: 开头的存档码"></textarea>
+        <button class="primary-btn" id="importSaveBtn" type="button">导入并覆盖同名店长</button>
+      </div>
+
+      <div class="save-section save-cloud">
+        <div class="save-label">GitHub 云存档 <span class="save-badge">可选</span></div>
+        <input class="save-token" id="gistToken" type="password" autocomplete="off" spellcheck="false" placeholder="GitHub Token（只需要 gist 权限）">
+        <div class="save-row">
+          <button class="primary-btn" id="gistSyncBtn" type="button">同步到 GitHub</button>
+          <button class="ghost-btn" id="gistRestoreBtn" type="button">从云端恢复</button>
+        </div>
+        <div class="save-row">
+          <button class="ghost-btn" id="gistClearBtn" type="button">断开 GitHub</button>
+        </div>
+        <p class="save-note">Token 只保存在这台设备的浏览器里，不会写进存档。建议创建 classic token，只勾选 <b>gist</b>。云存档写入你的私有 Gist，换设备登录同一 GitHub 账号后可恢复。</p>
+        <div class="save-status" id="saveStatus">未连接 · 存档只在本机</div>
+      </div>
     </div>
   </div>
 
