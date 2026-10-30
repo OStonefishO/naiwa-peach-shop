@@ -7178,7 +7178,7 @@
     });
     if(rogueActive() && state.shopTab === 'furniture') state.shopTab = 'run';
     els.shopCoins.textContent = coinText();
-    if(els.shopWallet) els.shopWallet.innerHTML = `<svg class="icon"><use href="#i-coin"></use></svg>金币 <b>${coinText()}</b><small>${rogueActive() ? '本局购买 · 结束后重置' : '全局购买，永久生效'}</small>`;
+    if(els.shopWallet) els.shopWallet.innerHTML = `<svg class="icon"><use href="#i-coin"></use></svg>${rogueActive() ? '肉鸽金币' : '金币'} <b>${coinText()}</b><small>${rogueActive() ? '本局购买 · 结束后重置' : '全局购买，永久生效'}</small>`;
     if(els.shopTitle) els.shopTitle.textContent = rogueActive() ? '肉鸽金币商店' : main ? '道具商店' : '打烊后的金币商店';
     if(els.shopSub) els.shopSub.textContent = rogueActive() ? '本局有效，肉鸽结束后全部重置' : main ? '家具、升级、糖浆，买了就永久生效' : '买口锅、换把刀，让明天更快一点';
     if(els.shopStartBtn) els.shopStartBtn.style.display = main ? 'none' : '';
