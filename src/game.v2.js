@@ -382,7 +382,7 @@
     metaAwarded:false, homeTab:'room', skinPreview:{area:'desk', id:'classic'}, shopTab:'run',
     devMode:loadDevMode()
   };
-  let bgmEl = null, bgmKey = null, bgmToken = 0, musicWanted = false, alarmEl = null;
+  let bgmEl = null, bgmKey = null, bgmToken = 0, musicWanted = false, alarmEl = null, bgmRetryTimer = 0;
 
   /* -------------------- 音效 -------------------- */
   function ensureAudio(){
@@ -452,26 +452,59 @@
     if(state.phase === 'playing') return state.stage === 'desk' ? 'desk' : 'work';
     return 'summary';
   }
+  function bgmRetry(delay=1200){
+    clearTimeout(bgmRetryTimer);
+    bgmRetryTimer = setTimeout(() => {
+      bgmRetryTimer = 0;
+      if(!bgmEl || !state.sound || document.hidden) return;
+      if(bgmEl.paused) tryBgmPlay();
+    }, delay);
+  }
+  function tryBgmPlay(){
+    if(!bgmEl || !state.sound || document.hidden) return;
+    if(!bgmEl.paused) return;
+    const p = bgmEl.play();
+    if(p && p.catch) p.catch(() => bgmRetry(1800));
+  }
   function playBgm(key){
     if(!bgmEl) bgmEl = els.bgm;
     if(!bgmEl) return;
     if(!state.sound){ bgmEl.pause(); return; }
     if(bgmKey === key){
-      if(bgmEl.paused){ const p = bgmEl.play(); if(p && p.catch) p.catch(()=>{}); }
+      if(bgmEl.paused) tryBgmPlay();
       return;
     }
     bgmKey = key;
-    const token = ++bgmToken;
+    ++bgmToken;
     try{
       bgmEl.pause();
+      bgmEl.loop = true;
       bgmEl.src = MUSIC[key];
+      bgmEl.load();
       applyAudioVolumes();
-      const p = bgmEl.play();
-      if(p && p.catch) p.catch(()=>{});
-    }catch(e){}
+      tryBgmPlay();
+    }catch(e){ bgmRetry(1600); }
   }
   function cueMusic(){
     playBgm(musicKeyFor());
+  }
+  function setupBgmResilience(){
+    if(!bgmEl || bgmEl.dataset.resilient === '1') return;
+    bgmEl.dataset.resilient = '1';
+    bgmEl.addEventListener('ended', () => { if(state.sound) playBgm(bgmKey || musicKeyFor()); });
+    bgmEl.addEventListener('error', () => bgmRetry(2000));
+    bgmEl.addEventListener('stalled', () => bgmRetry(2000));
+    bgmEl.addEventListener('pause', () => { if(state.sound && !document.hidden) bgmRetry(1200); });
+    const resume = () => {
+      if(!state.sound) return;
+      ensureAudio();
+      if(bgmEl.paused) tryBgmPlay();
+    };
+    document.addEventListener('pointerdown', resume, {passive:true});
+    document.addEventListener('touchstart', resume, {passive:true});
+    setInterval(() => {
+      if(state.sound && !document.hidden && bgmEl && bgmEl.paused) tryBgmPlay();
+    }, 4000);
   }
 
   /* -------------------- 存档 -------------------- */
@@ -3591,9 +3624,18 @@
       activateOrder(nextOrder.id);
       return;
     }
+    const nextDg = (state.dayGuests || []).filter(d => !d.served).sort((a,b) => a.index - b.index)[0];
+    if(nextDg){
+      if(nextDg.accepted){
+        activateOrder(nextDg.orderId);
+      }else{
+        acceptGuest(nextDg.index, {auto:true});
+        toast(`已自动接待下一位：${nextDg.guest.name}`);
+      }
+      return;
+    }
     state.phase = 'playing';
     setStage('restaurant');
-    toast('去餐厅接下一单吧');
   }
 
   function summaryKindForDay(){
@@ -4329,6 +4371,7 @@
     state.introMode = 'normal';
     els.game.dataset.stage = 'desk';
     bgmEl = els.bgm;
+    setupBgmResilience();
     updateSoundButton();
     syncSettingsUI();
     syncDevModeUI();
