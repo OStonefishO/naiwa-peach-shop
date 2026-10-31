@@ -431,6 +431,75 @@
       setTimeout(() => { if(GUIDE.onClick) document.addEventListener('click', GUIDE.onClick, true); }, 260);
     }
   }
+  function servedQualities(){
+    return (state.tutorial && state.tutorial.servedQuality) || [];
+  }
+  function tutorialTasksForDay(day){
+    const orders = state.orders || [];
+    const served = orders.filter(o => o.served).length;
+    const filled = state.can && state.can.pieces ? state.can.pieces.length : 0;
+    const batches = (state.batches || []).length;
+    const jumped = !!(state.tutorial && state.tutorial.seen && state.tutorial.seen['d3-jumped']);
+    const qs = servedQualities();
+    if(day === 1) return [
+      { id:'t1a', text:'看订单卡，去厨房切黄桃', check: () => filled > 0 || batches > 0 },
+      { id:'t1b', text:'熬一锅糖水', check: () => batches > 0 || (state.can && state.can.syrup > 0) },
+      { id:'t1c', text:'装罐并封盖', check: () => !!(state.can && state.can.sealed) },
+      { id:'t1d', text:'拖订单到订单架，交给客人', check: () => served > 0 }
+    ];
+    if(day === 2) return [
+      { id:'t2a', text:'用「偏生」的糖水做一罐', check: () => qs.includes('raw') },
+      { id:'t2b', text:'用「焦苦」的糖水做一罐', check: () => qs.includes('burnt') },
+      { id:'t2c', text:'看看两位客人的评价差多少', check: () => served >= 2 }
+    ];
+    if(day === 3) return [
+      { id:'t3a', text:'去餐厅，点后面那位客人的「接单」', check: () => jumped },
+      { id:'t3b', text:'把插队那单做完交给客人', check: () => served >= 1 }
+    ];
+    if(day === 4) return [
+      { id:'t4a', text:'切换罐型，切到订单要的罐子', check: () => !!(state.can && state.can.jar && state.order && state.can.jar === (state.order.jar || 'classic')) },
+      { id:'t4b', text:'加够订单要的小料', check: () => !!(state.can && state.can.toppings && Object.keys(state.can.toppings).length >= 2) },
+      { id:'t4c', text:'封盖出餐，看看复杂订单的评分', check: () => served >= 1 }
+    ];
+    if(day === 5) return [
+      { id:'t5a', text:'同时用两口锅熬糖（点锅 2 选糖）', check: () => (state.pots || []).filter(p => p.types.length > 0).length >= 2 },
+      { id:'t5b', text:'给熬着的锅放一个闹钟', check: () => (state.pots || []).some(p => p.alarm) },
+      { id:'t5c', text:'完成精英客人的订单', check: () => served >= 1 }
+    ];
+    if(day === 6) return [
+      { id:'t6a', text:'调出 60 : 40 的混合糖（滑块或 ＋/−）', check: () => (state.pots || []).some(p => p.types.length === 2 && p.mix === 60) },
+      { id:'t6b', text:'按订单「分开熬 / 一起熬」熬好', check: () => batches > 0 },
+      { id:'t6c', text:'该搅拌时点「搅拌一下」', check: () => !!(state.can && state.can.stirred) },
+      { id:'t6d', text:'完成这单混合糖浆订单', check: () => served >= 1 }
+    ];
+    return [
+      { id:'t7a', text:'自由营业，完成 3 单', check: () => served >= 3 }
+    ];
+  }
+  function renderTutorialTasks(){
+    if(!tutorialActive() || !els.game) return;
+    const day = state.day;
+    const list = tutorialTasksForDay(day);
+    let panel = document.getElementById('taskPanel');
+    if(!panel){
+      panel = document.createElement('div');
+      panel.id = 'taskPanel';
+      panel.className = 'task-panel';
+      els.game.appendChild(panel);
+    }
+    const doneKey = 'taskDone' + day;
+    const done = list.map(x => !!x.check());
+    const allDone = done.every(Boolean);
+    panel.innerHTML = `<div class="task-head"><span>今日任务</span><em>${done.filter(Boolean).length}/${list.length}</em></div>
+      <ul>${list.map((x, i) => `<li class="${done[i] ? 'done' : ''}"><i>${done[i] ? '✓' : ''}</i><span>${x.text}</span></li>`).join('')}</ul>`;
+    panel.classList.toggle('all-done', allDone);
+    if(allDone && !(state.tutorial && state.tutorial[doneKey])){
+      state.tutorial = state.tutorial || { seen:{} };
+      state.tutorial[doneKey] = 1;
+      sfx.star && sfx.star();
+      toast('今日任务全部完成！');
+    }
+  }
   function tutorialGuideForDay(day){
     const o = state.order || {};
     const size = o.size || 'medium';
@@ -557,7 +626,10 @@
     if(!els.tutorialOverlay) return;
     els.tutorialOverlay.classList.remove('show');
     els.tutorialOverlay.setAttribute('aria-hidden','true');
-    setTimeout(() => pumpTutorialTip(), 160);
+    setTimeout(() => {
+      pumpTutorialTip();
+      setTimeout(() => { try { tutorialStagePointer(state.stage); } catch(e){} }, 700);
+    }, 160);
   }
 
   // 轻量「箭头指一下」：只出现光圈 + 箭头 + 一句提示，不挡住其它操作
@@ -605,8 +677,12 @@
       if(accept) tutorialPointerHint('d3-accept', accept, '点「接单」，让后来的客人先做——这就是插队', {});
       else tutorialPointerHint('d3-tab', '#stageTabs [data-stage="restaurant"]', '去「餐厅」点「接单」，试试插队');
     }
-    if(day === 3 && stage === 'desk') tutorialPointerHint('d3-back', '#stageTabs [data-stage="restaurant"]', '插队了，回「餐厅」把刚才那单接着做');
-    if(day === 4 && stage === 'work') tutorialPointerHint('d4-jar', '#jarSwitch', '点这里切换罐子，切到订单要的罐型');
+    if(day === 3 && stage === 'desk'){
+      const jumped = !!(state.tutorial && state.tutorial.seen && state.tutorial.seen['d3-jumped']);
+      if(!jumped) tutorialPointerHint('d3-go', '#stageTabs [data-stage="restaurant"]', '先去「餐厅」，点后面那位客人的「接单」');
+      else tutorialPointerHint('d3-work', '#stageTabs [data-stage="work"]', '回「工作台」把插队这单做完');
+    }
+    if(day === 4 && stage === 'work') tutorialPointerHint('d4-jar', '#jarSwitchBtn', '点这里切换罐子，切到订单要的罐型');
     if(day === 5 && stage === 'desk') tutorialPointerHint('d5-kitchen', '#stageTabs [data-stage="kitchen"]', '去「厨房」，用 3 口锅同时熬糖');
     if(day === 6 && stage === 'desk') tutorialPointerHint('d6-kitchen', '#stageTabs [data-stage="kitchen"]', '去「厨房」，按订单比例调两种糖');
     if(day === 6 && stage === 'work') tutorialPointerHint('d6-stir', '#stirBtn', '点「搅拌一下」，这单要「已搅拌」');
@@ -625,6 +701,11 @@
     state.tutorial.syrups = (sc.syrups || []).slice();
     state.tutorial.toppings = (sc.toppings || []).slice();
     state.tutorial.jars = (sc.jars || []).slice();
+    if(state.day >= 4){
+      state.tutorial.jars = ['narrow', 'wide'];
+      state.tutorial.toppings = Object.keys(TOPPINGS).filter(id => id !== 'none');
+      state.tutorial.syrups = ['honey', 'maple', 'honeysuckle'];
+    }
     state.batches = [];
     (sc.batches || []).forEach((b, i) => {
       state.batches.push({
@@ -3891,6 +3972,7 @@
     }else if(helper){ helper.remove(); }
   }
   function renderAll(){
+    setTimeout(() => { try { renderTutorialTasks(); } catch(e){} }, 0);
     updateHud();
     renderDoubaoHelper();
     renderOrderTicket();
@@ -4053,6 +4135,7 @@
       if(older.length && state.tutorial && !state.tutorial.seen['d3-jumped']){
         state.tutorial.seen['d3-jumped'] = true;
         setTimeout(() => tutorialForceTip('这就是插队', '你让后来的客人先做了：被跳过的客人评价里会多一条「被插队」扣分；斤斤计较的客人扣分翻倍。现在先把小黄这单做完，再回去补夜莺师傅的订单。'), 420);
+        setTimeout(() => tutorialPointerHint('d3-work', '#stageTabs [data-stage="work"]', '回「工作台」，把这单做完'), 1400);
       }
     }
   }
@@ -5093,6 +5176,12 @@
   }
 
   function serveOrder(){
+    if(tutorialActive()){
+      const b = (state.batches || []).find(x => x.id === (state.can && state.can.batchId));
+      state.tutorial = state.tutorial || { seen:{} };
+      state.tutorial.servedQuality = state.tutorial.servedQuality || [];
+      if(b && b.quality) state.tutorial.servedQuality.push(b.quality);
+    }
     if(state.phase !== 'playing') return;
     if(state.stage !== 'desk'){
       if(state.can.sealed) setStage('desk');
@@ -6795,7 +6884,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
+      window.__naiwa = { state, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
     }
   }
 
