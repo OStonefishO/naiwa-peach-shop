@@ -3848,8 +3848,7 @@
         continue;
       }
       const p = state.pots[i];
-      const dots = [1,2,3].map(n => `<i class="sugar-dot ${p.sugar >= n ? 'on' : ''}"></i>`).join('');
-      const types = availableSyrups().map(id =>
+        const types = availableSyrups().map(id =>
         `<button class="pot-type ${p.types.includes(id) ? 'on' : ''}" type="button" data-pot-type="${id}" data-pot="${i}" ${p.status !== 'idle' ? 'disabled' : ''}>${SYRUPS[id].name.replace('糖浆','')}</button>`).join('');
       let actions = '';
       if(p.status === 'heating'){
@@ -3875,7 +3874,7 @@
         mixRow = `<div class="pot-mix2-wrap">${row(0, nameA, SYRUPS[a].color, va)}${row(1, nameB, SYRUPS[b].color, vb)}</div>`;
       }
       html += `<div class="pot-card" data-status="${p.status}" data-pot-drop="${i}">
-        <div class="pot-head"><b>熬糖锅 ${i+1}</b><span class="pot-sugar">${alarm}${dots}</span></div>
+        <div class="pot-head"><b>熬糖锅 ${i+1}</b><span class="pot-sugar">${alarm}</span></div>
         <div class="pot-types">${types}</div>
         ${mixRow}
         <div class="pot-gauge"><div class="pot-zone"></div><div class="pot-fill" id="potFill${i}" style="width:${p.progress}%"></div></div>
