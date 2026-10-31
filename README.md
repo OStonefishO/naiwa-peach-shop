@@ -183,7 +183,7 @@ http://10.18.167.201:8099/wechat-qq/
 
 - **导出存档码 / 下载 JSON**：把当前所有店长档案导成一段 `NAIWA1:` 开头的文本或一个 JSON 文件；换设备时复制过去导入即可，不需要账号。
 - **导入存档码**：粘贴存档码，合并同名店长并切换过去。
-- **Supabase 云存档（推荐，已预配置）**：游戏已连接本项目的 Supabase（Project URL 与 anon public key 已内置），打开“存档”只需输入 **4–8 位 PIN**，点“上传到 Supabase”；换设备输入**同一店长名字 + 同一 PIN**，点“从 Supabase 读取”即可恢复。`anon key` 本来就是公开前端密钥，PIN 只以 bcrypt 哈希存在数据库里。若想换成自己的 Supabase，按 [supabase/README.md](supabase/README.md) 建项目并运行 [supabase/schema.sql](supabase/schema.sql)，再在游戏内覆盖 URL / key。
+- **Supabase 云存档（推荐，已预配置）**：游戏已连接本项目的 Supabase（Project URL 与 anon public key 已内置），打开“存档”只需输入 **4–8 位 PIN**，点“上传到 Supabase”；换设备输入**同一店长名字 + 同一 PIN**，点“从 Supabase 读取”即可恢复。**PIN 是玩家自己设的同步密码**，不是统一验证码、也不绑设备：第一次上传时你填什么就是什么；别人不知道你的名字 + PIN 就取不到你的存档（PIN 只以 bcrypt 哈希存在数据库里）。`anon key` 本来就是公开前端密钥。若想换成自己的 Supabase，按 [supabase/README.md](supabase/README.md) 建项目并运行 [supabase/schema.sql](supabase/schema.sql)，再在游戏内覆盖 URL / key。
 - **GitHub 云存档（可选）**：填入自己的 GitHub **classic token**（只勾选 `gist` 权限），游戏会把存档写进你的**私有 Gist**；换设备登录同一 GitHub 账号后点“从云端恢复”。Token 只保存在本机浏览器，不会写进存档或上传到游戏仓库。
 
 > 为什么不能直接把所有玩家数据写进游戏仓库？因为纯静态页面没有后端，用仓库 Token 写 GitHub 等于把仓库写权限交给每个玩家，任何人都能改游戏文件。Gist 方案需要玩家自己的 Token；Supabase 方案把权限放在数据库 RPC 里，是当前“名字 + PIN”跨设备存档的推荐方案。
@@ -192,7 +192,9 @@ http://10.18.167.201:8099/wechat-qq/
 - 无尽模式每周达标记“最远周”，失败的当周也会记入；肉鸽模式同理，每周达标记最远周，整局失败时结算当周。
 - 榜单每行显示「N 局 · 累计金币」和「第 N 周」，累计金币是该模式下跑得最远那局的总营业额。
 - 普通模式周目结束 / 无尽模式失败 / 肉鸽模式结束时，只同步最佳周目与累计金币；金币已经在每单完成时进入店长钱包，不会二次发放。
-- **全网排行榜（可选）**：默认榜单只统计本机存档。若想让所有玩家一起排名，需要一台共享后端——把 `tools/leaderboard-worker.js` 部署到 Cloudflare Workers（免费额度即可，5 分钟，KV 变量名 `RANK_KV`），再把 Worker 地址填进 `src/game.v2.js` 顶部的 `const RANK_API = '';` 重新构建即可；页脚会从「本机排行榜」变成「全网排行榜 · 共 N 位玩家」。
+- **全网排行榜**：默认榜单只统计本机存档。想让所有玩家一起排名，需要一份共享后端，两条路任选：
+  - **Supabase（推荐，2 分钟）**：项目已内置 URL 与 anon key，打开 Supabase 控制台 → SQL Editor → 把 `tools/leaderboard-supabase.sql` 全部粘贴执行（幂等，可重复跑）。执行完游戏里的排行榜会自动变成「全网排行榜 · 共 N 位玩家」，不用改代码，也不用重新部署；表没建时游戏静默退回本机榜。
+  - **Cloudflare Worker**：把 `tools/leaderboard-worker.js` 部署成 Worker（免费额度，KV 变量名 `RANK_KV`），再把地址填进 `src/game.v2.js` 顶部的 `const RANK_API = '';` 重新构建。适合不想把成绩写进 Supabase 的情况。
 
 ## 奶蛙的小家
 

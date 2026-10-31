@@ -1133,33 +1133,61 @@
     if(els.dressCoins) els.dressCoins.textContent = `${coinText()} 金币`;
     return true;
   }
-  // 可选：接入全网排行榜。把 RANK_API 换成你自己部署的服务地址（见 tools/leaderboard-worker.js），留空则只显示本机排行。
+  // 全网排行榜：
+  //   1) 默认走游戏内置的 Supabase（需要先在 Supabase SQL Editor 跑一次 tools/leaderboard-supabase.sql）；
+  //   2) 也可以把 RANK_API 换成自己部署的 Cloudflare Worker（tools/leaderboard-worker.js），留空则用 Supabase；
+  //   3) 两者都没准备好时自动退回「本机排行榜」，不报错。
   const RANK_API = '';
   const globalRanks = { endless:[], rogue:[] };
   let globalRankOk = false;
   function rankApiUrl(path){ return RANK_API.replace(/\/+$/,'') + path; }
+  function rankMode(mode){ return mode === 'rogue' ? 'rogue' : 'endless'; }
   function submitGlobalRank(mode, week, coins){
-    if(!RANK_API || !activeProfile) return;
+    if(!activeProfile) return;
     if(mode !== 'endless' && mode !== 'rogue') return;
+    const name = String(activeProfile.name || '').slice(0, 12);
+    const payload = { name, mode, week:Math.max(0, week|0), coins:Math.max(0, coins|0) };
     try{
-      fetch(rankApiUrl('/submit'), {
+      if(RANK_API){
+        fetch(rankApiUrl('/submit'), {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(payload)
+        }).catch(() => {});
+        return;
+      }
+      const cfg = sbConfig();
+      if(!cfg.url || !cfg.key) return;
+      fetch(cfg.url.replace(/\/+$/,'') + '/rest/v1/rpc/naiwa_submit_score', {
         method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ name:activeProfile.name, mode, week:Math.max(0, week|0), coins:Math.max(0, coins|0) })
+        headers:{'apikey':cfg.key, 'Authorization':'Bearer ' + cfg.key, 'Content-Type':'application/json'},
+        body:JSON.stringify({ p_name:name, p_mode:mode, p_week:payload.week, p_coins:payload.coins })
       }).catch(() => {});
     }catch(e){ /* 离线时忽略 */ }
   }
   function refreshGlobalRank(tab){
-    if(!RANK_API) return;
+    const mode = rankMode(tab);
+    const apply = rows => {
+      globalRanks[mode] = Array.isArray(rows) ? rows.slice(0, 20) : [];
+      globalRankOk = true;
+      if(rankTab === mode) renderLeaderboard(mode);
+    };
     try{
-      fetch(rankApiUrl(`/top?mode=${tab === 'rogue' ? 'rogue' : 'endless'}`))
-        .then(r => r.ok ? r.json() : null)
-        .then(data => {
-          if(!data) return;
-          globalRanks[tab] = Array.isArray(data.rows) ? data.rows.slice(0, 20) : [];
-          globalRankOk = true;
-          if(rankTab === tab) renderLeaderboard(tab);
-        })
+      if(RANK_API){
+        fetch(rankApiUrl(`/top?mode=${mode}`))
+          .then(r => r.ok ? r.json() : null)
+          .then(data => { if(data) apply(data.rows); })
+          .catch(() => {});
+        return;
+      }
+      const cfg = sbConfig();
+      if(!cfg.url || !cfg.key) return;
+      fetch(cfg.url.replace(/\/+$/,'') + '/rest/v1/rpc/naiwa_top_rank', {
+        method:'POST',
+        headers:{'apikey':cfg.key, 'Authorization':'Bearer ' + cfg.key, 'Content-Type':'application/json'},
+        body:JSON.stringify({ p_mode:mode, p_limit:20 })
+      }).then(r => r.ok ? r.json() : null)
+        .then(data => { if(data) apply(data.rows || data); })
         .catch(() => {});
     }catch(e){ /* 离线时忽略 */ }
   }
@@ -1218,17 +1246,21 @@
     rankTab = tab === 'rogue' ? 'rogue' : 'endless';
     if(els.leaderboardTitle) els.leaderboardTitle.textContent = '排行榜';
     if(!els.leaderboardList) return;
-    const remote = RANK_API ? (globalRanks[rankTab] || []) : [];
+    const remote = globalRankOk ? (globalRanks[rankTab] || []) : [];
     const weekKey = rankTab === 'rogue' ? 'bestRogue' : 'bestEndless';
     const coinKey = rankTab === 'rogue' ? 'bestRogueCoins' : 'bestEndlessCoins';
     if(els.leaderboardFoot){
-      els.leaderboardFoot.textContent = remote.length
+      els.leaderboardFoot.textContent = globalRankOk
         ? `全网排行榜 · 共 ${remote.length} 位玩家 · 打开榜单时自动同步`
         : (rankTab === 'rogue' ? '本机排行榜 · 每周金币指标递增，活得越久排名越高' : '本机排行榜 · 每周目标递增，活得越久排名越高');
     }
     document.querySelectorAll('[data-rank-tab]').forEach(b => {
       b.classList.toggle('active', b.dataset.rankTab === rankTab);
     });
+    if(globalRankOk && !remote.length){
+      els.leaderboardList.innerHTML = `<div class="leaderboard-empty">全网还没有${rankTab === 'rogue' ? '肉鸽' : '无尽'}成绩。<br>完成一周就能上榜，来当第一个吧！</div>`;
+      return;
+    }
     if(remote.length){
       const me = activeProfile ? activeProfile.name : '';
       els.leaderboardList.innerHTML = remote.map((p,i) => `
