@@ -662,7 +662,7 @@
       layer.className = 'guide-layer pointer-only';
       layer.innerHTML = `<div class="guide-ring" style="left:${rx}px;top:${ry}px;width:${rw}px;height:${rh}px"></div>
         <div class="guide-arrow" style="left:${rx + rw / 2 - 17}px;top:${ry + rh + 4}px"><svg viewBox="0 0 34 40"><path d="M17 38 C17 26 17 16 17 6" /><path d="M8 15 L17 5 L26 15" /></svg></div>
-        <div class="guide-bubble" style="left:${Math.min(Math.max(8, rx + rw / 2 - 116), window.innerWidth - 240)}px;top:${Math.min(ry + rh + 52, window.innerHeight - 90)}px">${text}</div>`;
+        <div class="guide-bubble" style="left:${bubbleLeft(rx, rw)}px;top:${Math.min(ry + rh + 52, window.innerHeight - 96)}px">${text}</div>`;
       document.body.appendChild(layer);
       const kill = () => { layer.remove(); };
       setTimeout(kill, extra && extra.ms ? extra.ms : 9000);
@@ -671,6 +671,12 @@
       document.addEventListener('click', onDoc, true);
       const tick = setInterval(() => { if(!document.body.contains(layer)){ clearInterval(tick); document.removeEventListener('pointerdown', onDoc, true); document.removeEventListener('click', onDoc, true); } }, 800);
     }, 260);
+  }
+  function bubbleLeft(rx, rw){
+    const vw = window.innerWidth;
+    const wide = rx + rw / 2 > vw / 2;
+    const left = wide ? Math.max(8, rx - 248) : Math.min(vw - 248, rx + rw / 2 - 116);
+    return Math.min(Math.max(8, left), vw - 248);
   }
   function tutorialStagePointer(stage){
     if(!tutorialActive()) return;
