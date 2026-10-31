@@ -1661,6 +1661,24 @@
   .comp-track{height:8px;border-radius:5px;background:#F3E1C3;border:1px solid #E2C79C;position:relative;overflow:hidden}
   .comp-fill{height:100%;border-radius:4px;transition:width .1s}
   .comp-target{position:absolute;top:-2px;bottom:-2px;width:2px;background:#4D8E62}
+  .comp-zone{position:absolute;top:0;bottom:0;background:rgba(76,142,98,.22);
+    border-left:1px dashed rgba(76,142,98,.55);border-right:1px dashed rgba(76,142,98,.55)}
+  .pot-mix{margin:6px 0 2px;padding:6px 8px;border:1px dashed #E0C89E;border-radius:10px;background:#FFFCF3}
+  .pot-mix-head{display:flex;justify-content:space-between;font-size:7px;font-weight:900;color:#7C5A2C;margin-bottom:4px}
+  .pot-mix-head b{color:#A8620F}
+  .pot-mix-bar{display:flex;height:7px;border-radius:4px;overflow:hidden;border:1px solid #E0C79C}
+  .pot-mix-bar i{display:block;height:100%}
+  .pot-mix input[type=range]{width:100%;height:20px;margin:2px 0 0;accent-color:#E39A2C}
+  .pour-seq{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:6px;
+    font-size:7px;font-weight:900;color:#7C5A2C}
+  .pour-seq[hidden]{display:none}
+  .seq-title{color:#9A7A4D}
+  .seq-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:999px;
+    background:#FFF4D8;border:1px solid #E2C48C}
+  .seq-chip i{font-style:normal;width:12px;height:12px;border-radius:50%;background:#F3B94D;color:#4A2E0C;
+    display:grid;place-items:center;font-size:6.5px}
+  .seq-chip b{color:#A8620F}
+  .seq-arrow{font-style:normal;color:#B69A6E}
   .stir-wrap{padding:0 12px;margin:-1px 0 7px}
   .stir-btn{width:100%;height:31px;border:1px solid #D7B77B;border-radius:9px;background:#FFF7E2;
     color:#7B582A;font:900 8.5px/1 inherit;cursor:pointer;touch-action:none}
@@ -2288,6 +2306,7 @@
           </button>
         </div>
         <div class="syrup-composition" id="syrupComposition"></div>
+        <div class="pour-seq" id="pourSeq"></div>
       </div>
 
       <div class="stir-wrap">

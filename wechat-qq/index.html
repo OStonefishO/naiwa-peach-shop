@@ -1661,6 +1661,24 @@
   .comp-track{height:8px;border-radius:5px;background:#F3E1C3;border:1px solid #E2C79C;position:relative;overflow:hidden}
   .comp-fill{height:100%;border-radius:4px;transition:width .1s}
   .comp-target{position:absolute;top:-2px;bottom:-2px;width:2px;background:#4D8E62}
+  .comp-zone{position:absolute;top:0;bottom:0;background:rgba(76,142,98,.22);
+    border-left:1px dashed rgba(76,142,98,.55);border-right:1px dashed rgba(76,142,98,.55)}
+  .pot-mix{margin:6px 0 2px;padding:6px 8px;border:1px dashed #E0C89E;border-radius:10px;background:#FFFCF3}
+  .pot-mix-head{display:flex;justify-content:space-between;font-size:7px;font-weight:900;color:#7C5A2C;margin-bottom:4px}
+  .pot-mix-head b{color:#A8620F}
+  .pot-mix-bar{display:flex;height:7px;border-radius:4px;overflow:hidden;border:1px solid #E0C79C}
+  .pot-mix-bar i{display:block;height:100%}
+  .pot-mix input[type=range]{width:100%;height:20px;margin:2px 0 0;accent-color:#E39A2C}
+  .pour-seq{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:6px;
+    font-size:7px;font-weight:900;color:#7C5A2C}
+  .pour-seq[hidden]{display:none}
+  .seq-title{color:#9A7A4D}
+  .seq-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:999px;
+    background:#FFF4D8;border:1px solid #E2C48C}
+  .seq-chip i{font-style:normal;width:12px;height:12px;border-radius:50%;background:#F3B94D;color:#4A2E0C;
+    display:grid;place-items:center;font-size:6.5px}
+  .seq-chip b{color:#A8620F}
+  .seq-arrow{font-style:normal;color:#B69A6E}
   .stir-wrap{padding:0 12px;margin:-1px 0 7px}
   .stir-btn{width:100%;height:31px;border:1px solid #D7B77B;border-radius:9px;background:#FFF7E2;
     color:#7B582A;font:900 8.5px/1 inherit;cursor:pointer;touch-action:none}
@@ -2288,6 +2306,7 @@
           </button>
         </div>
         <div class="syrup-composition" id="syrupComposition"></div>
+        <div class="pour-seq" id="pourSeq"></div>
       </div>
 
       <div class="stir-wrap">
@@ -3070,7 +3089,13 @@
       {id:'campus', name:'校园食堂', price:80}
     ]
   };
-  const ROGUE_TARGET = week => Math.round(400 * Math.pow(2.5, week - 1));
+  const ROGUE_BASE_TARGET = 400;
+  // 肉鸽周目标成长：每周线性随机 +40%~+100%（400 → 560~800 → …），不再指数爆炸
+  function rogueGrowthTarget(prev){
+    const growth = .4 + Math.random() * .6;
+    return Math.round((Number(prev) || ROGUE_BASE_TARGET) * (1 + growth));
+  }
+  const ROGUE_TARGET = () => ROGUE_BASE_TARGET;
   const SHRIMPS = [
     {id:'goodReview',name:'好评价',rarity:'normal',desc:'客人评分 +4%（每级），上限 3 级',max:3,key:'score'},
     {id:'mercy',name:'手下留情！',rarity:'normal',desc:'降分时少扣 5% 小费，上限 1 级',max:1,key:'mercy'},
@@ -3159,10 +3184,10 @@
   }
 
   function emptyCan(){
-    return {size:null, jar:'classic', pieces:[], syrup:0, components:{classic:0,honey:0,maple:0,honeysuckle:0}, stirred:false, temp:null, toppings:[], toppingTouched:false, sealed:false, batchIds:[]};
+    return {size:null, jar:'classic', pieces:[], syrup:0, components:{classic:0,honey:0,maple:0,honeysuckle:0}, pourLog:[], stirred:false, temp:null, toppings:[], toppingTouched:false, sealed:false, batchIds:[]};
   }
   function makePots(){
-    return Array.from({length:4}, (_,i) => ({id:i, sugar:0, types:['classic'], progress:0, status:'idle', quality:null, startedAt:0, alarm:false, alarmFired:false}));
+    return Array.from({length:4}, (_,i) => ({id:i, sugar:0, types:['classic'], mix:50, progress:0, status:'idle', quality:null, startedAt:0, alarm:false, alarmFired:false}));
   }
 
   const state = {
@@ -3397,19 +3422,24 @@
   function shrimpLevel(id){
     return state.rogue ? state.rogue.shrimp.filter(x => x === id).length : 0;
   }
+  function rogueOwlToday(){ return rogueActive() && rogueHas('sugarOwl') && Number(state.rogue.owlDay) === Number(state.day); }
   function availableSyrups(){
-    if(rogueActive()) return ['classic'].concat(SYRUP_IDS.filter(id => id !== 'classic' && state.rogue.syrups.includes(id)));
+    if(rogueActive()) return ['classic'].concat(SYRUP_IDS.filter(id => id !== 'classic' && (state.rogue.syrups.includes(id) || rogueOwlToday())));
     const owned = activeProfile && activeProfile.syrups ? activeProfile.syrups : {};
     return ['classic'].concat(['honey','maple','honeysuckle'].filter(id => owned[id]));
   }
   function unlockedToppings(){
-    if(rogueActive()) return BASE_TOPPINGS.concat(state.rogue.toppings);
+    if(rogueActive()){
+      const extra = rogueOwlToday() ? EXPANSION.topping.map(x => x.id) : state.rogue.toppings;
+      return BASE_TOPPINGS.concat(extra);
+    }
     const extra = activeProfile && activeProfile.unlocks ? activeProfile.unlocks.toppings : [];
     return BASE_TOPPINGS.concat(extra);
   }
   function unlockedJars(){
     if(rogueActive()){
-      const jars = ['classic'].concat(state.rogue.jars);
+      const extra = rogueOwlToday() ? EXPANSION.jar.map(x => x.id) : state.rogue.jars;
+      const jars = ['classic'].concat(extra);
       if(shrimpLevel('goldJar')) jars.push('gold');
       return Array.from(new Set(jars));
     }
@@ -3447,8 +3477,14 @@
     if(!activeProfile) return;
     state.bestNormal = activeProfile.bestNormal || 0;
     state.bestEndless = activeProfile.bestEndless || 0;
-    state.coins = activeProfile.wallet || 0;
-    if(activeProfile.upgrades) state.upgrade = activeProfile.upgrades;
+    if(rogueActive()){
+      // 肉鸽进行中：金币与升级都跟着本局走，不能被账号存档覆盖
+      state.coins = state.rogue.coins || 0;
+      state.upgrade = state.rogue.upgrades || state.upgrade;
+    }else{
+      state.coins = activeProfile.wallet || 0;
+      if(activeProfile.upgrades) state.upgrade = activeProfile.upgrades;
+    }
     if(els.coins) els.coins.textContent = coinText();
     if(els.homeCoins) els.homeCoins.textContent = coinText();
     if(els.shopCoins) els.shopCoins.textContent = coinText();
@@ -4252,7 +4288,7 @@
       'reviewEarlyBtn','summaryEarlyBtn','shopEarlyBtn','settingsEarlyBtn','confirmOverlay','confirmCancel','confirmOk',
       'jarSwitchBtn','toppingChips','toppingQtyRow','toppingMinus','toppingQtyVal','toppingPlus',
       'shopTabs','shopWallet','shopExpandGrid','shopSyrupGrid','shopFurnGrid','itemShopEntryBtn','shopTitle','shopSub',
-      'syrupComposition','stirBtn','alarmTray','alarmTrayItems',
+      'syrupComposition','pourSeq','stirBtn','alarmTray','alarmTrayItems',
       'dressEntryBtn','dressOverlay','dressCoins','dressDoll','dressSlots',
       'dressClose','dressDoneBtn','frogWear','orderRod',
       'saveEntryBtn','saveOverlay','saveClose','saveExport','saveImport','copySaveBtn','downloadSaveBtn',
@@ -5410,8 +5446,9 @@
     }else{
       els.batchStrip.innerHTML = state.batches.map(b => {
         const label = b.quality === 'thin' ? '偏生（也能用）' : b.quality === 'burnt' ? '焦苦（也能用）' : '火候完美';
+        const mixLabel = batchMixLabel(b);
         return `<button class="batch-chip ${state.selectedBatch === b.id ? 'active' : ''} ${b.quality || ''}" type="button" data-batch="${b.id}" ${c.sealed || b.used ? 'disabled' : ''}>
-          ${(b.types || ['classic']).map(id => SYRUPS[id].name).join('+')} · ${b.sugar} 勺 · ${label}<small>糖水 #${b.id}${b.used ? ' · 已用' : b.sugar === state.order.sugar ? ' · 对味' : ''}</small>
+          ${mixLabel} · ${b.sugar} 勺 · ${label}<small>糖水 #${b.id}${b.used ? ' · 已用' : b.sugar === state.order.sugar ? ' · 对味' : ''}</small>
         </button>`;
       }).join('');
     }
@@ -5425,11 +5462,12 @@
     els.syrupReadout.textContent = Math.round(c.syrup) + '%';
     const selBatch = findBatch();
     els.syrupNote.textContent = selBatch
-      ? `已选：${(selBatch.types || ['classic']).map(id => SYRUPS[id].name).join('+')} · ${selBatch.sugar} 勺 · ${selBatch.quality === 'thin' ? '偏生' : selBatch.quality === 'burnt' ? '焦苦' : '火候完美'}`
+      ? `已选：${batchMixLabel(selBatch)} · ${selBatch.sugar} 勺 · ${selBatch.quality === 'thin' ? '偏生' : selBatch.quality === 'burnt' ? '焦苦' : '火候完美'}`
       : '选一锅熬好的糖水';
     els.pourBtn.disabled = c.sealed || !findBatch() || c.syrup >= 100;
     els.pourBtn.classList.toggle('pouring', state.pouring);
     renderSyrupComposition();
+    renderPourSeq();
     updateFooter();
     requestAnimationFrame(updateBatchScroll);
   }
@@ -5442,21 +5480,48 @@
     els.batchScroll.value = els.batchStrip.scrollLeft;
   }
 
+  function batchMixLabel(b){
+    const types = (b.types && b.types.length) ? b.types : ['classic'];
+    if(types.length === 1) return SYRUPS[types[0]].name;
+    const r = b.ratios || {[types[0]]:50, [types[1]]:50};
+    return types.map(id => `${SYRUPS[id].name.replace('糖浆','')}${Math.round(r[id] != null ? r[id] : 50)}%`).join(' + ');
+  }
+  function renderPourSeq(){
+    if(!els.pourSeq) return;
+    const c = state.can;
+    const log = Array.isArray(c.pourLog) ? c.pourLog : [];
+    if(!log.length){ els.pourSeq.innerHTML = ''; els.pourSeq.hidden = true; return; }
+    els.pourSeq.hidden = false;
+    const steps = log.map((entry, idx) => {
+      const types = entry.types || ['classic'];
+      const r = entry.ratios || {};
+      const label = types.length === 1
+        ? SYRUPS[types[0]].name
+        : types.map(id => `${SYRUPS[id].name.replace('糖浆','')}${Math.round(r[id] != null ? r[id] : 50)}%`).join('+');
+      return `<span class="seq-chip"><i>${idx + 1}</i>${label}<b>${Math.round(entry.amount)}%</b></span>`;
+    }).join('<em class="seq-arrow">→</em>');
+    els.pourSeq.innerHTML = `<span class="seq-title">倒入顺序</span>${steps}`;
+  }
+
   function renderSyrupComposition(){
     if(!els.syrupComposition) return;
     const o = state.order, c = state.can;
     if(!o){ els.syrupComposition.innerHTML = ''; return; }
     const targetTotal = SUGAR[o.sugar].target;
     const expected = o.syrups || [{id:'classic',ratio:100}];
+    const caliperBonus = rogueActive() ? 1.5 * shrimpLevel('caliper') : 0;
+    const tol = (o.tol || SUGAR[o.sugar].tol) + caliperBonus;
     els.syrupComposition.innerHTML = expected.map(s => {
       const comp = c.components[s.id] || 0;
       const target = targetTotal * s.ratio / 100;
       const pct = clamp(comp / 100 * 100, 0, 100);
       const tgt = clamp(target, 0, 100);
-      const ok = Math.abs(comp - target) <= (o.tol || 8) * s.ratio / 100;
+      const zoneStart = clamp(target - tol, 0, 100);
+      const zoneWidth = clamp(tol * 2, 0, 100 - zoneStart);
+      const ok = Math.abs(comp - target) <= tol;
       return `<div class="comp-item">
         <div class="comp-top"><span>${SYRUPS[s.id].name}</span><b>${Math.round(comp)} / ${Math.round(target)}%${ok?' ✓':''}</b></div>
-        <div class="comp-track"><div class="comp-fill" style="width:${pct}%;background:${SYRUPS[s.id].color}"></div><i class="comp-target" style="left:${tgt}%"></i></div>
+        <div class="comp-track"><div class="comp-fill" style="width:${pct}%;background:${SYRUPS[s.id].color}"></div><i class="comp-zone" style="left:${zoneStart}%;width:${zoneWidth}%"></i><i class="comp-target" style="left:${tgt}%"></i></div>
       </div>`;
     }).join('');
     const two = expected.length > 1;
@@ -5570,9 +5635,21 @@
           <button class="primary" type="button" data-pot-start="${i}" ${p.sugar<1?'disabled':''}>开火</button>`;
       }
       const alarm = p.alarm ? `<button class="pot-alarm" type="button" data-pot-alarm="${i}" title="点击收回闹钟，或拖到其他锅">⏰ 闹钟</button>` : '';
+      let mixRow = '';
+      if(p.types.length > 1){
+        const mix = clamp(Number(p.mix) || 50, 10, 90);
+        const a = p.types[0], b = p.types[1];
+        const nameA = SYRUPS[a].name.replace('糖浆',''), nameB = SYRUPS[b].name.replace('糖浆','');
+        mixRow = `<div class="pot-mix" data-pot-mix-row="${i}">
+          <div class="pot-mix-head"><span>${nameA} <b>${mix}%</b></span><span><b>${100-mix}%</b> ${nameB}</span></div>
+          <div class="pot-mix-bar"><i style="width:${mix}%;background:${SYRUPS[a].color}"></i><i style="width:${100-mix}%;background:${SYRUPS[b].color}"></i></div>
+          <input type="range" min="10" max="90" step="5" value="${mix}" data-pot-mix="${i}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="${nameA}与${nameB}比例">
+        </div>`;
+      }
       html += `<div class="pot-card" data-status="${p.status}" data-pot-drop="${i}">
         <div class="pot-head"><b>熬糖锅 ${i+1}</b><span class="pot-sugar">${dots}${alarm}</span></div>
         <div class="pot-types">${types}</div>
+        ${mixRow}
         <div class="pot-gauge"><div class="pot-zone"></div><div class="pot-fill" id="potFill${i}" style="width:${p.progress}%"></div></div>
         <div class="pot-meta"><span>${potStatusText(p)}</span><b id="potPct${i}">${Math.round(p.progress)}%</b></div>
         <div class="pot-actions">${actions}</div>
@@ -5893,12 +5970,21 @@
     state.pots = Array.isArray(run.pots) && run.pots.length
       ? run.pots.map(p => {
           const progress = clamp(Number(p.progress) || 0, 0, 100);
-          return {...p, progress, alarmFired:!!p.alarmFired,
+          return {...p, mix:clamp(Number(p.mix) || 50, 10, 90), types:(p.types && p.types.length) ? p.types : ['classic'],
+            progress, alarmFired:!!p.alarmFired,
             startedAt:p.status === 'heating' ? performance.now() - progress / 100 * BOIL_MS : 0};
         })
       : makePots();
     state.stock = Infinity;
     state.rogue = run.rogue ? JSON.parse(JSON.stringify(run.rogue)) : null;
+    if(state.mode === 'rogue' && state.rogue){
+      state.rogue.upgrades = state.rogue.upgrades || {pots:1, alarms:0, knife:'wood', knives:['wood']};
+      state.rogue.upgrades.pots = clamp(Number(state.rogue.upgrades.pots) || 1, 1, 4);
+      state.rogue.upgrades.alarms = clamp(Number(state.rogue.upgrades.alarms) || 0, 0, 3);
+      if(!state.rogue.upgrades.knives) state.rogue.upgrades.knives = [state.rogue.upgrades.knife || 'wood'];
+      state.rogue.weekTarget = Number(state.rogue.weekTarget) || Number(state.weekTarget) || ROGUE_BASE_TARGET;
+      state.rogue.nextTarget = Number(state.rogue.nextTarget) || rogueGrowthTarget(state.rogue.weekTarget);
+    }
     state.coins = state.mode === 'rogue' && state.rogue ? state.rogue.coins : (activeProfile ? activeProfile.wallet : 0);
     if(state.mode === 'rogue' && state.rogue) state.upgrade = state.rogue.upgrades;
     state.phase = 'playing';
@@ -6218,7 +6304,8 @@
   }
   function startRogueRun(){
     state.rogue = {
-      coins:0, totalCoins:0, week:1, weekEarned:0, weekTarget:ROGUE_TARGET(1),
+      coins:0, totalCoins:0, week:1, weekEarned:0, weekTarget:ROGUE_BASE_TARGET,
+      nextTarget:rogueGrowthTarget(ROGUE_BASE_TARGET),
       toppings:[], jars:[], syrups:[], items:{}, shrimp:[], events:{}, shopStock:null,
       pendingShop:null, pendingShrimp:null, rerolls:0,
       upgrades:{pots:1, alarms:0, knife:'wood', knives:['wood']}
@@ -6231,10 +6318,12 @@
   function rogueMaxScore(){ return 100 + 10 * shrimpLevel('overScore') + 100 * shrimpLevel('plusScore'); }
   function rogueTipMultiplier(){
     let m = 1 + .07 * shrimpLevel('fortune');
-    m *= 1 + .6 * Math.max(0, (state.week || 1) - 1);
+    // 小费基础增长比 0.6 倍/周：第 n 周 = 1.6^(n-1)
+    m *= Math.pow(1.6, Math.max(0, (state.week || 1) - 1));
     if(rogueHas('doubao')) m *= 1;
     return m;
   }
+  function rogueTipWeekFactor(){ return Math.pow(1.6, Math.max(0, (state.week || 1) - 1)); }
   function rogueCoinMultiplier(){
     let m = 1;
     if(shrimpLevel('challenger')) m *= 1.33;
@@ -6255,7 +6344,7 @@
     state.runEarned = 0;
     state.week = 1;
     state.weekEarned = 0;
-    state.weekTarget = state.mode === 'rogue' ? ROGUE_TARGET(1) : weekTargetFor(1);
+    state.weekTarget = state.mode === 'rogue' ? ROGUE_BASE_TARGET : weekTargetFor(1);
     state.summaryKind = 'day';
     state.metaAwarded = false;
     state.orderTipShown = false;
@@ -6435,7 +6524,19 @@
       if(p.types.length >= 2){ toast('一口锅最多两种糖浆'); return; }
       p.types.push(type);
     }
+    p.mix = clamp(Number(p.mix) || 50, 10, 90);
+    if(p.types.length === 2){
+      const want = (state.order && state.order.syrups) || [];
+      const first = want.find(s => s.id === p.types[0]);
+      if(first) p.mix = clamp(Math.round(first.ratio / 5) * 5, 10, 90);
+    }
     sfx.tap();
+    renderPots();
+  }
+  function setPotMix(potId, value){
+    const p = state.pots[potId];
+    if(!p || p.status !== 'idle') return;
+    p.mix = Math.round(clamp(Number(value) || 50, 10, 90) / 5) * 5;
     renderPots();
   }
   function addSugar(potId, delta){
@@ -6472,6 +6573,14 @@
   }
   function bottlePot(p, quality){
     const types = (p.types || ['classic']).slice();
+    const ratios = {};
+    if(types.length > 1){
+      const mix = clamp(Number(p.mix) || 50, 10, 90);
+      ratios[types[0]] = mix;
+      ratios[types[1]] = 100 - mix;
+    }else{
+      ratios[types[0]] = 100;
+    }
     let count = 1;
     if(rogueActive() && rogueHas('goldPot')) count *= 2;
     if(rogueActive() && shrimpLevel('bigPot')) count *= 3;
@@ -6479,7 +6588,7 @@
     if(shrimpLevel('bigPot') && Math.random() < .33) q = Math.random() < .5 ? 'thin' : 'burnt';
     let last = null;
     for(let i=0;i<count;i++){
-      const batch = {id:++batchSeq, sugar:p.sugar, quality:q, types:types.slice()};
+      const batch = {id:++batchSeq, sugar:p.sugar, quality:q, types:types.slice(), ratios:{...ratios}};
       state.batches.push(batch); last = batch;
     }
     state.selectedBatch = last.id;
@@ -6554,16 +6663,28 @@
     if(!batch){ stopPour(); return; }
     const types = (batch.types && batch.types.length) ? batch.types : ['classic'];
     const add = POUR_RATE * 16.7;
-    const each = add / types.length;
-    types.forEach(id => { c.components[id] = clamp((c.components[id] || 0) + each, 0, 100); });
+    const ratios = batch.ratios || (types.length > 1 ? {[types[0]]:50, [types[1]]:50} : {[types[0]]:100});
+    types.forEach(id => {
+      const share = (ratios[id] != null ? ratios[id] : 100 / types.length) / 100;
+      c.components[id] = clamp((c.components[id] || 0) + add * share, 0, 100);
+    });
     c.syrup = clamp(c.syrup + add, 0, 100);
     if(!c.batchIds.includes(batch.id)) c.batchIds.push(batch.id);
+    // 记录倒入顺序：同一锅连续倒只累加一次，换锅就新增一条
+    if(!Array.isArray(c.pourLog)) c.pourLog = [];
+    const lastLog = c.pourLog[c.pourLog.length - 1];
+    if(lastLog && lastLog.batchId === batch.id){
+      lastLog.amount = clamp(lastLog.amount + add, 0, 100);
+    }else{
+      c.pourLog.push({batchId:batch.id, types:types.slice(), ratios:{...ratios}, amount:add});
+    }
     updateSyrupVisual();
     els.syrupFill.style.width = c.syrup + '%';
     els.syrupReadout.textContent = Math.round(c.syrup) + '%';
     const sb = SUGAR[state.order.sugar];
     els.syrupFill.classList.toggle('in-zone', Math.abs(c.syrup - sb.target) <= (state.order.tol || sb.tol));
     if(now - state.lastPourSfx > 110){ state.lastPourSfx = now; sfx.pour(); }
+    renderPourSeq();
     if(c.syrup >= 100){ stopPour(); toast('倒满啦，松手吧'); }
   }
 
@@ -6910,7 +7031,8 @@
       els.reviewTip.hidden = !tip;
       if(tip){
         const note = (result.tipNotes || []).slice(0, 4).join('、');
-        els.reviewTip.innerHTML = `<span>复杂订单小费${note ? ` · ${note}` : ''}</span><b>+${tip}</b>`;
+        const weekTag = rogueActive() && state.week > 1 ? ` · 第${state.week}周 ×${rogueTipWeekFactor().toFixed(2)}` : '';
+        els.reviewTip.innerHTML = `<span>复杂订单小费${note ? ` · ${note}` : ''}${weekTag}</span><b>+${tip}</b>`;
       }
     }
     if(els.reviewQueue){
@@ -7004,7 +7126,7 @@
     if(state.mode === 'rogue' && kind === 'weekPass'){
       ribbon = `肉鸽第 ${state.week} 周达标`;
       title = `第 ${state.week} 周 · 活下来了！`;
-      sub = `本周金币 <b>${state.weekEarned}</b> / ${state.weekTarget} · 下周目标 ${ROGUE_TARGET(state.week + 1)}`;
+      sub = `本周金币 <b>${state.weekEarned}</b> / ${state.weekTarget} · 下周目标 ${state.rogue.nextTarget || rogueGrowthTarget(state.weekTarget)}`;
       comment = `<b>第 ${state.week} 周达标！</b>辣虾和随机事件都挺过来了。下周目标更高，肉鸽夜市也在等你。`;
     }else if(state.mode === 'rogue' && kind === 'gameOver'){
       ribbon = '肉鸽周指标失败';
@@ -7108,9 +7230,12 @@
       state.rogue.shopStock = makeRogueShopStock();
       if((state.day - 1) % WEEK_DAYS === 0){
         state.weekEarned = 0;
-        state.weekTarget = ROGUE_TARGET(state.week);
+        const next = Number(state.rogue.nextTarget) || rogueGrowthTarget(state.rogue.weekTarget || ROGUE_BASE_TARGET);
+        state.weekTarget = next;
+        state.rogue.nextTarget = rogueGrowthTarget(next);
         state.rogue.week = state.week;
         state.rogue.weekTarget = state.weekTarget;
+        state.rogue.owlDay = null;
         state.rogue.events = rogueWeekEvents();
         state.rogue.shopStock = makeRogueShopStock();
         state.rogue.pendingShop = null;
@@ -7153,16 +7278,23 @@
     return activeProfile ? activeProfile.upgrades : state.upgrade;
   }
   function shopUnlocks(){
-    if(rogueActive()) return {toppings:state.rogue.toppings, jars:state.rogue.jars};
+    if(rogueActive()){
+      if(rogueOwlToday()) return {toppings:EXPANSION.topping.map(x => x.id), jars:EXPANSION.jar.map(x => x.id)};
+      return {toppings:state.rogue.toppings, jars:state.rogue.jars};
+    }
     return activeProfile ? activeProfile.unlocks : {toppings:[],jars:[]};
   }
   function shopItems(){
     const items = [];
     const u = shopUpgrades();
-    items.push({id:'pot', name:'备用熬糖锅', desc:`当前 ${u.pots} 口 · 最多 4 口，可以同时熬多锅`, price:potPrice(),
+    items.push({id:'pot', name:'备用熬糖锅', desc: rogueActive()
+        ? `当前 ${u.pots} 口 · 最多 4 口，本局有效（新开一局重置为 1 口）`
+        : `当前 ${u.pots} 口 · 最多 4 口，可以同时熬多锅`, price:potPrice(),
       owned:u.pots >= 4, label:u.pots >= 4 ? '已满 4 口' : `买 ${potPrice()}`,
       icon:`<svg class="icon" style="width:28px;height:28px;color:#B67F1A"><use href="#i-heat"></use></svg>`});
-    items.push({id:'alarm', name:'熬糖锅闹钟', desc:`买了拖到锅上 · 已有 ${u.alarms}/4 个，每口锅要单独设`, price:ALARM_PRICE,
+    items.push({id:'alarm', name:'熬糖锅闹钟', desc: rogueActive()
+        ? `买了拖到锅上 · 已有 ${u.alarms}/4 个，本局有效（新开一局重置）`
+        : `买了拖到锅上 · 已有 ${u.alarms}/4 个，每口锅要单独设`, price:ALARM_PRICE,
       owned:u.alarms >= 4, label:u.alarms >= 4 ? '已满 4 个' : `买 ${ALARM_PRICE}`,
       icon:`<svg class="icon" style="width:28px;height:28px;color:#8A6842"><use href="#i-clock"></use></svg>`});
     Object.keys(KNIVES).forEach(id => {
@@ -7435,9 +7567,8 @@
     state.rogue.items[id] = owned + 1;
     if(id === 'reroll') state.rogue.rerolls += 1;
     if(id === 'sugarOwl'){
-      state.rogue.toppings = EXPANSION.topping.map(x => x.id);
-      state.rogue.jars = EXPANSION.jar.map(x => x.id);
-      state.rogue.syrups = ['honey','maple','honeysuckle'];
+      state.rogue.owlDay = state.day;
+      toast('糖枭生效：今天所有材料、罐子、糖浆都能用（明天失效）');
     }
     renderRogueShop();
     renderRogueHud();
@@ -7760,6 +7891,10 @@
       if(stop){ stopBoil(Number(stop.dataset.potStop)); return; }
       const dump = e.target.closest('[data-pot-dump]');
       if(dump){ dumpPot(Number(dump.dataset.potDump)); return; }
+    });
+    els.potGrid.addEventListener('input', e => {
+      const mix = e.target.closest('[data-pot-mix]');
+      if(mix) setPotMix(Number(mix.dataset.potMix), mix.value);
     });
     if(els.alarmTrayItems){
       let alarmDrag = null;
