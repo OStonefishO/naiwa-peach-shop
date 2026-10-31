@@ -3630,11 +3630,7 @@
       if(!state.can.toppingTouched) miss.push('加料');
       text = miss.length ? `还差：<b>${miss.join('、')}</b>。回工作台继续装罐吧。` : `都配齐了，去工作台点「封盖」，再回来出餐。`;
     }
-    els.deskStatus.innerHTML = text + (canUseWolfClub()
-      ? '<div style="margin-top:6px"><button class="ghost-btn" id="wolfClubBtn" type="button" style="height:28px;font-size:9px">🐺 用狼牙棒把这位客人变成「大方」</button></div>'
-      : '');
-    const wcb = document.getElementById('wolfClubBtn');
-    if(wcb) wcb.onclick = useWolfClub;
+    els.deskStatus.innerHTML = text;
     if(tutorialActive() && state.can.sealed && !orderOnRack()){
       const sid = `d${state.day}-submit`;
       if(!state.tutorial) state.tutorial = { seen:{} };
@@ -4597,6 +4593,8 @@
       if((state.rogue.items.personality || 0) > 0) chips.push(`<span class="rogue-item-chip">性格改造 ×${state.rogue.items.personality}<button type="button" data-use-item="personality">使用</button></span>`);
       if((state.rogue.items.reroll || 0) > 0) chips.push(`<span class="rogue-item-chip">再来一份 ×${state.rogue.items.reroll}</span>`);
       if((state.rogue.items.goldPot || 0) > 0) chips.push(`<span class="rogue-item-chip passive">黄金锅 ×${state.rogue.items.goldPot}</span>`);
+      if((state.rogue.items.wolfClub || 0) > 0) chips.push(`<span class="rogue-item-chip">🐺 狼牙棒 ×${state.rogue.items.wolfClub}<button type="button" data-use-item="wolfClub">使用</button></span>`);
+      if((state.rogue.items.pourGuard || 0) > 0) chips.push(`<span class="rogue-item-chip passive">糖浆隔断板 · 生效中</span>`);
       if((state.rogue.items.doubao || 0) > 0) chips.push(`<span class="rogue-item-chip passive">豆包 ×${state.rogue.items.doubao}</span>`);
       if(rogueOwlToday()) chips.push(`<span class="rogue-item-chip passive">糖枭 · 今日生效</span>`);
       els.rogueItemsBar.innerHTML = chips.join('') || '<span class="rogue-item-chip passive">暂无可用增幅道具</span>';
@@ -4644,6 +4642,11 @@
     if(!rogueActive()) return;
     const n = state.rogue.items[id] || 0;
     if(n <= 0) return toast('这个道具已经用完了');
+    if(id === 'wolfClub'){
+      if(!canUseWolfClub()){ toast('现在没有需要「狼牙棒」的负面性格客人'); return; }
+      useWolfClub();
+      return;
+    }
     if(id === 'cashback'){
       state.rogue.items.cashback = n - 1;
       state.rogue.cashbackReady = true;
