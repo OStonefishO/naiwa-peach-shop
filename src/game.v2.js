@@ -533,6 +533,7 @@
     if(state.phase === 'playing') return (state.stage === 'desk' || state.stage === 'restaurant') ? 'desk' : 'work';
     return 'summary';
   }
+  let bgmUnlocked = false, bgmTries = 0, bgmWantedKey = null;
   function bgmRetry(delay=1200){
     clearTimeout(bgmRetryTimer);
     bgmRetryTimer = setTimeout(() => {
@@ -541,27 +542,74 @@
       if(bgmEl.paused) tryBgmPlay();
     }, delay);
   }
+  function bgmWatch(reason){
+    if(!bgmEl) bgmEl = els.bgm;
+    if(!bgmEl) return;
+    const key = musicKeyFor();
+    bgmWantedKey = key;
+    if(!state.sound){ try{ bgmEl.pause(); }catch(e){} return; }
+    if(bgmKey !== key || !bgmEl.getAttribute('src') || !bgmEl.currentSrc){
+      bgmKey = key;
+      ++bgmToken;
+      try{
+        bgmEl.pause();
+        bgmEl.loop = true;
+        bgmEl.src = MUSIC[key];
+        bgmEl.load();
+        applyAudioVolumes();
+      }catch(e){}
+    }
+    tryBgmPlay();
+  }
   function tryBgmPlay(){
     if(!bgmEl || !state.sound || document.hidden) return;
-    if(!bgmEl.paused) return;
+    if(!bgmEl.paused) { bgmTries = 0; return; }
     const p = bgmEl.play();
-    if(p && p.catch) p.catch(() => bgmRetry(1800));
+    if(!p) return;
+    if(p.then){
+      p.then(() => { bgmTries = 0; }).catch(() => {
+        bgmTries = Math.min(bgmTries + 1, 8);
+        if(bgmTries <= 6){
+          bgmRetry(Math.min(600 * bgmTries, 4000));
+        }
+      });
+    }
+  }
+  function unlockBgm(){
+    if(!bgmEl) bgmEl = els.bgm;
+    if(!bgmEl) return;
+    if(bgmUnlocked) return;
+    bgmUnlocked = true;
+    try{
+      const wasMuted = bgmEl.muted;
+      bgmEl.muted = true;
+      if(!bgmEl.getAttribute('src')) bgmWatch('unlock');
+      const p = bgmEl.play();
+      const fin = () => {
+        try{ bgmEl.pause(); bgmEl.currentTime = 0; }catch(e){}
+        bgmEl.muted = wasMuted;
+        applyAudioVolumes();
+        bgmTries = 0;
+        bgmWatch('unlocked');
+      };
+      if(p && p.then) p.then(fin).catch(fin); else fin();
+    }catch(e){}
   }
   function playBgm(key){
     if(!bgmEl) bgmEl = els.bgm;
     if(!bgmEl) return;
-    if(!state.sound){ bgmEl.pause(); return; }
-    if(bgmKey === key){
-      if(bgmEl.paused) tryBgmPlay();
-      return;
-    }
+    if(!state.sound){ try{ bgmEl.pause(); }catch(e){} return; }
+    if(bgmKey === key && bgmEl.currentSrc && !bgmEl.paused) return;
     bgmKey = key;
+    bgmWantedKey = key;
     ++bgmToken;
     try{
-      bgmEl.pause();
       bgmEl.loop = true;
-      bgmEl.src = MUSIC[key];
-      bgmEl.load();
+      if(bgmEl.getAttribute('src') !== MUSIC[key] || !bgmEl.currentSrc){
+        bgmEl.pause();
+        bgmEl.src = MUSIC[key];
+        bgmEl.load();
+      }
       applyAudioVolumes();
       tryBgmPlay();
     }catch(e){ bgmRetry(1600); }
@@ -570,22 +618,38 @@
     playBgm(musicKeyFor());
   }
   function setupBgmResilience(){
+    if(!bgmEl) bgmEl = els.bgm;
     if(!bgmEl || bgmEl.dataset.resilient === '1') return;
     bgmEl.dataset.resilient = '1';
     bgmEl.addEventListener('ended', () => { if(state.sound) playBgm(bgmKey || musicKeyFor()); });
-    bgmEl.addEventListener('error', () => bgmRetry(2000));
-    bgmEl.addEventListener('stalled', () => bgmRetry(2000));
-    bgmEl.addEventListener('pause', () => { if(state.sound && !document.hidden) bgmRetry(1200); });
-    const resume = () => {
+    bgmEl.addEventListener('error', () => bgmRetry(1200));
+    bgmEl.addEventListener('stalled', () => bgmRetry(1500));
+    bgmEl.addEventListener('suspend', () => { if(state.sound && !bgmEl.paused && !document.hidden) bgmRetry(2500); });
+    const kick = () => {
+      try{ ensureAudio(); }catch(e){}
+      unlockBgm();
       if(!state.sound) return;
-      ensureAudio();
-      if(bgmEl.paused) tryBgmPlay();
+      bgmWatch('gesture');
     };
-    document.addEventListener('pointerdown', resume, {passive:true});
-    document.addEventListener('touchstart', resume, {passive:true});
+    ['pointerdown','touchstart','touchend','mousedown','keydown','click','scroll'].forEach(evt => {
+      document.addEventListener(evt, kick, { passive: true, capture: true });
+    });
+    document.addEventListener('visibilitychange', () => {
+      if(document.hidden) return;
+      unlockBgm();
+      bgmWatch('visible');
+    });
+    window.addEventListener('pageshow', () => bgmWatch('pageshow'));
+    window.addEventListener('focus', () => bgmWatch('focus'));
+    window.addEventListener('online', () => bgmWatch('online'));
     setInterval(() => {
-      if(state.sound && !document.hidden && bgmEl && bgmEl.paused) tryBgmPlay();
-    }, 4000);
+      if(!state.sound || document.hidden || !bgmEl) return;
+      if(bgmEl.paused){
+        bgmWatch('watchdog');
+      }else if(bgmEl.ended){
+        playBgm(bgmKey || musicKeyFor());
+      }
+    }, 2000);
   }
 
   /* -------------------- 存档 -------------------- */
@@ -6130,6 +6194,7 @@
     els.game.dataset.stage = 'desk';
     bgmEl = els.bgm;
     setupBgmResilience();
+    cueMusic();
     updateSoundButton();
     syncSettingsUI();
     syncDevModeUI();
@@ -6152,7 +6217,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
+      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
     }
   }
 
