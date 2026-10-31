@@ -4095,19 +4095,32 @@
       onOk:discardSyrup
     });
   }
+  function clearCanSyrup(){
+    const c = state.can;
+    c.components = {classic:0, honey:0, maple:0, honeysuckle:0};
+    c.syrup = 0;
+    c.pourLog = [];
+    c.batchIds = [];
+    c.batchId = null;
+  }
   function discardSyrup(){
     const c = state.can;
     if(!c || !(c.syrup > 0)){ toast('罐里还没有糖水'); return; }
     if(c.sealed){ toast('已经封盖了，要重来请点下面的「重做」'); return; }
     if(state.pouring) stopPour();
     const had = Math.round(c.syrup);
-    c.components = {classic:0, honey:0, maple:0, honeysuckle:0};
-    c.syrup = 0;
-    c.pourLog = [];
+    clearCanSyrup();
     state.selectedBatch = null;
     renderCan();
     renderWork();
     renderHint();
+    if(els.syrupFill){
+      els.syrupFill.style.width = '0%';
+      els.syrupFill.classList.remove('in-zone');
+    }
+    if(els.syrupReadout) els.syrupReadout.textContent = '0%';
+    if(els.pourBtn) els.pourBtn.classList.remove('pouring');
+    if(els.pourSeq) els.pourSeq.innerHTML = '';
     toast(`倒掉了 ${had}% 糖水，要重新倒`);
   }
   function discardBatch(id){
@@ -4117,14 +4130,23 @@
     if(state.pouring) stopPour();
     const q = batch.quality === 'thin' ? '偏生' : batch.quality === 'burnt' ? '焦苦' : '火候完美';
     const desc = `${batchMixLabel(batch)} ${batch.sugar} 勺 · ${q}`;
+    const inCan = (state.can.batchIds || []).includes(id) || state.can.batchId === id;
+    const had = inCan ? Math.round(state.can.syrup) : 0;
     state.batches = state.batches.filter(b => b.id !== id);
     if(state.selectedBatch === id) state.selectedBatch = null;
     if(state.can.batchId === id) state.can.batchId = null;
+    if(inCan) clearCanSyrup();
     sfx.remove();
     renderWork();
     renderCan();
     renderHint();
-    toast(`倒掉了：${desc}`);
+    if(inCan && els.syrupFill){
+      els.syrupFill.style.width = '0%';
+      els.syrupFill.classList.remove('in-zone');
+      if(els.syrupReadout) els.syrupReadout.textContent = '0%';
+      if(els.pourSeq) els.pourSeq.innerHTML = '';
+    }
+    toast(inCan && had ? `倒掉了：${desc}（含罐里 ${had}% 糖水）` : `倒掉了：${desc}`);
     return true;
   }
   function tickPour(now){
@@ -4406,15 +4428,20 @@
     const perfect = !timedOut && score >= maxScore;
     const stars = score >= 90 ? 3 : score >= 70 ? 2 : score >= 45 ? 1 : 0;
     const tipInfo = orderTip(o);
-    const flatTip = rogueActive() && !timedOut ? 4 : 0;
-    const tipBase = timedOut ? 0 : tipInfo.tip + flatTip;
+    // 基础小费 = 客人按评分给出的那一笔小费；加算 = 订单复杂度额外给的小费
+    const scoreTip = timedOut ? 0 : 8 + Math.round(score * .12) + (perfect ? 5 : 0);
+    const addTip = timedOut ? 0 : tipInfo.tip;
+    const tipBase = scoreTip + addTip;
     const tipLines = [];
     let tipMul = 1;
     const mulLines = [];
     if(tipBase > 0){
       tipLines.push({sec:'基础小费'});
-      if(flatTip) tipLines.push({k:'订单基础小费', v:`+${flatTip}`});
-      if(tipInfo.tip) tipLines.push({k:'额外小费（加算）', v:`+${tipInfo.tip}`});
+      tipLines.push({k:`客人评分小费（${score} 分）`, v:`+${scoreTip}`});
+      if(addTip){
+        tipLines.push({sec:'加算小费'});
+        tipLines.push({k:'复杂订单 / 加料加算', v:`+${addTip}`});
+      }
       tipLines.push({k:'小计（基础 + 加算）', v:`+${tipBase}`, sub:true});
     }
     if(rogueActive() && !timedOut){
@@ -4448,7 +4475,6 @@
       mulLines.push({k:`${state.guest.name} 的小费倍率`, v:`×${coinMul}`});
       tipMul *= coinMul;
     }
-    const baseCoins = timedOut ? 0 : 8 + Math.round(score * .12) + (perfect ? 5 : 0);
     const tipCoins = Math.round(tipBase * tipMul);
     if(mulLines.length){
       tipLines.push({sec:'乘算加成'});
@@ -4458,7 +4484,7 @@
       tipLines.push({sec:'结算'});
       tipLines.push({k:'小费合计', v:`+${tipCoins}`, total:true});
     }
-    let coins = Math.round(baseCoins * coinMul) + tipCoins;
+    let coins = tipCoins;
     if(rogueActive()){
       coins = Math.round(coins * rogueCoinMultiplier());
       if(shrimpLevel('redEye') && (state.guest.tier === 'elite' || state.guest.tier === 'boss')) coins *= 5;
@@ -4479,7 +4505,7 @@
       details.push({ok:queueDelta > 0, label:'排队', text: queueDelta > 0 ? `提前服务 +${queueDelta}` : `被插队 ${queueDelta}`});
     }
     details.push({ok:speedScore===6, label:'出餐速度', text: timedOut ? '超时了…' : speedScore===6 ? '手速超快' : speedScore===4 ? '稍微有点慢' : '客人等急了'});
-    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipBase, tipInfoTip:tipInfo.tip, tipLines, tipNotes:tipInfo.notes, details, timedOut, guest:state.guest};
+    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipBase, scoreTip, addTip, tipInfoTip:tipInfo.tip, tipLines, tipNotes:tipInfo.notes, details, timedOut, guest:state.guest};
   }
 
   function commentFor(result){
@@ -5384,6 +5410,14 @@
       let dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragMoved = false, dragPointer = null;
       let chipDrag = null;
       const trashHot = on => { if(els.discardBtn) els.discardBtn.classList.toggle('drop-hot', on); };
+      const trashMode = on => {
+        if(!els.discardBtn) return;
+        els.discardBtn.classList.toggle('drop-ready', !!on);
+        const label = els.discardBtn.querySelector('.discard-label');
+        if(label) label.textContent = on ? '丢弃糖水' : '倒糖水';
+        els.discardBtn.setAttribute('aria-label', on ? '把糖水拖到这里丢弃' : '倒掉罐里的糖水');
+        els.discardBtn.title = on ? '把糖水拖到这里丢弃' : '倒掉罐里的糖水';
+      };
       const dropOnTrash = (x, y) => {
         if(!els.discardBtn) return false;
         const r = els.discardBtn.getBoundingClientRect();
@@ -5395,6 +5429,7 @@
         if(chipDrag && chipDrag.chip) chipDrag.chip.classList.remove('ghost-origin');
         chipDrag = null;
         trashHot(false);
+        trashMode(false);
       };
       els.batchStrip.addEventListener('pointerdown', e => {
         if(e.pointerType === 'mouse' && e.button !== 0) return;
@@ -5421,6 +5456,7 @@
           chipDrag.ox = e.clientX - rect.left;
           chipDrag.oy = e.clientY - rect.top;
           chipDrag.chip.classList.add('ghost-origin');
+          trashMode(true);
         }
         if(chipDrag && chipDrag.started){
           if(chipDrag.ghost){

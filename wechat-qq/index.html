@@ -13,7 +13,7 @@
 <meta property="og:title" content="奶蛙黄桃罐头店 · 点开即玩">
 <meta property="og:description" content="接单、装罐、封盖、出餐，做一罐甜甜的黄桃罐头。微信/QQ 内直接打开。">
 <meta property="og:type" content="website">
-<title>奶蛙黄桃罐头店 · 正式版 2.4</title>
+<title>奶蛙黄桃罐头店 · 正式版 2.6</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23FFD23F'/%3E%3Ccircle cx='50' cy='58' r='27' fill='%23FFC42E'/%3E%3Ccircle cx='39' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='61' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='50' cy='72' r='4' fill='%23FFF3CE'/%3E%3C/svg%3E">
 <style>
   :root{
@@ -430,9 +430,24 @@
   }
   .ctrl-title{font-size:9.5px;font-weight:900;color:#75522F;letter-spacing:.15px;white-space:nowrap}
   .ctrl-note{margin-left:auto;font-size:7.5px;font-weight:800;color:#AD8B61;white-space:nowrap}
-  .discard-btn{width:22px;height:22px;padding:0;border:1.5px solid #E7D2AC;border-radius:7px;background:#FFF9EE;color:#9C7A4A;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto}
+  .discard-btn{position:relative;min-width:58px;height:25px;padding:0 7px;border:1.5px solid #E7D2AC;border-radius:8px;background:#FFF9EE;color:#9C7A4A;display:inline-flex;align-items:center;justify-content:center;gap:3px;cursor:pointer;flex:0 0 auto;transition:background .15s,color .15s,border-color .15s,transform .12s}
   .discard-btn .icon{width:13px;height:13px}
-  .discard-btn:active{transform:scale(.92)}
+  .discard-label{font-size:7.4px;font-weight:900;line-height:1;letter-spacing:.2px;white-space:nowrap}
+  .discard-btn::after{content:'';position:absolute;inset:-9px -6px;border-radius:12px}
+  .discard-btn:active{transform:scale(.94)}
+  .discard-btn.drop-ready{
+    border-color:#E0A33F;background:#FFF3D6;color:#8A5A18;
+    animation:trashPulse 1.15s ease-in-out infinite
+  }
+  .discard-btn.drop-hot{
+    border-color:#C4543A;background:#FFDFD3;color:#AE3823;
+    box-shadow:0 0 0 5px rgba(196,84,58,.18);transform:scale(1.07);animation:none
+  }
+  .discard-btn.drop-hot .icon{width:15px;height:15px}
+  @keyframes trashPulse{
+    0%,100%{box-shadow:0 0 0 0 rgba(224,163,63,.4)}
+    50%{box-shadow:0 0 0 7px rgba(224,163,63,0)}
+  }
   .size-options{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
   .size-btn{
     position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -2363,7 +2378,7 @@
 
       <div class="ctrl-card syrup-card" id="syrupCard">
         <div class="ctrl-head"><span class="stepnum">3</span><span class="ctrl-title">倒糖水</span>
-          <button class="discard-btn" id="discardBtn" type="button" aria-label="倒掉罐里的糖水" title="倒掉罐里的糖水"><svg class="icon"><use href="#i-trash"></use></svg></button>
+          <button class="discard-btn" id="discardBtn" type="button" aria-label="倒掉罐里的糖水" title="倒掉罐里的糖水"><svg class="icon"><use href="#i-trash"></use></svg><span class="discard-label">倒糖水</span></button>
           <span class="ctrl-note" id="syrupNote">选一锅熬好的糖水</span></div>
         <div class="batch-strip" id="batchStrip"></div>
         <div class="batch-scroll-wrap" id="batchScrollWrap" hidden>
@@ -2786,7 +2801,7 @@
         <button id="devExitBtn" class="redeem-exit" type="button" hidden>退出开发者模式</button>
       </div>
       <button class="settings-codex" id="codexFromSettings" type="button">📖 打开奶蛙图鉴</button>
-      <button class="settings-changelog" id="changelogBtn" type="button">📝 更新日志 · 2.4 排行榜与小费分段</button>
+      <button class="settings-changelog" id="changelogBtn" type="button">📝 更新日志 · 2.6 小费口径</button>
       <button class="settings-pause" id="settingsPauseBtn" type="button" hidden>暂时打烊（保存进度）</button>
       <button class="settings-early" id="settingsEarlyBtn" type="button" hidden>提前下班</button>
       <button class="settings-done" id="settingsDone" type="button">完成</button>
@@ -6934,19 +6949,32 @@
       onOk:discardSyrup
     });
   }
+  function clearCanSyrup(){
+    const c = state.can;
+    c.components = {classic:0, honey:0, maple:0, honeysuckle:0};
+    c.syrup = 0;
+    c.pourLog = [];
+    c.batchIds = [];
+    c.batchId = null;
+  }
   function discardSyrup(){
     const c = state.can;
     if(!c || !(c.syrup > 0)){ toast('罐里还没有糖水'); return; }
     if(c.sealed){ toast('已经封盖了，要重来请点下面的「重做」'); return; }
     if(state.pouring) stopPour();
     const had = Math.round(c.syrup);
-    c.components = {classic:0, honey:0, maple:0, honeysuckle:0};
-    c.syrup = 0;
-    c.pourLog = [];
+    clearCanSyrup();
     state.selectedBatch = null;
     renderCan();
     renderWork();
     renderHint();
+    if(els.syrupFill){
+      els.syrupFill.style.width = '0%';
+      els.syrupFill.classList.remove('in-zone');
+    }
+    if(els.syrupReadout) els.syrupReadout.textContent = '0%';
+    if(els.pourBtn) els.pourBtn.classList.remove('pouring');
+    if(els.pourSeq) els.pourSeq.innerHTML = '';
     toast(`倒掉了 ${had}% 糖水，要重新倒`);
   }
   function discardBatch(id){
@@ -6956,14 +6984,23 @@
     if(state.pouring) stopPour();
     const q = batch.quality === 'thin' ? '偏生' : batch.quality === 'burnt' ? '焦苦' : '火候完美';
     const desc = `${batchMixLabel(batch)} ${batch.sugar} 勺 · ${q}`;
+    const inCan = (state.can.batchIds || []).includes(id) || state.can.batchId === id;
+    const had = inCan ? Math.round(state.can.syrup) : 0;
     state.batches = state.batches.filter(b => b.id !== id);
     if(state.selectedBatch === id) state.selectedBatch = null;
     if(state.can.batchId === id) state.can.batchId = null;
+    if(inCan) clearCanSyrup();
     sfx.remove();
     renderWork();
     renderCan();
     renderHint();
-    toast(`倒掉了：${desc}`);
+    if(inCan && els.syrupFill){
+      els.syrupFill.style.width = '0%';
+      els.syrupFill.classList.remove('in-zone');
+      if(els.syrupReadout) els.syrupReadout.textContent = '0%';
+      if(els.pourSeq) els.pourSeq.innerHTML = '';
+    }
+    toast(inCan && had ? `倒掉了：${desc}（含罐里 ${had}% 糖水）` : `倒掉了：${desc}`);
     return true;
   }
   function tickPour(now){
@@ -7245,15 +7282,20 @@
     const perfect = !timedOut && score >= maxScore;
     const stars = score >= 90 ? 3 : score >= 70 ? 2 : score >= 45 ? 1 : 0;
     const tipInfo = orderTip(o);
-    const flatTip = rogueActive() && !timedOut ? 4 : 0;
-    const tipBase = timedOut ? 0 : tipInfo.tip + flatTip;
+    // 基础小费 = 客人按评分给出的那一笔小费；加算 = 订单复杂度额外给的小费
+    const scoreTip = timedOut ? 0 : 8 + Math.round(score * .12) + (perfect ? 5 : 0);
+    const addTip = timedOut ? 0 : tipInfo.tip;
+    const tipBase = scoreTip + addTip;
     const tipLines = [];
     let tipMul = 1;
     const mulLines = [];
     if(tipBase > 0){
       tipLines.push({sec:'基础小费'});
-      if(flatTip) tipLines.push({k:'订单基础小费', v:`+${flatTip}`});
-      if(tipInfo.tip) tipLines.push({k:'额外小费（加算）', v:`+${tipInfo.tip}`});
+      tipLines.push({k:`客人评分小费（${score} 分）`, v:`+${scoreTip}`});
+      if(addTip){
+        tipLines.push({sec:'加算小费'});
+        tipLines.push({k:'复杂订单 / 加料加算', v:`+${addTip}`});
+      }
       tipLines.push({k:'小计（基础 + 加算）', v:`+${tipBase}`, sub:true});
     }
     if(rogueActive() && !timedOut){
@@ -7287,7 +7329,6 @@
       mulLines.push({k:`${state.guest.name} 的小费倍率`, v:`×${coinMul}`});
       tipMul *= coinMul;
     }
-    const baseCoins = timedOut ? 0 : 8 + Math.round(score * .12) + (perfect ? 5 : 0);
     const tipCoins = Math.round(tipBase * tipMul);
     if(mulLines.length){
       tipLines.push({sec:'乘算加成'});
@@ -7297,7 +7338,7 @@
       tipLines.push({sec:'结算'});
       tipLines.push({k:'小费合计', v:`+${tipCoins}`, total:true});
     }
-    let coins = Math.round(baseCoins * coinMul) + tipCoins;
+    let coins = tipCoins;
     if(rogueActive()){
       coins = Math.round(coins * rogueCoinMultiplier());
       if(shrimpLevel('redEye') && (state.guest.tier === 'elite' || state.guest.tier === 'boss')) coins *= 5;
@@ -7318,7 +7359,7 @@
       details.push({ok:queueDelta > 0, label:'排队', text: queueDelta > 0 ? `提前服务 +${queueDelta}` : `被插队 ${queueDelta}`});
     }
     details.push({ok:speedScore===6, label:'出餐速度', text: timedOut ? '超时了…' : speedScore===6 ? '手速超快' : speedScore===4 ? '稍微有点慢' : '客人等急了'});
-    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipBase, tipInfoTip:tipInfo.tip, tipLines, tipNotes:tipInfo.notes, details, timedOut, guest:state.guest};
+    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipBase, scoreTip, addTip, tipInfoTip:tipInfo.tip, tipLines, tipNotes:tipInfo.notes, details, timedOut, guest:state.guest};
   }
 
   function commentFor(result){
@@ -8223,6 +8264,14 @@
       let dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragMoved = false, dragPointer = null;
       let chipDrag = null;
       const trashHot = on => { if(els.discardBtn) els.discardBtn.classList.toggle('drop-hot', on); };
+      const trashMode = on => {
+        if(!els.discardBtn) return;
+        els.discardBtn.classList.toggle('drop-ready', !!on);
+        const label = els.discardBtn.querySelector('.discard-label');
+        if(label) label.textContent = on ? '丢弃糖水' : '倒糖水';
+        els.discardBtn.setAttribute('aria-label', on ? '把糖水拖到这里丢弃' : '倒掉罐里的糖水');
+        els.discardBtn.title = on ? '把糖水拖到这里丢弃' : '倒掉罐里的糖水';
+      };
       const dropOnTrash = (x, y) => {
         if(!els.discardBtn) return false;
         const r = els.discardBtn.getBoundingClientRect();
@@ -8234,6 +8283,7 @@
         if(chipDrag && chipDrag.chip) chipDrag.chip.classList.remove('ghost-origin');
         chipDrag = null;
         trashHot(false);
+        trashMode(false);
       };
       els.batchStrip.addEventListener('pointerdown', e => {
         if(e.pointerType === 'mouse' && e.button !== 0) return;
@@ -8260,6 +8310,7 @@
           chipDrag.ox = e.clientX - rect.left;
           chipDrag.oy = e.clientY - rect.top;
           chipDrag.chip.classList.add('ghost-origin');
+          trashMode(true);
         }
         if(chipDrag && chipDrag.started){
           if(chipDrag.ghost){
@@ -8731,7 +8782,7 @@
       <button class="codex-close" id="changelogClose" type="button">✕</button>
       <div class="rogue-kicker">CHANGELOG</div>
       <h2>更新日志</h2>
-      <div class="changelog-body"><div class="changelog-item"><b>2.4 · 排行榜与小费分段</b><span>排行榜新增「肉鸽排行榜」页签，无尽/肉鸽各自记录最远周数与累计金币（失败的当周也会记入）；小费结算改成「基础小费 + 额外加算 → 小计 → 乘算 → 合计」四段。</span></div>
+      <div class="changelog-body"><div class="changelog-item"><b>2.6 · 小费口径修正</b><span>基础小费改成「客人按评分给的那笔小费」（100 分约 25 金币），再加上复杂订单的加算，最后统一乘周成长、道具和客人倍率——小费不再被固定 4 块拉低，肉鸽每周涨目标时收入也跟得上。</span></div><div class="changelog-item"><b>2.5 · 倒糖按钮强化</b><span>「倒糖水」改成带文字的宽按钮；拖起糖水时按钮会高亮并显示「丢弃糖水」，拖到上面松手即丢弃（含罐里已倒的糖水，进度条一起清零）。</span></div><div class="changelog-item"><b>2.4 · 排行榜与小费分段</b><span>排行榜新增「肉鸽排行榜」页签，无尽/肉鸽各自记录最远周数与累计金币（失败的当周也会记入）；小费结算改成「基础小费 + 额外加算 → 小计 → 乘算 → 合计」四段。</span></div>
         <div class="changelog-item"><b>2.3 · 事件日修复</b><span>修掉「刚开局就提示本周事件已过」：事件日现在会在整周里分散安排（两天以上时必有一天落在后半周），服务台信息框也会显示「本周还有 N 个事件日（第 X、Y 天）」，只有所有事件日都过完才写「本周事件日已结束」。</span></div><div class="changelog-item"><b>2.2 · 小费结算改版</b><span>肉鸽小费改成**跟着本周金币目标一起长**：周倍率 = 本周目标 ÷ 400（第 1 周 ×1，第 4 周约 ×9.9），目标涨多少小费就涨多少，不会再出现「第四周还只有几十块」。评价页拆成三段：<b>基础小费</b>（订单基础小费 + 复杂订单小费）→ <b>乘算加成</b>（第 N 周成长、来财、淘金热、实验虾、客人倍率）→ <b>结算</b>（小费合计）；肉鸽每单还会给 4 金币的订单基础小费。</span></div><div class="changelog-item"><b>2.1 · 废糖处理</b><span>熬废的糖（焦苦、偏生）不用再占着位置：把上面那一排糖水批次 <b>按住拖到垃圾桶</b> 就能直接扔掉；已经用掉的那锅会自动从列表消失，糖水条只剩还能用的，横向滑动也更省事。罐里倒多的糖水仍然可以点「倒糖水」旁的垃圾桶清空。</span></div><div class="changelog-item"><b>2.0 · 肉鸽难度上调</b><span>每周金币目标的成长从 +40%～+100% 提到 <b>+80%～+160%</b>：第 1 周 400，第 2 周变成 720～1040，之后继续按上一周目标乘，越往后压力越大。随机事件日改成每周至少 1 天、至多 3 天：基础随机 1～2 天，辣虾「血色十字架」和夜市「事件日历」各 +1 天，但总数封顶 3 天。</span></div>
         <div class="changelog-item"><b>1.9 · 倒糖按钮与糖枭修复</b><span>「倒糖水」标题旁多了一个垃圾桶按钮：点一下会问「倒掉罐里的糖水？」，选「是」就把罐里的糖水全部倒掉重新倒（熬好的糖不退回）。糖枭也修好了：买下当天，工作台的小料、厨房的糖浆、罐子立刻全部可用，金币商店的糖浆页会显示「已解锁」；打烊后在夜市买会顺延到第二天生效；从夜市点「返回」不再跳到结算页。</span></div>
         <div class="changelog-item"><b>1.8 · 罐型区分与大金罐</b><span>窄口罐、广口罐和经典罐的罐口宽度、罐身轮廓分开了：窄口有肩膀、口更小，广口外撇、口更大，一眼能认出来。肉鸽辣虾「大金罐」会把台上的罐头变成金色（金色瓶身 + GOLD 标签），并且用它时订单的「罐型」「罐子」都自动算通过，小费再 +20%。</span></div>
