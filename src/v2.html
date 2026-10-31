@@ -13,7 +13,7 @@
 <meta property="og:title" content="奶蛙黄桃罐头店 · 点开即玩">
 <meta property="og:description" content="接单、装罐、封盖、出餐，做一罐甜甜的黄桃罐头。微信/QQ 内直接打开。">
 <meta property="og:type" content="website">
-<title>奶蛙黄桃罐头店 · 正式版 3.0</title>
+<title>奶蛙黄桃罐头店 · 正式版 3.1</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23FFD23F'/%3E%3Ccircle cx='50' cy='58' r='27' fill='%23FFC42E'/%3E%3Ccircle cx='39' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='61' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='50' cy='72' r='4' fill='%23FFF3CE'/%3E%3C/svg%3E">
 <style>
   :root{
@@ -276,6 +276,44 @@
   .frog svg{width:100%;height:100%;overflow:visible}
   .frog-idle{animation:frogBob 2.4s ease-in-out infinite;transform-origin:center bottom}
   @keyframes frogBob{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-2px) rotate(1deg)}}
+
+  /* 全套皮肤：捧腹奶蛙 */
+  body.char-blob .frog > svg,
+  body.char-blob .room-doll > svg,
+  body.char-blob .dress-doll > svg,
+  body.char-blob .summary-frog > svg,
+  body.char-blob .hint-frog > svg,
+  body.char-blob .sp-frog > svg{display:none}
+  .char-img{
+    position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+    height:100%;width:auto;max-width:none;object-fit:contain;
+    filter:drop-shadow(0 6px 4px rgba(90,55,20,.18));pointer-events:none;user-select:none;
+  }
+  .summary-frog .char-img{height:100%}
+  body.char-blob .frog{left:-8px;width:88px;height:104px;bottom:26px}
+  .frog > .char-img{bottom:0}
+  body.char-blob .summary-frog{width:120px;height:126px}
+  .hint-frog .char-img{position:static;transform:none;height:100%;filter:none}
+  body.char-blob .summary-frog .char-img.is-laugh{animation:bellyLaugh 1.5s ease-in-out infinite;transform-origin:50% 90%}
+  @keyframes bellyLaugh{
+    0%,100%{transform:translateX(-50%) rotate(-2deg)}
+    35%{transform:translateX(-50%) rotate(2.5deg) scale(1.05)}
+    70%{transform:translateX(-50%) rotate(-1deg) scale(.98)}
+  }
+  .char-skin-row{display:grid;gap:6px;margin-bottom:10px}
+  .char-skin-card{
+    display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:8px;
+    padding:7px 9px;border:1.5px solid #E9CD9C;border-radius:12px;background:#FFFDF6;cursor:pointer;
+    font-family:inherit;text-align:left;color:inherit;transition:border-color .15s,background .15s;
+  }
+  .char-skin-card.active{border-color:#E8A93A;background:#FFF4D8;box-shadow:0 0 0 2px rgba(232,169,58,.18) inset}
+  .char-skin-card .cs-thumb{width:44px;height:48px;display:grid;place-items:center;background:#F6EBD2;border-radius:9px;overflow:hidden}
+  .char-skin-card .cs-thumb svg,.char-skin-card .cs-thumb img{width:100%;height:100%;object-fit:contain}
+  .char-skin-card .cs-copy{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .char-skin-card .cs-copy b{font-size:9.6px;color:#5A3B20}
+  .char-skin-card .cs-copy small{font-size:7.4px;color:#96754B;line-height:1.35}
+  .char-skin-card em{font-style:normal;font-size:7.6px;font-weight:900;color:#A96E1C;white-space:nowrap}
+  .char-skin-card.active em{color:#3B8A5A}
 
   /* 吧台 */
   .counter{position:absolute;left:0;right:0;bottom:0;height:65px;z-index:20}
@@ -2582,7 +2620,7 @@
       <h2 class="summary-title" id="summaryTitle">第 1 天 · 打烊啦</h2>
       <div class="summary-sub" id="summarySub">奶蛙把今天的罐头都卖光啦！</div>
       <div class="summary-hero">
-        <div class="summary-frog"><svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg></div>
+        <div class="summary-frog" id="summaryFrog"><svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg></div>
         <div class="summary-stars">
           <div class="summary-big-star"><svg class="icon"><use href="#i-star"></use></svg><span id="summaryStars">0</span><small style="font-size:11px;color:#9E7B4C;font-weight:900">/ 9</small></div>
           <small>今日获得星星</small>
@@ -2663,6 +2701,8 @@
           <div class="home-grid" id="furnitureGrid"></div>
         </section>
         <section class="home-panel" data-home-panel="closet" hidden>
+          <div class="home-section-head"><b>全套皮肤</b><span>整只奶蛙一起换 · 免费</span></div>
+          <div class="char-skin-row" id="charSkinRow"></div>
           <div class="home-section-head"><b>奶蛙衣橱</b><span>帽子/眼镜 · 上衣</span></div>
           <div class="home-grid" id="closetGrid"></div>
         </section>
@@ -2796,7 +2836,12 @@
         <input id="setAlarm" type="range" min="0" max="100" step="1" value="80">
         <output class="setting-val" id="setAlarmVal">80%</output>
       </div>
-      <div class="settings-note">主音量控制所有声音；音乐音量只影响四首 BGM；闹钟音量只影响熬糖锅的提醒铃声。</div>
+      <div class="setting-row">
+        <label for="setLaugh">捧腹大笑音量</label>
+        <input id="setLaugh" type="range" min="0" max="100" step="1" value="82">
+        <output class="setting-val" id="setLaughVal">82%</output>
+      </div>
+      <div class="settings-note">主音量控制所有声音；音乐音量只影响四首 BGM；闹钟音量只影响熬糖锅的提醒铃声；捧腹大笑音量只影响「捧腹奶蛙」皮肤在结算时的笑声音效（默认略大于 BGM）。</div>
       <div class="redeem-box">
         <div class="redeem-head"><b>兑换码</b><span>为后续拓展准备</span></div>
         <div class="redeem-row">
@@ -2807,7 +2852,7 @@
         <button id="devExitBtn" class="redeem-exit" type="button" hidden>退出开发者模式</button>
       </div>
       <button class="settings-codex" id="codexFromSettings" type="button">📖 打开奶蛙图鉴</button>
-      <button class="settings-changelog" id="changelogBtn" type="button">📝 更新日志 · 3.0 存档精简</button>
+      <button class="settings-changelog" id="changelogBtn" type="button">📝 更新日志 · 3.1 捧腹奶蛙</button>
       <button class="settings-pause" id="settingsPauseBtn" type="button" hidden>暂时打烊（保存进度）</button>
       <button class="settings-early" id="settingsEarlyBtn" type="button" hidden>提前下班</button>
       <button class="settings-done" id="settingsDone" type="button">完成</button>
@@ -2909,7 +2954,7 @@
       <button class="codex-close" id="changelogClose" type="button">✕</button>
       <div class="rogue-kicker">CHANGELOG</div>
       <h2>更新日志</h2>
-      <div class="changelog-body"><div class="changelog-item"><b>3.0 · 存档界面精简</b><span>存档弹窗只保留存档密码输入框（Project URL 与 key 只在开发者模式显示），并加了一句「输入你的存档密码，无法找回，请牢记！」。</span></div><div class="changelog-item"><b>2.9 · 全球排行榜</b><span>榜单标题与页脚统一改成「全球排行榜」，接入后端后一眼就知道自己在和所有玩家比；打开榜单时会把本机最好成绩补传一次，避免自己的名字一直不上榜。</span></div><div class="changelog-item"><b>2.8 · 全网排行榜</b><span>排行榜支持「所有玩家一起排名」：默认走游戏内置的 Supabase，只要在 Supabase SQL Editor 跑一次 tools/leaderboard-supabase.sql，榜单立刻从「本机排行榜」变成「全网排行榜」；也可以改用仓库里附带的 Cloudflare Worker。两者都没启用时仍然只显示本机成绩，不会报错。</span></div><div class="changelog-item"><b>2.7 · 全网排行榜（可选）</b><span>排行榜默认只统计本机店长；接入一行服务地址后即可变成「所有玩家一起排名」，随仓库附赠可直接部署的 Cloudflare Worker（tools/leaderboard-worker.js），不填地址时行为与以前完全一致。</span></div><div class="changelog-item"><b>2.6 · 小费口径修正</b><span>基础小费改成「客人按评分给的那笔小费」（100 分约 25 金币），再加上复杂订单的加算，最后统一乘周成长、道具和客人倍率——小费不再被固定 4 块拉低，肉鸽每周涨目标时收入也跟得上。</span></div><div class="changelog-item"><b>2.5 · 倒糖按钮强化</b><span>「倒糖水」改成带文字的宽按钮；拖起糖水时按钮会高亮并显示「丢弃糖水」，拖到上面松手即丢弃（含罐里已倒的糖水，进度条一起清零）。</span></div><div class="changelog-item"><b>2.4 · 排行榜与小费分段</b><span>排行榜新增「肉鸽排行榜」页签，无尽/肉鸽各自记录最远周数与累计金币（失败的当周也会记入）；小费结算改成「基础小费 + 额外加算 → 小计 → 乘算 → 合计」四段。</span></div>
+      <div class="changelog-body"><div class="changelog-item"><b>3.1 · 捧腹奶蛙全套皮肤</b><span>衣橱新增「全套皮肤」：换上捧腹奶蛙后整只奶蛙变样，每天结算时会捧腹大笑并播放笑声（音量可在设置里单独调，默认略大于 BGM）。所有玩家免费拥有，默认仍是经典奶蛙。</span></div><div class="changelog-item"><b>3.0 · 存档界面精简</b><span>存档弹窗只保留存档密码输入框（Project URL 与 key 只在开发者模式显示），并加了一句「输入你的存档密码，无法找回，请牢记！」。</span></div><div class="changelog-item"><b>2.9 · 全球排行榜</b><span>榜单标题与页脚统一改成「全球排行榜」，接入后端后一眼就知道自己在和所有玩家比；打开榜单时会把本机最好成绩补传一次，避免自己的名字一直不上榜。</span></div><div class="changelog-item"><b>2.8 · 全网排行榜</b><span>排行榜支持「所有玩家一起排名」：默认走游戏内置的 Supabase，只要在 Supabase SQL Editor 跑一次 tools/leaderboard-supabase.sql，榜单立刻从「本机排行榜」变成「全网排行榜」；也可以改用仓库里附带的 Cloudflare Worker。两者都没启用时仍然只显示本机成绩，不会报错。</span></div><div class="changelog-item"><b>2.7 · 全网排行榜（可选）</b><span>排行榜默认只统计本机店长；接入一行服务地址后即可变成「所有玩家一起排名」，随仓库附赠可直接部署的 Cloudflare Worker（tools/leaderboard-worker.js），不填地址时行为与以前完全一致。</span></div><div class="changelog-item"><b>2.6 · 小费口径修正</b><span>基础小费改成「客人按评分给的那笔小费」（100 分约 25 金币），再加上复杂订单的加算，最后统一乘周成长、道具和客人倍率——小费不再被固定 4 块拉低，肉鸽每周涨目标时收入也跟得上。</span></div><div class="changelog-item"><b>2.5 · 倒糖按钮强化</b><span>「倒糖水」改成带文字的宽按钮；拖起糖水时按钮会高亮并显示「丢弃糖水」，拖到上面松手即丢弃（含罐里已倒的糖水，进度条一起清零）。</span></div><div class="changelog-item"><b>2.4 · 排行榜与小费分段</b><span>排行榜新增「肉鸽排行榜」页签，无尽/肉鸽各自记录最远周数与累计金币（失败的当周也会记入）；小费结算改成「基础小费 + 额外加算 → 小计 → 乘算 → 合计」四段。</span></div>
         <div class="changelog-item"><b>2.3 · 事件日修复</b><span>修掉「刚开局就提示本周事件已过」：事件日现在会在整周里分散安排（两天以上时必有一天落在后半周），服务台信息框也会显示「本周还有 N 个事件日（第 X、Y 天）」，只有所有事件日都过完才写「本周事件日已结束」。</span></div><div class="changelog-item"><b>2.2 · 小费结算改版</b><span>肉鸽小费改成**跟着本周金币目标一起长**：周倍率 = 本周目标 ÷ 400（第 1 周 ×1，第 4 周约 ×9.9），目标涨多少小费就涨多少，不会再出现「第四周还只有几十块」。评价页拆成三段：<b>基础小费</b>（订单基础小费 + 复杂订单小费）→ <b>乘算加成</b>（第 N 周成长、来财、淘金热、实验虾、客人倍率）→ <b>结算</b>（小费合计）；肉鸽每单还会给 4 金币的订单基础小费。</span></div><div class="changelog-item"><b>2.1 · 废糖处理</b><span>熬废的糖（焦苦、偏生）不用再占着位置：把上面那一排糖水批次 <b>按住拖到垃圾桶</b> 就能直接扔掉；已经用掉的那锅会自动从列表消失，糖水条只剩还能用的，横向滑动也更省事。罐里倒多的糖水仍然可以点「倒糖水」旁的垃圾桶清空。</span></div><div class="changelog-item"><b>2.0 · 肉鸽难度上调</b><span>每周金币目标的成长从 +40%～+100% 提到 <b>+80%～+160%</b>：第 1 周 400，第 2 周变成 720～1040，之后继续按上一周目标乘，越往后压力越大。随机事件日改成每周至少 1 天、至多 3 天：基础随机 1～2 天，辣虾「血色十字架」和夜市「事件日历」各 +1 天，但总数封顶 3 天。</span></div>
         <div class="changelog-item"><b>1.9 · 倒糖按钮与糖枭修复</b><span>「倒糖水」标题旁多了一个垃圾桶按钮：点一下会问「倒掉罐里的糖水？」，选「是」就把罐里的糖水全部倒掉重新倒（熬好的糖不退回）。糖枭也修好了：买下当天，工作台的小料、厨房的糖浆、罐子立刻全部可用，金币商店的糖浆页会显示「已解锁」；打烊后在夜市买会顺延到第二天生效；从夜市点「返回」不再跳到结算页。</span></div>
         <div class="changelog-item"><b>1.8 · 罐型区分与大金罐</b><span>窄口罐、广口罐和经典罐的罐口宽度、罐身轮廓分开了：窄口有肩膀、口更小，广口外撇、口更大，一眼能认出来。肉鸽辣虾「大金罐」会把台上的罐头变成金色（金色瓶身 + GOLD 标签），并且用它时订单的「罐型」「罐子」都自动算通过，小费再 +20%。</span></div>

@@ -261,11 +261,11 @@
     gold:{name:'黄金刀', price:60, color:'#E8B53A'}
   };
   const SETTINGS_KEY = 'naiwa_settings_v1';
-  const DEFAULT_SETTINGS = {master:80, music:70, alarm:80};
+  const DEFAULT_SETTINGS = {master:80, music:70, alarm:80, laugh:82};
   let settings = {...DEFAULT_SETTINGS};
   try{
     const raw = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
-    ['master','music','alarm'].forEach(k => {
+    ['master','music','alarm','laugh'].forEach(k => {
       if(Number.isFinite(raw[k])) settings[k] = clamp(Math.round(raw[k]), 0, 100);
     });
   }catch(e){}
@@ -277,6 +277,7 @@
     if(!bgmEl) bgmEl = els.bgm;
     if(bgmEl) bgmEl.volume = state.sound ? settings.master / 100 * settings.music / 100 * .6 : 0;
     if(alarmEl) alarmEl.volume = state.sound ? Math.min(.55, settings.master / 100 * settings.alarm / 100 * .38) : 0;
+    if(laughEl) laughEl.volume = state.sound ? Math.min(.9, settings.master / 100 * settings.laugh / 100 * .62) : 0;
   }
 
   /* -------------------- 玩家小家数据 -------------------- */
@@ -334,6 +335,15 @@
       {id:'campus', name:'校园食堂', price:80}
     ]
   };
+  const CHAR_SKIN_ASSETS = {
+    blob:'char-assets/blob.png',
+    laugh:'char-assets/laugh.png',
+    laughAudio:'char-assets/laugh.mp3'
+  };
+  const CHAR_SKINS = [
+    {id:'classic', name:'奶蛙 · 经典套装', free:true, desc:'原来的奶蛙，戴厨师帽、系小围裙'},
+    {id:'blob', name:'捧腹奶蛙 · 全套皮肤', free:true, desc:'整只换成捧腹奶蛙；每天结算时会捧腹大笑'}
+  ];
   const ROGUE_BASE_TARGET = 400;
   // 肉鸽周目标成长：每周线性随机 +40%~+100%（400 → 560~800 → …），不再指数爆炸
   function rogueGrowthTarget(prev){
@@ -398,6 +408,7 @@
       equipped:{head:'chef', top:'apron'},
       skins:{desk:['classic'], work:['classic'], kitchen:['classic']},
       equippedSkins:{desk:'classic', work:'classic', kitchen:'classic'},
+      charSkin:'classic',
       unlocks:{toppings:[], jars:[]},
       upgrades:{pots:1, alarms:0, knife:'wood', knives:['wood']},
       syrups:{honey:false, maple:false, honeysuckle:false},
@@ -452,7 +463,7 @@
     devMode:loadDevMode(),
     rogue:null
   };
-  let bgmEl = null, bgmKey = null, bgmToken = 0, musicWanted = false, alarmEl = null, bgmRetryTimer = 0;
+  let bgmEl = null, bgmKey = null, bgmToken = 0, musicWanted = false, alarmEl = null, bgmRetryTimer = 0, laughEl = null;
 
   /* -------------------- 音效 -------------------- */
   function ensureAudio(){
@@ -640,6 +651,7 @@
       p.skins[area] = Array.from(new Set(['classic'].concat(owned.filter(id => SKINS[area].some(s => s.id === id)))));
       if(!p.skins[area].includes(p.equippedSkins[area])) p.equippedSkins[area] = 'classic';
     });
+    p.charSkin = CHAR_SKINS.some(s => s.id === p.charSkin) ? p.charSkin : 'classic';
     p.unlocks = p.unlocks && typeof p.unlocks === 'object' ? p.unlocks : {};
     p.unlocks.toppings = Array.isArray(p.unlocks.toppings)
       ? Array.from(new Set(p.unlocks.toppings.filter(id => EXPANSION.topping.some(x => x.id === id))))
@@ -1519,6 +1531,7 @@
     renderFurniture();
     renderCloset();
     renderSkins();
+    renderCharSkins();
   }
   function openHome(tab){
     if(!activeProfile) return;
@@ -1645,6 +1658,76 @@
     els.game.dataset.area = area;
     els.game.dataset.theme = activeProfile.equippedSkins[area] || 'classic';
   }
+  function charSkinId(){
+    return (activeProfile && activeProfile.charSkin) || 'classic';
+  }
+  function renderCharImg(host, blob){
+    if(!host) return;
+    const useLaugh = blob && host.classList.contains('summary-frog');
+    const src = useLaugh ? CHAR_SKIN_ASSETS.laugh : CHAR_SKIN_ASSETS.blob;
+    let img = host.querySelector(':scope > img.char-img');
+    if(!blob){ if(img) img.remove(); return; }
+    if(!img){
+      img = document.createElement('img');
+      img.className = 'char-img';
+      img.alt = '';
+      img.draggable = false;
+      host.appendChild(img);
+    }
+    if(img.getAttribute('src') !== src) img.src = src;
+    img.classList.toggle('is-laugh', useLaugh);
+  }
+  function applyCharSkin(){
+    const blob = charSkinId() === 'blob';
+    document.body.classList.toggle('char-blob', blob);
+    document.querySelectorAll('.frog, .room-doll, .dress-doll, .summary-frog, .hint-frog, .sp-frog')
+      .forEach(host => renderCharImg(host, blob));
+  }
+  function ensureLaughAudio(){
+    if(!laughEl){
+      try{
+        laughEl = new Audio(CHAR_SKIN_ASSETS.laughAudio);
+        laughEl.preload = 'auto';
+      }catch(e){ laughEl = null; }
+    }
+    applyAudioVolumes();
+    return laughEl;
+  }
+  function playBellyLaugh(){
+    if(charSkinId() !== 'blob' || !state.sound) return;
+    const el = ensureLaughAudio();
+    if(!el) return;
+    try{
+      el.currentTime = 0;
+      const p = el.play();
+      if(p && p.catch) p.catch(() => {});
+    }catch(e){}
+  }
+  function handleCharSkin(id){
+    if(!activeProfile) return;
+    if(!CHAR_SKINS.some(s => s.id === id)) return;
+    activeProfile.charSkin = id;
+    saveProfiles();
+    applyCharSkin();
+    renderHome();
+    sfx.tap();
+    toast(id === 'blob' ? '换上了捧腹奶蛙 · 结算时会捧腹大笑' : '换回奶蛙经典套装');
+  }
+  function renderCharSkins(){
+    if(!els.charSkinRow || !activeProfile) return;
+    const cur = charSkinId();
+    els.charSkinRow.innerHTML = CHAR_SKINS.map(s => {
+      const active = cur === s.id;
+      const thumb = s.id === 'blob'
+        ? `<img src="${CHAR_SKIN_ASSETS.blob}" alt="">`
+        : `<svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>`;
+      return `<button class="char-skin-card${active ? ' active' : ''}" type="button" data-char-skin="${s.id}">
+        <span class="cs-thumb">${thumb}</span>
+        <span class="cs-copy"><b>${s.name}</b><small>${s.desc}</small></span>
+        <em>${active ? '使用中' : '装备'}</em>
+      </button>`;
+    }).join('');
+  }
 
   /* -------------------- 元素 -------------------- */
   const els = {};
@@ -1660,7 +1743,7 @@
       'summaryRibbon','homeBtn','weekBanner','weekLabel','weekFill','weekValue','weekLeft','bgm',
       'reviewSpecial','shopBtn','replayBtn','shopOverlay','shopCoins','shopEvent','shopGrid','shopStartBtn','shopBackBtn',
       'playerName','savePlayerBtn','homeEntryBtn','rankEntryBtn','summaryRankBtn','homeOverlay','homeCoins','homeOwner',
-      'homeTabs','homeRoom','homeRoomTip','furnitureGrid','closetGrid','skinShop','homeClose','homePlayBtn','homeRankBtn',
+      'homeTabs','homeRoom','homeRoomTip','furnitureGrid','closetGrid','charSkinRow','skinShop','homeClose','homePlayBtn','homeRankBtn',
       'leaderboardOverlay','leaderboardList','leaderboardClose','leaderboardTitle','leaderboardSub','leaderboardFoot','rankTabs',
       'reviewEarlyBtn','summaryEarlyBtn','shopEarlyBtn','settingsEarlyBtn','confirmOverlay','confirmCancel','confirmOk',
       'jarSwitchBtn','toppingChips','toppingQtyRow','toppingMinus','toppingQtyVal','toppingPlus',
@@ -1673,7 +1756,7 @@
       'sbUrl','sbKey','sbAdvanced','sbPin','sbSaveBtn','sbLoadBtn','sbStatus',
       'modeGroup','modeToggle','modeToggleName','modePanel','shopGroup','shopToggle','shopPanel',
       'settingsEntryBtn','settingsBtn','settingsOverlay','settingsClose','settingsDone',
-      'setMaster','setMusic','setAlarm','setMasterVal','setMusicVal','setAlarmVal',
+      'setMaster','setMusic','setAlarm','setLaugh','setMasterVal','setMusicVal','setAlarmVal','setLaughVal',
       'redeemInput','redeemBtn','redeemStatus','devExitBtn',
       'reviewPersonality','codexEntryBtn','codexOverlay','codexClose','codexTabs','codexBody','codexFromSettings','batchStrip','batchScrollWrap','batchScroll','batchHint',
       'rogueShopOverlay','rogueShopCoins','rogueShopList','rogueShopNext','shrimpOverlay','shrimpTitle','shrimpSub','shrimpChoices','shrimpSkip','shrimpReroll','shrimpDetail','shrimpConfirm',
@@ -1725,7 +1808,7 @@
     applyAudioVolumes();
   }
   function syncSettingsUI(){
-    [['Master','master'],['Music','music'],['Alarm','alarm']].forEach(([id,key]) => {
+    [['Master','master'],['Music','music'],['Alarm','alarm'],['Laugh','laugh']].forEach(([id,key]) => {
       const input = els['set' + id];
       const out = els['set' + id + 'Val'];
       if(input) input.value = settings[key];
@@ -4841,6 +4924,8 @@
       : `直接开始下一天`;
     els.summaryOverlay.classList.add('show');
     els.summaryOverlay.setAttribute('aria-hidden','false');
+    applyCharSkin();
+    playBellyLaugh();
     spawnConfetti(kind === 'gameOver' ? 8 : stars >= 7 ? 28 : 14);
     if(kind === 'gameOver') sfx.sad(); else if(stars >= 7 || kind !== 'day') sfx.star(); else sfx.coin();
     cueMusic();
@@ -5472,7 +5557,7 @@
     if(els.settingsOverlay) els.settingsOverlay.addEventListener('click', e => {
       if(e.target === els.settingsOverlay) closeSettings();
     });
-    [['Master','master'],['Music','music'],['Alarm','alarm']].forEach(([id,key]) => {
+    [['Master','master'],['Music','music'],['Alarm','alarm'],['Laugh','laugh']].forEach(([id,key]) => {
       const input = els['set' + id];
       if(input) input.addEventListener('input', () => setSetting(key, input.value));
     });
@@ -5903,6 +5988,10 @@
       const b = e.target.closest('[data-clothes]');
       if(b && !b.disabled) handleClothes(b.dataset.clothes);
     });
+    if(els.charSkinRow) els.charSkinRow.addEventListener('click', e => {
+      const b = e.target.closest('[data-char-skin]');
+      if(b) handleCharSkin(b.dataset.charSkin);
+    });
     if(els.skinShop) els.skinShop.addEventListener('click', e => {
       const apply = e.target.closest('[data-skin-apply]');
       if(apply && !apply.disabled){
@@ -5952,6 +6041,7 @@
     renderPlayerBar();
     renderFrogWear();
     applySkins();
+    applyCharSkin();
     setIntroMode('normal');
     updateHud();
     renderResumeUI();
@@ -5966,7 +6056,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl };
+      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
     }
   }
 

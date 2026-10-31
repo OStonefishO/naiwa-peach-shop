@@ -10,6 +10,16 @@ const doubao = fs.readFileSync(path.join(dir, 'rogue-assets', 'doubao.png')).toS
 const naishu = fs.readFileSync(path.join(dir, 'rogue-assets', 'naishu.png')).toString('base64');
 html = html.replace('src="rogue-assets/doubao.png"', () => `src="data:image/png;base64,${doubao}"`);
 html = html.replace('src="rogue-assets/naishu.png"', () => `src="data:image/png;base64,${naishu}"`);
+// 全套皮肤（捧腹奶蛙）素材：内联进 JS，保证单文件可离线运行
+const charAssets = [
+  ['char-assets/blob.png', 'image/png'],
+  ['char-assets/laugh.png', 'image/png'],
+  ['char-assets/laugh.mp3', 'audio/mpeg']
+];
+charAssets.forEach(([rel, mime]) => {
+  const b64 = fs.readFileSync(path.join(dir, rel)).toString('base64');
+  js = js.split(`'${rel}'`).join(`'data:${mime};base64,${b64}'`);
+});
 html = html.replace('<script src="game.v2.js"></script>', () => `<script>\n${js}\n</script>`);
 fs.writeFileSync(path.join(dir, '..', 'wechat-qq', 'index.html'), html, 'utf8');
 console.log('built', html.length, 'bytes, inline js', js.length);
