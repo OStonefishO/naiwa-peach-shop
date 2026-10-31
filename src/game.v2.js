@@ -300,8 +300,47 @@
       serve:['d7-after', '很棒！新手模式结束，去普通模式开一家真正的小店吧。']
     }
   };
-  function tutorialActive(){ return state.mode === 'tutorial'; }
-  function tutorialScript(){
+  const TUTORIAL_STAGE_TIPS = {
+    _default:{
+      kitchen:{ title:'厨房：切黄桃 + 熬糖水', text:'先在「切黄桃」按订单点 切大块 / 切小块；再熬糖：选糖型 → 点「糖+」加一勺 → 点「开火」，等火候条进绿色区间再点「收糖」。偏生或焦苦都会扣分。' },
+      work:{ title:'工作台：按部就班装罐', text:'① 挑罐型 ② 放黄桃（大块/小块要对）③ 按住「倒糖水」倒到绿色目标量 ④ 选温度 ⑤ 选加料 ⑥ 封盖。每步都对着左边的订单卡来。' },
+      desk:{ title:'出餐：先拖订单，再交给客人', text:'按住左边那张订单卡，拖到下面的「订单架」松手；然后把罐头封好，点下面的大按钮「交给客人」。' }
+    },
+    2:{
+      kitchen:{ title:'先用这两锅不完美的糖', text:'今天不用重新熬：工作台的糖水选单里已经有「偏生」和「焦苦」两锅，先拿去倒，看看客人怎么评价火候。' },
+      work:{ title:'体验两种火候评价', text:'倒「偏生」或「焦苦」的糖水各试一单，评分的「熬糖火候」那一项会变成黄色或红色，注意看差多少分。' }
+    },
+    5:{
+      kitchen:{ title:'多锅同时熬 + 闹钟', text:'现在有 3 口锅、2 个闹钟：不同锅可以同时熬不同糖；把右下角闹钟拖到锅上，火候过半它会响，提醒你回来收糖。' }
+    },
+    6:{
+      kitchen:{ title:'两种糖按比例混合', text:'这单要两种糖浆：选两种糖后，用中间的滑块调「每种糖的比例」（比如 60% / 40%），再决定「一起熬」还是「分开熬」。' },
+      work:{ title:'分层记得搅拌', text:'混好的糖水会分层，工作台点「搅拌一下」；两种糖分开熬的，倒糖时会按先后顺序记录在「倒入顺序」里。' }
+    }
+  };
+  function tutorialStageTip(stage){
+    if(!tutorialActive()) return;
+    const dayTips = TUTORIAL_STAGE_TIPS[state.day] || {};
+    let tip = dayTips[stage] || TUTORIAL_STAGE_TIPS._default[stage];
+    if(stage === 'desk' && state.can && state.can.sealed && !orderOnRack()){
+      tip = { title:'封好了，把订单拖到订单架', text:'按住左边那张订单卡，拖到下面的「订单架」松手，再点「交给客人」出餐。' };
+    }
+    if(!tip) return;
+    const id = `d${state.day}-${stage}`;
+    if(!state.tutorial) state.tutorial = { seen:{} };
+    if(state.tutorial.seen && state.tutorial.seen[id]) return;
+    state.tutorial.seen[id] = true;
+    tutorialForceTip(tip.title, tip.text);
+  }
+  function tutorialForceTip(title, text){
+    if(!tutorialActive() || !els.tutorialOverlay) return;
+    state.tutorialQueue = [];
+    els.tutorialTitle.textContent = title || '新手教程';
+    els.tutorialText.textContent = text || '';
+    els.tutorialOverlay.classList.add('show');
+    els.tutorialOverlay.setAttribute('aria-hidden','false');
+  }
+  function tutorialActive(){ return state.mode === 'tutorial'; }  function tutorialScript(){
     if(!tutorialActive()) return null;
     return TUTORIAL_SCRIPTS[state.day] || TUTORIAL_SCRIPTS[TUTORIAL_DAYS];
   }
@@ -359,8 +398,7 @@
     state.coins = state.tutorialCoins == null ? (sc.coins || 0) : state.tutorialCoins;
     if(sc.coins != null) state.tutorialCoins = state.coins;
   }
-  function tutorialAfterServe(){
-    if(!tutorialActive()) return;
+  function tutorialAfterServe(){    if(!tutorialActive()) return;
     const sc = tutorialScript();
     if(!sc || !sc.serve) return;
     const [key, text] = sc.serve;
@@ -2418,6 +2456,7 @@
     applySkins();
     if(!silent){ sfx.tap(); cueMusic(); }
     if(!restoringRun && state.phase === 'playing') saveRunToProfile();
+    if(tutorialActive() && !silent) tutorialStageTip(stage);
   }
 
   function updateHud(){
@@ -3198,6 +3237,15 @@
       text = miss.length ? `还差：<b>${miss.join('、')}</b>。回工作台继续装罐吧。` : `都配齐了，去工作台点「封盖」，再回来出餐。`;
     }
     els.deskStatus.innerHTML = text;
+    if(tutorialActive() && state.can.sealed && !orderOnRack()){
+      const sid = `d${state.day}-submit`;
+      if(!state.tutorial) state.tutorial = { seen:{} };
+      if(!state.tutorial.seen || !state.tutorial.seen[sid]){
+        state.tutorial.seen = state.tutorial.seen || {};
+        state.tutorial.seen[sid] = true;
+        tutorialForceTip('封好了，把订单拖到订单架', '按住左边那张订单卡，拖到下面的「订单架」松手，再点「交给客人」出餐。');
+      }
+    }
   }
 
   function renderWork(){
@@ -4010,6 +4058,7 @@
     }
     if(!MODES[mode]) return;
     state.introMode = mode;
+    syncVersionUI();
     els.modeCards.forEach(card => card.classList.toggle('active', card.dataset.mode === mode));
     if(els.modeToggleName) els.modeToggleName.textContent = MODES[mode].name;
     const best = mode === 'normal' ? state.bestNormal : mode === 'endless' ? state.bestEndless : 0;
@@ -4310,6 +4359,7 @@
   }
   function goHome(){
     state.phase = 'intro';
+    syncVersionUI();
     state.stage = 'desk';
     state.guest = null;
     state.order = null;
@@ -6492,7 +6542,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
+      window.__naiwa = { state, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
     }
   }
 
