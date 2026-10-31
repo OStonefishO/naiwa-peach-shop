@@ -530,7 +530,7 @@
   /* -------------------- 背景音乐 -------------------- */
   function musicKeyFor(){
     if(state.phase === 'intro') return 'title';
-    if(state.phase === 'playing') return state.stage === 'desk' ? 'desk' : 'work';
+    if(state.phase === 'playing') return (state.stage === 'desk' || state.stage === 'restaurant') ? 'desk' : 'work';
     return 'summary';
   }
   function bgmRetry(delay=1200){
