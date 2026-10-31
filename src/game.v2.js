@@ -241,7 +241,7 @@
       pots:1, alarms:0, coins:60,
       intro:[
         {key:'d1-start', title:'欢迎来到奶蛙的小店', text:'接下来 7 天，奶蛙会每天陪你做几单。<b>新手模式不会扣钱、也不会因为失误关门</b>，放心试。'},
-        {key:'d1-flow', title:'一罐黄桃罐头的四步', text:'① 看左边的<b>订单卡</b>，记住罐型、黄桃、糖水、温度、加料；② 去<b>「厨房」</b>切黄桃、加糖熬糖水；③ 回<b>「工作台」</b>装罐、倒糖水、搅拌、调温度、加料、封盖；④ 把订单卡拖到<b>「订单架」</b>，再点「交给客人」。'},
+        {key:'d1-flow', title:'一罐黄桃罐头的四步', text:'① 看左边的<b>订单卡</b>，记住罐型、黄桃、糖水、温度、加料；② 去<b>「厨房」</b>切黄桃、加糖熬糖水；③ 回<b>「工作台」</b>装罐、倒糖水、调温度、加料、封盖；④ 把订单卡拖到<b>「订单架」</b>，再点「交给客人」。'},
         {key:'d1-tip', title:'不用背，跟着提示走', text:'页面顶部会写着「第 1 步、第 2 步」，跟着做就行。每做完一单，右边会给出评分明细，告诉你哪一项扣了分。'}
       ],
       serve:['d1-score', '评价会看罐型、黄桃、糖水比例、火候、温度、加料和出餐速度，每一项差一点都会扣分。']
@@ -709,7 +709,7 @@
     if(day === 1 && stage === 'work'){
       const c = state.can || {};
       if(!(c.syrup > 0)) tutorialPointerHint('d1-pour', '#pourBtn', '按住这个按钮往罐里倒糖水，松手停');
-      else if(!c.stirred) tutorialPointerHint('d1-stir', '#stirBtn', '倒好了，点「搅拌一下」');
+      else if(!c.stirred && (state.order && (state.order.syrups || []).length > 1)) tutorialPointerHint('d1-stir', '#stirBtn', '倒好了，点「搅拌一下」');
     }
     if(day === 3 && stage === 'desk'){
       const jumped = !!(state.tutorial && state.tutorial.seen && state.tutorial.seen['d3-jumped']);
@@ -2305,7 +2305,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '熬糖提示';
+  const CHANGELOG_SUB = '新手教学完善';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -3735,7 +3735,8 @@
     const poured = expected.filter(s => (c.components[s.id] || 0) > 0).length;
     if(els.stirBtn){
       els.stirBtn.disabled = !!c.sealed || !(c.syrup > 0);
-      els.stirBtn.classList.toggle('on', !!c.stirred);
+      els.stirBtn.style.display = (state.order && (state.order.syrups || []).length <= 1) ? 'none' : '';
+    els.stirBtn.classList.toggle('on', !!c.stirred);
       els.stirBtn.textContent = c.stirred ? '已搅拌 · 点一下恢复分层' : '搅拌一下';
     }
   }
@@ -5047,7 +5048,7 @@
     els.pourBtn.classList.add('pouring');
   }
   function stopPour(){
-    setTimeout(() => { if(tutorialActive() && state.day === 1 && state.can && state.can.syrup > 0) tutorialPointerHint('d1-stir', '#stirBtn', '倒好了，点「搅拌一下」'); }, 320);
+    setTimeout(() => { const twoSyrup = state.order && (state.order.syrups || []).length > 1; if(tutorialActive() && state.day === 1 && twoSyrup && state.can && state.can.syrup > 0) tutorialPointerHint('d1-stir', '#stirBtn', '倒好了，点「搅拌一下」'); }, 320);
     if(!state.pouring) return;
     state.pouring = false;
     if(els.pourBtn) els.pourBtn.classList.remove('pouring');
