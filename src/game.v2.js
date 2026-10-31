@@ -605,6 +605,7 @@
     pumpTutorialTip();
   }
   function pumpTutorialTip(){
+    document.querySelectorAll('.guide-layer.pointer-only').forEach(el => el.remove());
     if(!els.tutorialOverlay) return;
     if(els.tutorialOverlay.classList.contains('show')) return;
     const next = (state.tutorialQueue || []).shift();
