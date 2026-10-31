@@ -1824,7 +1824,23 @@
       const sCount = poolS.length > 1 && Math.random() < twoSyrupChance ? 2 : 1;
       const picked = poolS.slice().sort(() => Math.random() - .5).slice(0, sCount);
       let ratios = sCount === 2 ? [50,50] : [100];
-      if(sCount === 2 && Math.random() < .5) ratios = Math.random() < .5 ? [60,40] : [40,60];
+      if(sCount === 2){
+        // 更多不同比例：常见 50:50 / 60:40，也有 55:45、65:35、70:30、75:25、80:20 等
+        const pool = [
+          [50,50],[50,50],[50,50],
+          [60,40],[40,60],
+          [55,45],[45,55],
+          [65,35],[35,65],
+          [70,30],[30,70],
+          [75,25],[25,75],
+          [80,20],[20,80]
+        ];
+        // 前期更温和，后期（普通第 8 天以后 / 肉鸽第 2 周以后）更容易出现悬殊比例
+        const spicy = state.mode === 'rogue' ? (state.week || 1) > 1 : (state.day || 1) > 8;
+        const biased = spicy ? pool : pool.filter(r => Math.min(r[0], r[1]) >= 40 && Math.max(r[0], r[1]) <= 60);
+        const pickR = biased[randInt(0, biased.length - 1)];
+        ratios = [pickR[0], pickR[1]];
+      }
       const syrups = picked.map((id,i) => ({id, ratio:ratios[i]}));
       const stirChance = complex ? .9 : simple ? .35 : .65;
       const stirred = sCount === 2 && Math.random() < stirChance;
@@ -2885,10 +2901,13 @@
         const mix = clamp(Number(p.mix) || 50, 10, 90);
         const a = p.types[0], b = p.types[1];
         const nameA = SYRUPS[a].name.replace('糖浆',''), nameB = SYRUPS[b].name.replace('糖浆','');
-        mixRow = `<div class="pot-mix" data-pot-mix-row="${i}">
-          <div class="pot-mix-head"><span>${nameA} <b>${mix}%</b></span><span><b>${100-mix}%</b> ${nameB}</span></div>
-          <div class="pot-mix-bar"><i style="width:${mix}%;background:${SYRUPS[a].color}"></i><i style="width:${100-mix}%;background:${SYRUPS[b].color}"></i></div>
-          <input type="range" min="10" max="90" step="5" value="${mix}" data-pot-mix="${i}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="${nameA}与${nameB}比例">
+        mixRow = `<div class="pot-mix" data-pot-mix-row="${i}" style="--mixp:${mix}%;--mixac:${SYRUPS[a].color};--mixbc:${SYRUPS[b].color}">
+          <div class="pot-mix-head"><span><i class="mix-dot" style="background:${SYRUPS[a].color}"></i>${nameA} <b data-mix-a>${mix}%</b></span><span><b data-mix-b>${100-mix}%</b> ${nameB}<i class="mix-dot" style="background:${SYRUPS[b].color}"></i></span></div>
+          <div class="pot-mix-ctrl">
+            <button class="mix-step" type="button" data-mix-step="-5" data-pot="${i}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="减少 5%">−</button>
+            <input type="range" min="10" max="90" step="5" value="${mix}" data-pot-mix="${i}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="${nameA}与${nameB}比例">
+            <button class="mix-step" type="button" data-mix-step="5" data-pot="${i}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="增加 5%">＋</button>
+          </div>
         </div>`;
       }
       html += `<div class="pot-card" data-status="${p.status}" data-pot-drop="${i}">
@@ -3778,11 +3797,33 @@
     sfx.tap();
     renderPots();
   }
+  function paintPotMix(potId){
+    const p = state.pots[potId];
+    if(!p) return;
+    const row = els.potGrid.querySelector(`[data-pot-mix-row="${potId}"]`);
+    if(!row) return;
+    const mix = clamp(Math.round(Number(p.mix) || 50), 10, 90);
+    const a = row.querySelector('[data-mix-a]'), b = row.querySelector('[data-mix-b]');
+    if(a) a.textContent = mix + '%';
+    if(b) b.textContent = (100 - mix) + '%';
+    row.style.setProperty('--mixp', mix + '%');
+    const input = row.querySelector('input[type="range"]');
+    if(input && Number(input.value) !== mix) input.value = mix;
+  }
   function setPotMix(potId, value){
     const p = state.pots[potId];
     if(!p || p.status !== 'idle') return;
-    p.mix = Math.round(clamp(Number(value) || 50, 10, 90) / 5) * 5;
-    renderPots();
+    p.mix = clamp(Math.round((Number(value) || 50) / 5) * 5, 10, 90);
+    paintPotMix(potId);
+  }
+  function stepPotMix(potId, delta){
+    const p = state.pots[potId];
+    if(!p || p.status !== 'idle') return;
+    const next = clamp(p.mix + delta, 10, 90);
+    if(next === p.mix) return;
+    p.mix = next;
+    paintPotMix(potId);
+    sfx.tap();
   }
   function addSugar(potId, delta){
     if(state.phase !== 'playing' || state.stage !== 'kitchen') return;
@@ -5136,6 +5177,8 @@
       if(stop){ stopBoil(Number(stop.dataset.potStop)); return; }
       const dump = e.target.closest('[data-pot-dump]');
       if(dump){ dumpPot(Number(dump.dataset.potDump)); return; }
+      const step = e.target.closest('[data-mix-step]');
+      if(step){ stepPotMix(Number(step.dataset.pot), Number(step.dataset.mixStep)); return; }
     });
     els.potGrid.addEventListener('input', e => {
       const mix = e.target.closest('[data-pot-mix]');
@@ -5428,7 +5471,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, renderRogueHud, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, setPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar };
+      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, renderRogueHud, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar };
     }
   }
 

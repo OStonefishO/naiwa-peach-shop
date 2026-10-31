@@ -13,7 +13,7 @@
 <meta property="og:title" content="奶蛙黄桃罐头店 · 点开即玩">
 <meta property="og:description" content="接单、装罐、封盖、出餐，做一罐甜甜的黄桃罐头。微信/QQ 内直接打开。">
 <meta property="og:type" content="website">
-<title>奶蛙黄桃罐头店 · 正式版 1.1</title>
+<title>奶蛙黄桃罐头店 · 正式版 1.2</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23FFD23F'/%3E%3Ccircle cx='50' cy='58' r='27' fill='%23FFC42E'/%3E%3Ccircle cx='39' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='61' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='50' cy='72' r='4' fill='%23FFF3CE'/%3E%3C/svg%3E">
 <style>
   :root{
@@ -1663,12 +1663,19 @@
   .comp-target{position:absolute;top:-2px;bottom:-2px;width:2px;background:#4D8E62}
   .comp-zone{position:absolute;top:0;bottom:0;background:rgba(76,142,98,.22);
     border-left:1px dashed rgba(76,142,98,.55);border-right:1px dashed rgba(76,142,98,.55)}
-  .pot-mix{margin:6px 0 2px;padding:6px 8px;border:1px dashed #E0C89E;border-radius:10px;background:#FFFCF3}
-  .pot-mix-head{display:flex;justify-content:space-between;font-size:7px;font-weight:900;color:#7C5A2C;margin-bottom:4px}
+  .pot-mix{margin:6px 0 2px;padding:6px 8px;border:1px dashed #E0C89E;border-radius:10px;background:#FFFCF3;--mixp:50%;--mixac:#E39A2C;--mixbc:#8A6B3B}
+  .pot-mix-head{display:flex;justify-content:space-between;font-size:7px;font-weight:900;color:#7C5A2C;margin-bottom:2px}
   .pot-mix-head b{color:#A8620F}
-  .pot-mix-bar{display:flex;height:7px;border-radius:4px;overflow:hidden;border:1px solid #E0C79C}
-  .pot-mix-bar i{display:block;height:100%}
-  .pot-mix input[type=range]{width:100%;height:20px;margin:2px 0 0;accent-color:#E39A2C}
+  .mix-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin:0 3px;vertical-align:middle;border:1px solid rgba(90,60,20,.35)}
+  .pot-mix input[type=range]{flex:1;min-width:0;height:26px;margin:0;background:transparent;-webkit-appearance:none;appearance:none}
+  .pot-mix input[type=range]::-webkit-slider-runnable-track{height:10px;border-radius:6px;border:1px solid #E0C79C;background:linear-gradient(90deg,var(--mixac) 0 var(--mixp),var(--mixbc) var(--mixp) 100%)}
+  .pot-mix input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;margin-top:-8px;border-radius:50%;background:#fff;border:2.5px solid #E39A2C;box-shadow:0 2px 5px rgba(120,70,10,.22);cursor:grab}
+  .pot-mix input[type=range]::-moz-range-track{height:10px;border-radius:6px;border:1px solid #E0C79C;background:linear-gradient(90deg,var(--mixac) 0 var(--mixp),var(--mixbc) var(--mixp) 100%)}
+  .pot-mix input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#fff;border:2.5px solid #E39A2C;cursor:grab}
+  .pot-mix-ctrl{display:flex;align-items:center;gap:6px;margin-top:2px}
+  .mix-step{flex:0 0 auto;width:32px;height:26px;border:1.5px solid #E0BF7C;border-radius:9px;background:#FFF6DC;color:#6B4A1E;font:900 14px/1 inherit;display:grid;place-items:center;cursor:pointer;transition:transform .06s ease, background .15s}
+  .mix-step:active{transform:scale(.93);background:#FFE9B8}
+  .mix-step:disabled{opacity:.4}
   .pour-seq{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:6px;
     font-size:7px;font-weight:900;color:#7C5A2C}
   .pour-seq[hidden]{display:none}
@@ -2373,7 +2380,7 @@
     <div class="intro-card">
       <div class="intro-hero">
         <span class="intro-tag">SUMMER PEACH · 2026</span>
-        <span class="intro-badge">1.1<br>正式版</span>
+        <span class="intro-badge">1.2<br>正式版</span>
         <span class="intro-badge update-badge">肉鸽更新！</span>
         <svg viewBox="0 0 312 210" aria-hidden="true">
           <use href="#frog-chef" x="8" y="15" width="180" height="206"></use>
@@ -2702,7 +2709,7 @@
         <button id="devExitBtn" class="redeem-exit" type="button" hidden>退出开发者模式</button>
       </div>
       <button class="settings-codex" id="codexFromSettings" type="button">📖 打开奶蛙图鉴</button>
-      <button class="settings-changelog" id="changelogBtn" type="button">📝 更新日志 · 1.1 糖水配比更新</button>
+      <button class="settings-changelog" id="changelogBtn" type="button">📝 更新日志 · 1.2 配比优化</button>
       <button class="settings-pause" id="settingsPauseBtn" type="button" hidden>暂时打烊（保存进度）</button>
       <button class="settings-early" id="settingsEarlyBtn" type="button" hidden>提前下班</button>
       <button class="settings-done" id="settingsDone" type="button">完成</button>
@@ -2795,6 +2802,7 @@
       <div class="rogue-kicker">CHANGELOG</div>
       <h2>更新日志</h2>
       <div class="changelog-body">
+        <div class="changelog-item"><b>1.2 · 配比更好调</b><span>比例滑块两端加了 − / ＋ 按钮（每次 5%），拖动更跟手不再跳；滑块轨道直接用两种糖的颜色显示比例；客人订单出现更多比例（55:45、65:35、70:30、75:25、80:20 等），前期温和、后期更悬殊。</span></div>
         <div class="changelog-item"><b>1.1 · 糖水配比与肉鸽平衡</b><span>两口锅双糖浆时可用滑块调比例（10%–90%），订单要 60:40 也能做满分；工作台每种糖浆都有绿色完美区间，并显示「倒入顺序」；肉鸽周目标改为线性随机成长（×1.4～2.0），客人小费改为每周 ×1.6 复利；糖枭改为当天生效；局内锅与闹钟新开一局会重置。</span></div>
         <div class="changelog-item"><b>1.0 · 肉鸽更新！</b><span>肉鸽模式上线：周金币指标、随机事件、辣虾三选一、肉鸽夜市、肉鸽图鉴、奶鼠 BOSS、豆包帮手；普通模式改为 28 天。</span></div>
         <div class="changelog-item"><b>1.0 · 体验优化</b><span>继续对局、暂时打烊、店长下拉、提前下班移入设置、搅拌不受订单限制、28 天普通模式。</span></div>
