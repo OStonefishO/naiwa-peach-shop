@@ -461,18 +461,18 @@
     ];
     if(day === 4) return [
       { id:'t4a', text:'切换罐型，切到订单要的罐子', check: () => tutF('jar') || !!(state.can && state.order && state.can.jar && state.can.jar === (state.order.jar || 'classic')) },
-      { id:'t4b', text:'加够订单要的小料', check: () => tutF('top') },
+      { id:'t4b', text:'加够订单要的小料', check: () => tutF('top') || !!(state.can && state.can.toppings && Object.keys(state.can.toppings).length >= 2) },
       { id:'t4c', text:'封盖出餐，看看复杂订单的评分', check: () => served >= 1 }
     ];
     if(day === 5) return [
-      { id:'t5a', text:'同时用两口锅熬糖（点锅 2 选糖）', check: () => tutF('pot2') },
-      { id:'t5b', text:'给熬着的锅放一个闹钟', check: () => tutF('alarm') },
+      { id:'t5a', text:'同时用两口锅熬糖（点锅 2 选糖）', check: () => tutF('pot2') || (state.pots || []).filter(p => Number(p.sugar) > 0).length >= 2 },
+      { id:'t5b', text:'给熬着的锅放一个闹钟', check: () => tutF('alarm') || (state.pots || []).some(p => p.alarm) },
       { id:'t5c', text:'完成精英客人的订单', check: () => served >= 1 }
     ];
     if(day === 6) return [
-      { id:'t6a', text:'调出 60 : 40 的混合糖（滑块或 ＋/−）', check: () => tutF('mix') },
+      { id:'t6a', text:'调出 60 : 40 的混合糖（滑块或 ＋/−）', check: () => tutF('mix') || (state.pots || []).some(p => p.types && p.types.length === 2 && Number(p.mix) === 60) },
       { id:'t6b', text:'按订单「分开熬 / 一起熬」熬好', check: () => tutF('boil') },
-      { id:'t6c', text:'该搅拌时点「搅拌一下」', check: () => tutF('stir') },
+      { id:'t6c', text:'该搅拌时点「搅拌一下」', check: () => tutF('stir') || !!(state.can && state.can.stirred) },
       { id:'t6d', text:'完成这单混合糖浆订单', check: () => served >= 1 }
     ];
     return [
@@ -6614,6 +6614,7 @@
         const onTray = under?.closest('#alarmTray');
         if(source === 'tray'){
           if(card) assignAlarm(Number(card.dataset.potDrop));
+
           return;
         }
         if(onTray){ removeAlarm(source); return; }
