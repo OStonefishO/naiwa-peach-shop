@@ -276,7 +276,7 @@
       pots:2, alarms:1, shop:true,
       stageTips:{
         work:[{key:'d4-jar', title:'先切换罐子', text:'订单写的是<b>窄口罐 / 广口罐</b>时，点「挑罐型」里那个<b>「经典罐 · 点此切换罐子」</b>，切到订单要的罐子。'},
-               {key:'d4-top', title:'加料也要对', text:'订单里的<b>薄荷 ×2、桂花 ×1</b> 都要自己点选：点一下加一份，点两下加两份。'}]
+               {key:'d4-top', title:'加料也要对', text:'订单里的<b>薄荷 / 桂花 / 枸杞 / 冰糖 / 金银花 / 红枣</b> 都要自己点：<b>点一下加一份，点两下加两份</b>，点错了再点一下能减回去。多加了会扣分，按订单数量来。'}]
       },
       intro:[
         {key:'d4-start', title:'复杂订单来了', text:'今天这位客人要的更多：<b>特定的罐型、指定的加料、还要分层</b>。材料已经全部发给你了，对照订单卡一样一样来。'},
@@ -701,6 +701,13 @@
       const accept = document.querySelector('#restaurantList [data-accept-guest], .rest-card [data-accept-guest]');
       if(accept) tutorialPointerHint('d3-accept', accept, '点「接单」，让后来的客人先做——这就是插队', {});
       else tutorialPointerHint('d3-tab', '#stageTabs [data-stage="restaurant"]', '去「餐厅」点「接单」，试试插队');
+    }
+    if(day === 4 && stage === 'work'){
+      const o = state.order || {};
+      const want = o.toppings || o.tops || [];
+      const have = (state.can && state.can.toppings) || {};
+      const miss = want.find(x => (have[x.id] || 0) < Number(x.qty || 0));
+      if(miss && TOPPINGS[miss.id]) tutorialPointerHint('d4-top', '[data-topping="' + miss.id + '"]', '订单要 <b>' + TOPPINGS[miss.id].name + ' ×' + (miss.qty || 1) + '</b>，点这个小料');
     }
     if(day === 1 && stage === 'kitchen'){
       const need = Math.max(1, Math.min(3, Number(state.order && state.order.sugar) || 2));
@@ -4067,7 +4074,7 @@
         patienceMs = Math.round(patienceMs * 1.6);
         const order = makeOrder(i, guest, p);
         if(spec.order && spec.order.complex){
-          order.toppings = [{id:'mint', qty:2}, {id:'osmanthus', qty:1}];
+          order.toppings = [{id:'mint', qty:2}, {id:'osmanthus', qty:1}, {id:'rock', qty:1}];
           order.jar = 'narrow';
           order.temp = 'warm';
         }
