@@ -2302,14 +2302,14 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
+  const CHANGELOG_SUB = '一键放闹钟';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
     const v = m[1];
     if(els.introVersion) els.introVersion.innerHTML = `${v}<br>正式版`;
     if(els.changelogBtn){
-      const tail = els.changelogBtn.textContent.split('·').slice(-1)[0].replace(/^\s*[\d.]+\s*/, '').trim();
-      els.changelogBtn.textContent = `📝 更新日志 · ${v}${tail ? ' ' + tail : ''}`;
+      els.changelogBtn.textContent = `📝 更新日志 · ${v} ${CHANGELOG_SUB}`;
     }
   }
   function renderCharImg(host, blob){
