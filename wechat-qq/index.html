@@ -13,7 +13,7 @@
 <meta property="og:title" content="奶蛙黄桃罐头店 · 点开即玩">
 <meta property="og:description" content="接单、装罐、封盖、出餐，做一罐甜甜的黄桃罐头。微信/QQ 内直接打开。">
 <meta property="og:type" content="website">
-<title>奶蛙黄桃罐头店 · 正式版 2.0</title>
+<title>奶蛙黄桃罐头店 · 正式版 2.1</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23FFD23F'/%3E%3Ccircle cx='50' cy='58' r='27' fill='%23FFC42E'/%3E%3Ccircle cx='39' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='61' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='50' cy='72' r='4' fill='%23FFF3CE'/%3E%3C/svg%3E">
 <style>
   :root{
@@ -1762,6 +1762,18 @@
   }
   .batch-strip::-webkit-scrollbar{display:none}
   .batch-strip.dragging{cursor:grabbing;user-select:none}
+  .batch-hint{font-size:7.4px;font-weight:800;color:#A2703E;margin:1px 2px 3px;letter-spacing:.2px}
+  .batch-hint[hidden]{display:none}
+  .batch-chip.ghost{
+    position:fixed;z-index:99999;pointer-events:none;margin:0;
+    transform:rotate(-2deg) scale(1.05);box-shadow:0 14px 26px rgba(60,38,12,.3);
+    opacity:.97;max-width:none
+  }
+  .batch-chip.ghost-origin{opacity:.25}
+  .discard-btn.drop-hot{
+    border-color:#C4543A;background:#FFE9E0;color:#B5402A;
+    box-shadow:0 0 0 4px rgba(196,84,58,.16);transform:scale(1.12)
+  }
   .batch-scroll-wrap{padding:2px 2px 1px}
   .batch-scroll-wrap[hidden]{display:none}
   .batch-scroll{
@@ -2347,6 +2359,7 @@
         <div class="batch-scroll-wrap" id="batchScrollWrap" hidden>
           <input class="batch-scroll" id="batchScroll" type="range" min="0" max="0" value="0" step="1" aria-label="浏览糖水批次">
         </div>
+        <div class="batch-hint" id="batchHint" hidden>焦了、生了用不上的糖，可以按住拖到上面的垃圾桶倒掉</div>
         <div class="syrup-row">
           <div class="syrup-main">
             <div class="syrup-gauge">
@@ -2428,7 +2441,7 @@
     <div class="intro-card">
       <div class="intro-hero">
         <span class="intro-tag">SUMMER PEACH · 2026</span>
-        <span class="intro-badge">2.0<br>正式版</span>
+        <span class="intro-badge">2.1<br>正式版</span>
         <span class="intro-badge update-badge">肉鸽更新！</span>
         <svg viewBox="0 0 312 210" aria-hidden="true">
           <use href="#frog-chef" x="8" y="15" width="180" height="206"></use>
@@ -2759,7 +2772,7 @@
         <button id="devExitBtn" class="redeem-exit" type="button" hidden>退出开发者模式</button>
       </div>
       <button class="settings-codex" id="codexFromSettings" type="button">📖 打开奶蛙图鉴</button>
-      <button class="settings-changelog" id="changelogBtn" type="button">📝 更新日志 · 2.0 肉鸽难度</button>
+      <button class="settings-changelog" id="changelogBtn" type="button">📝 更新日志 · 2.1 废糖处理</button>
       <button class="settings-pause" id="settingsPauseBtn" type="button" hidden>暂时打烊（保存进度）</button>
       <button class="settings-early" id="settingsEarlyBtn" type="button" hidden>提前下班</button>
       <button class="settings-done" id="settingsDone" type="button">完成</button>
@@ -4360,7 +4373,7 @@
       'settingsEntryBtn','settingsBtn','settingsOverlay','settingsClose','settingsDone',
       'setMaster','setMusic','setAlarm','setMasterVal','setMusicVal','setAlarmVal',
       'redeemInput','redeemBtn','redeemStatus','devExitBtn',
-      'reviewPersonality','codexEntryBtn','codexOverlay','codexClose','codexTabs','codexBody','codexFromSettings','batchStrip','batchScrollWrap','batchScroll',
+      'reviewPersonality','codexEntryBtn','codexOverlay','codexClose','codexTabs','codexBody','codexFromSettings','batchStrip','batchScrollWrap','batchScroll','batchHint',
       'rogueShopOverlay','rogueShopCoins','rogueShopList','rogueShopNext','shrimpOverlay','shrimpTitle','shrimpSub','shrimpChoices','shrimpSkip','shrimpReroll','shrimpDetail','shrimpConfirm',
       'eventOverlay','eventIcon','eventTitle','eventDesc','eventContinue','changelogOverlay','changelogClose','changelogDone','changelogBtn',
       'rogueHudPanel','rogueDayTag','rogueEventLine','rogueItemsBar','buffBagBtn','buffCount','rogueShopBtn','rogueCoinShopBtn',
@@ -5539,16 +5552,21 @@
       if(els.toppingQtyVal) els.toppingQtyVal.textContent = focusItem ? focusItem.qty : 1;
     }
 
-    if(!state.batches.length){
+    const visibleBatches = state.batches.filter(b => !b.used);
+    if(!visibleBatches.length){
       els.batchStrip.innerHTML = `<span class="batch-empty">还没有熬好的糖水，先去厨房熬一锅。</span>`;
     }else{
-      els.batchStrip.innerHTML = state.batches.map(b => {
+      els.batchStrip.innerHTML = visibleBatches.map(b => {
         const label = b.quality === 'thin' ? '偏生（也能用）' : b.quality === 'burnt' ? '焦苦（也能用）' : '火候完美';
         const mixLabel = batchMixLabel(b);
-        return `<button class="batch-chip ${state.selectedBatch === b.id ? 'active' : ''} ${b.quality || ''}" type="button" data-batch="${b.id}" ${c.sealed || b.used ? 'disabled' : ''}>
-          ${mixLabel} · ${b.sugar} 勺 · ${label}<small>糖水 #${b.id}${b.used ? ' · 已用' : b.sugar === state.order.sugar ? ' · 对味' : ''}</small>
+        return `<button class="batch-chip ${state.selectedBatch === b.id ? 'active' : ''} ${b.quality || ''}" type="button" data-batch="${b.id}" ${c.sealed ? 'disabled' : ''}>
+          ${mixLabel} · ${b.sugar} 勺 · ${label}<small>糖水 #${b.id}${b.sugar === state.order.sugar ? ' · 对味' : ''}</small>
         </button>`;
       }).join('');
+    }
+    if(els.batchHint){
+      const hasBad = visibleBatches.some(b => b.quality && b.quality !== 'perfect') && !c.sealed;
+      els.batchHint.hidden = !hasBad;
     }
     const sb = SUGAR[state.order.sugar];
     const tol = state.order.tol || sb.tol;
@@ -6861,6 +6879,23 @@
     renderHint();
     toast(`倒掉了 ${had}% 糖水，要重新倒`);
   }
+  function discardBatch(id){
+    const batch = state.batches.find(b => b.id === id && !b.used);
+    if(!batch) return false;
+    if(state.can.sealed){ toast('已经封盖了，要重来请点下面的「重做」'); return false; }
+    if(state.pouring) stopPour();
+    const q = batch.quality === 'thin' ? '偏生' : batch.quality === 'burnt' ? '焦苦' : '火候完美';
+    const desc = `${batchMixLabel(batch)} ${batch.sugar} 勺 · ${q}`;
+    state.batches = state.batches.filter(b => b.id !== id);
+    if(state.selectedBatch === id) state.selectedBatch = null;
+    if(state.can.batchId === id) state.can.batchId = null;
+    sfx.remove();
+    renderWork();
+    renderCan();
+    renderHint();
+    toast(`倒掉了：${desc}`);
+    return true;
+  }
   function tickPour(now){
     if(!state.pouring) return;
     const c = state.can;
@@ -8100,23 +8135,76 @@
         e.preventDefault();
         els.batchStrip.scrollLeft += e.deltaY;
       }, {passive:false});
-      let dragStartX = 0, dragStartLeft = 0, dragMoved = false, dragPointer = null;
+      let dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragMoved = false, dragPointer = null;
+      let chipDrag = null;
+      const trashHot = on => { if(els.discardBtn) els.discardBtn.classList.toggle('drop-hot', on); };
+      const dropOnTrash = (x, y) => {
+        if(!els.discardBtn) return false;
+        const r = els.discardBtn.getBoundingClientRect();
+        const pad = 16;
+        return x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad;
+      };
+      const cleanupChipDrag = () => {
+        if(chipDrag && chipDrag.ghost) chipDrag.ghost.remove();
+        if(chipDrag && chipDrag.chip) chipDrag.chip.classList.remove('ghost-origin');
+        chipDrag = null;
+        trashHot(false);
+      };
       els.batchStrip.addEventListener('pointerdown', e => {
         if(e.pointerType === 'mouse' && e.button !== 0) return;
-        dragPointer = e.pointerId; dragStartX = e.clientX; dragStartLeft = els.batchStrip.scrollLeft; dragMoved = false;
+        dragPointer = e.pointerId; dragStartX = e.clientX; dragStartY = e.clientY;
+        dragStartLeft = els.batchStrip.scrollLeft; dragMoved = false;
+        const chip = e.target.closest('[data-batch]');
+        chipDrag = chip && !chip.disabled ? {id:Number(chip.dataset.batch), chip, ghost:null, started:false, ox:0, oy:0} : null;
+        if(chipDrag){ try{ chip.setPointerCapture(e.pointerId); }catch(err){} }
       });
       els.batchStrip.addEventListener('pointermove', e => {
         if(dragPointer !== e.pointerId) return;
-        const dx = e.clientX - dragStartX;
+        const dx = e.clientX - dragStartX, dy = e.clientY - dragStartY;
+        if(chipDrag && !chipDrag.started && Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)){
+          chipDrag.started = true;
+          dragMoved = true;
+          const rect = chipDrag.chip.getBoundingClientRect();
+          const ghost = chipDrag.chip.cloneNode(true);
+          ghost.classList.add('ghost');
+          ghost.style.width = rect.width + 'px';
+          ghost.style.left = rect.left + 'px';
+          ghost.style.top = rect.top + 'px';
+          document.body.appendChild(ghost);
+          chipDrag.ghost = ghost;
+          chipDrag.ox = e.clientX - rect.left;
+          chipDrag.oy = e.clientY - rect.top;
+          chipDrag.chip.classList.add('ghost-origin');
+        }
+        if(chipDrag && chipDrag.started){
+          if(chipDrag.ghost){
+            chipDrag.ghost.style.left = (e.clientX - chipDrag.ox) + 'px';
+            chipDrag.ghost.style.top = (e.clientY - chipDrag.oy) + 'px';
+          }
+          trashHot(dropOnTrash(e.clientX, e.clientY));
+          e.preventDefault();
+          return;
+        }
         if(Math.abs(dx) > 5){ dragMoved = true; els.batchStrip.classList.add('dragging'); els.batchStrip.scrollLeft = dragStartLeft - dx; }
       });
       const endDrag = e => {
         if(dragPointer !== e.pointerId) return;
         dragPointer = null; els.batchStrip.classList.remove('dragging');
+        if(chipDrag && chipDrag.started){
+          const id = chipDrag.id;
+          const hit = dropOnTrash(e.clientX, e.clientY);
+          cleanupChipDrag();
+          if(hit) discardBatch(id);
+          e.preventDefault(); e.stopPropagation();
+          return;
+        }
+        cleanupChipDrag();
         if(dragMoved){ e.preventDefault(); e.stopPropagation(); }
       };
       els.batchStrip.addEventListener('pointerup', endDrag);
       els.batchStrip.addEventListener('pointercancel', endDrag);
+      window.addEventListener('pointerup', e => { if(chipDrag && chipDrag.started) endDrag(e); }, true);
+      window.addEventListener('pointercancel', e => { if(chipDrag && chipDrag.started) endDrag(e); }, true);
     }
     els.soundBtn.addEventListener('click', () => {
       ensureAudio();
@@ -8551,7 +8639,7 @@
       <div class="rogue-kicker">CHANGELOG</div>
       <h2>更新日志</h2>
       <div class="changelog-body">
-        <div class="changelog-item"><b>2.0 · 肉鸽难度上调</b><span>每周金币目标的成长从 +40%～+100% 提到 <b>+80%～+160%</b>：第 1 周 400，第 2 周变成 720～1040，之后继续按上一周目标乘，越往后压力越大。随机事件日改成每周至少 1 天、至多 3 天：基础随机 1～2 天，辣虾「血色十字架」和夜市「事件日历」各 +1 天，但总数封顶 3 天。</span></div>
+        <div class="changelog-item"><b>2.1 · 废糖处理</b><span>熬废的糖（焦苦、偏生）不用再占着位置：把上面那一排糖水批次 <b>按住拖到垃圾桶</b> 就能直接扔掉；已经用掉的那锅会自动从列表消失，糖水条只剩还能用的，横向滑动也更省事。罐里倒多的糖水仍然可以点「倒糖水」旁的垃圾桶清空。</span></div><div class="changelog-item"><b>2.0 · 肉鸽难度上调</b><span>每周金币目标的成长从 +40%～+100% 提到 <b>+80%～+160%</b>：第 1 周 400，第 2 周变成 720～1040，之后继续按上一周目标乘，越往后压力越大。随机事件日改成每周至少 1 天、至多 3 天：基础随机 1～2 天，辣虾「血色十字架」和夜市「事件日历」各 +1 天，但总数封顶 3 天。</span></div>
         <div class="changelog-item"><b>1.9 · 倒糖按钮与糖枭修复</b><span>「倒糖水」标题旁多了一个垃圾桶按钮：点一下会问「倒掉罐里的糖水？」，选「是」就把罐里的糖水全部倒掉重新倒（熬好的糖不退回）。糖枭也修好了：买下当天，工作台的小料、厨房的糖浆、罐子立刻全部可用，金币商店的糖浆页会显示「已解锁」；打烊后在夜市买会顺延到第二天生效；从夜市点「返回」不再跳到结算页。</span></div>
         <div class="changelog-item"><b>1.8 · 罐型区分与大金罐</b><span>窄口罐、广口罐和经典罐的罐口宽度、罐身轮廓分开了：窄口有肩膀、口更小，广口外撇、口更大，一眼能认出来。肉鸽辣虾「大金罐」会把台上的罐头变成金色（金色瓶身 + GOLD 标签），并且用它时订单的「罐型」「罐子」都自动算通过，小费再 +20%。</span></div>
         <div class="changelog-item"><b>1.7 · 辣虾选择重做</b><span>精英日 / BOSS 日的「辣虾三选一」换成了明细布局：右边三个小框只显示稀有度和名字，点一下左边大框就显示这只辣虾的图标、介绍和当前等级；「再来一份」「跳过」放在小框下方，选好后点底部「确定选择」正式带走。</span></div>

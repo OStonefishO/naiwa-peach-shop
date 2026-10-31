@@ -1548,7 +1548,7 @@
       'settingsEntryBtn','settingsBtn','settingsOverlay','settingsClose','settingsDone',
       'setMaster','setMusic','setAlarm','setMasterVal','setMusicVal','setAlarmVal',
       'redeemInput','redeemBtn','redeemStatus','devExitBtn',
-      'reviewPersonality','codexEntryBtn','codexOverlay','codexClose','codexTabs','codexBody','codexFromSettings','batchStrip','batchScrollWrap','batchScroll',
+      'reviewPersonality','codexEntryBtn','codexOverlay','codexClose','codexTabs','codexBody','codexFromSettings','batchStrip','batchScrollWrap','batchScroll','batchHint',
       'rogueShopOverlay','rogueShopCoins','rogueShopList','rogueShopNext','shrimpOverlay','shrimpTitle','shrimpSub','shrimpChoices','shrimpSkip','shrimpReroll','shrimpDetail','shrimpConfirm',
       'eventOverlay','eventIcon','eventTitle','eventDesc','eventContinue','changelogOverlay','changelogClose','changelogDone','changelogBtn',
       'rogueHudPanel','rogueDayTag','rogueEventLine','rogueItemsBar','buffBagBtn','buffCount','rogueShopBtn','rogueCoinShopBtn',
@@ -2727,16 +2727,21 @@
       if(els.toppingQtyVal) els.toppingQtyVal.textContent = focusItem ? focusItem.qty : 1;
     }
 
-    if(!state.batches.length){
+    const visibleBatches = state.batches.filter(b => !b.used);
+    if(!visibleBatches.length){
       els.batchStrip.innerHTML = `<span class="batch-empty">还没有熬好的糖水，先去厨房熬一锅。</span>`;
     }else{
-      els.batchStrip.innerHTML = state.batches.map(b => {
+      els.batchStrip.innerHTML = visibleBatches.map(b => {
         const label = b.quality === 'thin' ? '偏生（也能用）' : b.quality === 'burnt' ? '焦苦（也能用）' : '火候完美';
         const mixLabel = batchMixLabel(b);
-        return `<button class="batch-chip ${state.selectedBatch === b.id ? 'active' : ''} ${b.quality || ''}" type="button" data-batch="${b.id}" ${c.sealed || b.used ? 'disabled' : ''}>
-          ${mixLabel} · ${b.sugar} 勺 · ${label}<small>糖水 #${b.id}${b.used ? ' · 已用' : b.sugar === state.order.sugar ? ' · 对味' : ''}</small>
+        return `<button class="batch-chip ${state.selectedBatch === b.id ? 'active' : ''} ${b.quality || ''}" type="button" data-batch="${b.id}" ${c.sealed ? 'disabled' : ''}>
+          ${mixLabel} · ${b.sugar} 勺 · ${label}<small>糖水 #${b.id}${b.sugar === state.order.sugar ? ' · 对味' : ''}</small>
         </button>`;
       }).join('');
+    }
+    if(els.batchHint){
+      const hasBad = visibleBatches.some(b => b.quality && b.quality !== 'perfect') && !c.sealed;
+      els.batchHint.hidden = !hasBad;
     }
     const sb = SUGAR[state.order.sugar];
     const tol = state.order.tol || sb.tol;
@@ -4049,6 +4054,23 @@
     renderHint();
     toast(`倒掉了 ${had}% 糖水，要重新倒`);
   }
+  function discardBatch(id){
+    const batch = state.batches.find(b => b.id === id && !b.used);
+    if(!batch) return false;
+    if(state.can.sealed){ toast('已经封盖了，要重来请点下面的「重做」'); return false; }
+    if(state.pouring) stopPour();
+    const q = batch.quality === 'thin' ? '偏生' : batch.quality === 'burnt' ? '焦苦' : '火候完美';
+    const desc = `${batchMixLabel(batch)} ${batch.sugar} 勺 · ${q}`;
+    state.batches = state.batches.filter(b => b.id !== id);
+    if(state.selectedBatch === id) state.selectedBatch = null;
+    if(state.can.batchId === id) state.can.batchId = null;
+    sfx.remove();
+    renderWork();
+    renderCan();
+    renderHint();
+    toast(`倒掉了：${desc}`);
+    return true;
+  }
   function tickPour(now){
     if(!state.pouring) return;
     const c = state.can;
@@ -5288,23 +5310,76 @@
         e.preventDefault();
         els.batchStrip.scrollLeft += e.deltaY;
       }, {passive:false});
-      let dragStartX = 0, dragStartLeft = 0, dragMoved = false, dragPointer = null;
+      let dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragMoved = false, dragPointer = null;
+      let chipDrag = null;
+      const trashHot = on => { if(els.discardBtn) els.discardBtn.classList.toggle('drop-hot', on); };
+      const dropOnTrash = (x, y) => {
+        if(!els.discardBtn) return false;
+        const r = els.discardBtn.getBoundingClientRect();
+        const pad = 16;
+        return x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad;
+      };
+      const cleanupChipDrag = () => {
+        if(chipDrag && chipDrag.ghost) chipDrag.ghost.remove();
+        if(chipDrag && chipDrag.chip) chipDrag.chip.classList.remove('ghost-origin');
+        chipDrag = null;
+        trashHot(false);
+      };
       els.batchStrip.addEventListener('pointerdown', e => {
         if(e.pointerType === 'mouse' && e.button !== 0) return;
-        dragPointer = e.pointerId; dragStartX = e.clientX; dragStartLeft = els.batchStrip.scrollLeft; dragMoved = false;
+        dragPointer = e.pointerId; dragStartX = e.clientX; dragStartY = e.clientY;
+        dragStartLeft = els.batchStrip.scrollLeft; dragMoved = false;
+        const chip = e.target.closest('[data-batch]');
+        chipDrag = chip && !chip.disabled ? {id:Number(chip.dataset.batch), chip, ghost:null, started:false, ox:0, oy:0} : null;
+        if(chipDrag){ try{ chip.setPointerCapture(e.pointerId); }catch(err){} }
       });
       els.batchStrip.addEventListener('pointermove', e => {
         if(dragPointer !== e.pointerId) return;
-        const dx = e.clientX - dragStartX;
+        const dx = e.clientX - dragStartX, dy = e.clientY - dragStartY;
+        if(chipDrag && !chipDrag.started && Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)){
+          chipDrag.started = true;
+          dragMoved = true;
+          const rect = chipDrag.chip.getBoundingClientRect();
+          const ghost = chipDrag.chip.cloneNode(true);
+          ghost.classList.add('ghost');
+          ghost.style.width = rect.width + 'px';
+          ghost.style.left = rect.left + 'px';
+          ghost.style.top = rect.top + 'px';
+          document.body.appendChild(ghost);
+          chipDrag.ghost = ghost;
+          chipDrag.ox = e.clientX - rect.left;
+          chipDrag.oy = e.clientY - rect.top;
+          chipDrag.chip.classList.add('ghost-origin');
+        }
+        if(chipDrag && chipDrag.started){
+          if(chipDrag.ghost){
+            chipDrag.ghost.style.left = (e.clientX - chipDrag.ox) + 'px';
+            chipDrag.ghost.style.top = (e.clientY - chipDrag.oy) + 'px';
+          }
+          trashHot(dropOnTrash(e.clientX, e.clientY));
+          e.preventDefault();
+          return;
+        }
         if(Math.abs(dx) > 5){ dragMoved = true; els.batchStrip.classList.add('dragging'); els.batchStrip.scrollLeft = dragStartLeft - dx; }
       });
       const endDrag = e => {
         if(dragPointer !== e.pointerId) return;
         dragPointer = null; els.batchStrip.classList.remove('dragging');
+        if(chipDrag && chipDrag.started){
+          const id = chipDrag.id;
+          const hit = dropOnTrash(e.clientX, e.clientY);
+          cleanupChipDrag();
+          if(hit) discardBatch(id);
+          e.preventDefault(); e.stopPropagation();
+          return;
+        }
+        cleanupChipDrag();
         if(dragMoved){ e.preventDefault(); e.stopPropagation(); }
       };
       els.batchStrip.addEventListener('pointerup', endDrag);
       els.batchStrip.addEventListener('pointercancel', endDrag);
+      window.addEventListener('pointerup', e => { if(chipDrag && chipDrag.started) endDrag(e); }, true);
+      window.addEventListener('pointercancel', e => { if(chipDrag && chipDrag.started) endDrag(e); }, true);
     }
     els.soundBtn.addEventListener('click', () => {
       ensureAudio();
@@ -5680,7 +5755,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget };
+      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch };
     }
   }
 
