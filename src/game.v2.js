@@ -1249,16 +1249,19 @@
     const remote = globalRankOk ? (globalRanks[rankTab] || []) : [];
     const weekKey = rankTab === 'rogue' ? 'bestRogue' : 'bestEndless';
     const coinKey = rankTab === 'rogue' ? 'bestRogueCoins' : 'bestEndlessCoins';
+    if(els.leaderboardSub){
+      els.leaderboardSub.textContent = globalRankOk ? '全球排行榜 · 用名字区分存档' : '本机排行榜 · 用名字区分存档';
+    }
     if(els.leaderboardFoot){
       els.leaderboardFoot.textContent = globalRankOk
-        ? `全网排行榜 · 共 ${remote.length} 位玩家 · 打开榜单时自动同步`
+        ? `全球排行榜 · 共 ${remote.length} 位玩家 · 打开榜单时自动同步`
         : (rankTab === 'rogue' ? '本机排行榜 · 每周金币指标递增，活得越久排名越高' : '本机排行榜 · 每周目标递增，活得越久排名越高');
     }
     document.querySelectorAll('[data-rank-tab]').forEach(b => {
       b.classList.toggle('active', b.dataset.rankTab === rankTab);
     });
     if(globalRankOk && !remote.length){
-      els.leaderboardList.innerHTML = `<div class="leaderboard-empty">全网还没有${rankTab === 'rogue' ? '肉鸽' : '无尽'}成绩。<br>完成一周就能上榜，来当第一个吧！</div>`;
+      els.leaderboardList.innerHTML = `<div class="leaderboard-empty">全球排行榜还没有${rankTab === 'rogue' ? '肉鸽' : '无尽'}成绩。<br>完成一周就能上榜，来当第一个吧！</div>`;
       return;
     }
     if(remote.length){
@@ -1283,8 +1286,18 @@
         <div class="leaderboard-score">第 ${p[weekKey] || 0} 周<small>${rankTab === 'rogue' ? '肉鸽最远' : '无尽最远'}</small></div>
       </div>`).join('');
   }
+  function pushMyRankOnce(){
+    if(!activeProfile) return;
+    if((activeProfile.bestEndless || 0) > 0){
+      submitGlobalRank('endless', activeProfile.bestEndless, activeProfile.bestEndlessCoins || 0);
+    }
+    if((activeProfile.bestRogue || 0) > 0){
+      submitGlobalRank('rogue', activeProfile.bestRogue, activeProfile.bestRogueCoins || 0);
+    }
+  }
   function openLeaderboard(tab = rankTab){
     renderLeaderboard(tab);
+    pushMyRankOnce();
     refreshGlobalRank(tab === 'rogue' ? 'rogue' : 'endless');
     els.leaderboardOverlay.classList.add('show');
     els.leaderboardOverlay.setAttribute('aria-hidden','false');
@@ -1647,7 +1660,7 @@
       'reviewSpecial','shopBtn','replayBtn','shopOverlay','shopCoins','shopEvent','shopGrid','shopStartBtn','shopBackBtn',
       'playerName','savePlayerBtn','homeEntryBtn','rankEntryBtn','summaryRankBtn','homeOverlay','homeCoins','homeOwner',
       'homeTabs','homeRoom','homeRoomTip','furnitureGrid','closetGrid','skinShop','homeClose','homePlayBtn','homeRankBtn',
-      'leaderboardOverlay','leaderboardList','leaderboardClose','leaderboardTitle','leaderboardFoot','rankTabs',
+      'leaderboardOverlay','leaderboardList','leaderboardClose','leaderboardTitle','leaderboardSub','leaderboardFoot','rankTabs',
       'reviewEarlyBtn','summaryEarlyBtn','shopEarlyBtn','settingsEarlyBtn','confirmOverlay','confirmCancel','confirmOk',
       'jarSwitchBtn','toppingChips','toppingQtyRow','toppingMinus','toppingQtyVal','toppingPlus',
       'shopTabs','shopWallet','shopExpandGrid','shopSyrupGrid','shopFurnGrid','itemShopEntryBtn','shopTitle','shopSub',
