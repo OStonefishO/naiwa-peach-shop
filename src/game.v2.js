@@ -323,7 +323,7 @@
   };
   const TUTORIAL_STAGE_TIPS = {
     _default:{
-      kitchen:{ title:'厨房：切黄桃 + 熬糖水', text:'先在「切黄桃」按订单点 切大块 / 切小块；再熬糖：选糖型 → 点「糖+」加一勺 → 点「开火」，等火候条进绿色区间再点「收糖」。偏生或焦苦都会扣分。' },
+      kitchen:{ title:'厨房：切黄桃 + 熬糖水', text:'先在「切黄桃」按订单点 切大块 / 切小块；再熬糖：选糖型 → 按<b>订单写的勺数</b>点「糖+」（订单写几勺就加几勺）→ 点「开火」，等火候条进绿色区间再点「收糖」。偏生或焦苦都会扣分。' },
       work:{ title:'工作台：按部就班装罐', text:'① 挑罐型 ② 放黄桃（大块/小块要对）③ 按住「倒糖水」倒到绿色目标量 ④ 选温度 ⑤ 选加料 ⑥ 封盖。每步都对着左边的订单卡来。' },
       desk:{ title:'出餐：先拖订单，再交给客人', text:'按住左边那张订单卡，拖到下面的「订单架」松手；然后把罐头封好，点下面的大按钮「交给客人」。' }
     },
@@ -702,7 +702,10 @@
       if(accept) tutorialPointerHint('d3-accept', accept, '点「接单」，让后来的客人先做——这就是插队', {});
       else tutorialPointerHint('d3-tab', '#stageTabs [data-stage="restaurant"]', '去「餐厅」点「接单」，试试插队');
     }
-    if(day === 1 && stage === 'kitchen') tutorialPointerHint('d1-boil', '[data-pot-sugar="1"]', '先加两勺糖，再点「开火」熬到绿色区');
+    if(day === 1 && stage === 'kitchen'){
+      const need = Math.max(1, Math.min(3, Number(state.order && state.order.sugar) || 2));
+      tutorialPointerHint('d1-boil', '[data-pot-sugar="1"]', `按订单加 <b>${need} 勺</b>糖，再点「开火」熬到绿色区`);
+    }
     if(day === 1 && stage === 'work'){
       const c = state.can || {};
       if(!(c.syrup > 0)) tutorialPointerHint('d1-pour', '#pourBtn', '按住这个按钮往罐里倒糖水，松手停');
@@ -2302,7 +2305,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '一键放闹钟';
+  const CHANGELOG_SUB = '熬糖提示';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
