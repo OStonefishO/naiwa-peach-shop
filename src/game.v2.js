@@ -248,6 +248,7 @@
     2:{
       title:'客人的性格',
       guests:[{name:'豆豆', personality:'generous'},{name:'口水猫', personality:'strict'}],
+      prepPeaches:true,
       pots:1, alarms:0,
       batches:[{sugar:2, quality:'raw', types:['classic']},{sugar:2, quality:'burnt', types:['classic']}],
       intro:[
@@ -266,6 +267,8 @@
     4:{
       title:'复杂订单与金币商店',
       guests:[{name:'豆豆', personality:'strict', order:{complex:true}},{name:'阿蓝'}],
+      toppings:['mint','osmanthus','goji'],
+      jars:['narrow','wide'],
       pots:2, alarms:1, shop:true,
       intro:[
         {key:'d4-start', title:'复杂订单', text:'这位客人要的更多：罐型、加料、糖浆都更讲究。慢慢对照订单卡，一样一样来。'}
@@ -322,8 +325,140 @@
       work:{ title:'分层记得搅拌', text:'混好的糖水会分层，工作台点「搅拌一下」；两种糖分开熬的，倒糖时会按先后顺序记录在「倒入顺序」里。' }
     }
   };
+  const GUIDE = { steps: [], idx: 0, layer: null, onDown: null, onClick: null };
+  function guidePause(){
+    if(GUIDE.layer) GUIDE.layer.remove();
+    GUIDE.layer = null;
+    if(GUIDE.onDown){ document.removeEventListener('pointerdown', GUIDE.onDown, true); GUIDE.onDown = null; }
+    if(GUIDE.onClick){ document.removeEventListener('click', GUIDE.onClick, true); GUIDE.onClick = null; }
+  }
+  function guideEnd(){
+    if(GUIDE.layer) GUIDE.layer.remove();
+    GUIDE.layer = null; GUIDE.steps = []; GUIDE.idx = 0;
+    if(GUIDE.onDown){ document.removeEventListener('pointerdown', GUIDE.onDown, true); GUIDE.onDown = null; }
+    if(GUIDE.onClick){ document.removeEventListener('click', GUIDE.onClick, true); GUIDE.onClick = null; }
+  }
+  function guideStart(steps){
+    if(!tutorialActive() || !steps || !steps.length) return;
+    guideEnd();
+    GUIDE.steps = steps.slice(); GUIDE.idx = 0;
+    guideStep();
+  }
+  function guideStep(){
+    if(!GUIDE.steps.length) return;
+    const step = GUIDE.steps[GUIDE.idx];
+    const el = document.querySelector(step.sel);
+    if(!el){ GUIDE.idx++; if(GUIDE.idx < GUIDE.steps.length) guideStep(); else guideEnd(); return; }
+    try{ el.scrollIntoView({block:'center', inline:'center'}); }catch(e){}
+    if(GUIDE.layer) GUIDE.layer.remove();
+    const r = el.getBoundingClientRect();
+    const pad = 12;
+    const rw = r.width + pad * 2, rh = r.height + pad * 2;
+    const size = Math.max(rw, rh);
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const vw = innerWidth, vh = innerHeight;
+    const left = Math.min(Math.max(cx - rw / 2, 4), Math.max(4, vw - rw - 4));
+    const top = Math.min(Math.max(cy - rh / 2, 4), Math.max(4, vh - rh - 4));
+    const layer = document.createElement('div');
+    layer.className = 'guide-layer';
+    const blockers = [
+      {l:0, t:0, w:vw, h:Math.max(0, top)},
+      {l:0, t:Math.max(0, top + rh), w:vw, h:Math.max(0, vh - (top + rh))},
+      {l:0, t:Math.max(0, top), w:Math.max(0, left), h:rh},
+      {l:Math.max(0, left + rw), t:Math.max(0, top), w:Math.max(0, vw - (left + rw)), h:rh}
+    ];
+    blockers.forEach(b => {
+      if(b.w <= 0 || b.h <= 0) return;
+      const d = document.createElement('div');
+      d.className = 'guide-blocker';
+      d.style.cssText = 'left:'+b.l+'px;top:'+b.t+'px;width:'+b.w+'px;height:'+b.h+'px';
+      layer.appendChild(d);
+    });
+    const ring = document.createElement('div');
+    ring.className = 'guide-ring';
+    ring.style.cssText = 'left:'+left+'px;top:'+top+'px;width:'+rw+'px;height:'+rh+'px';
+    layer.appendChild(ring);
+    const bubble = document.createElement('div');
+    bubble.className = 'guide-bubble';
+    bubble.textContent = step.text || '点这里';
+    const bw = 236, bh = 56;
+    const bLeft = Math.min(Math.max(10, cx - bw / 2), Math.max(10, vw - bw - 10));
+    let bTop = top - bh - 34;
+    if(bTop < 10) bTop = Math.min(vh - bh - 12, top + rh + 26);
+    bubble.style.cssText = 'left:'+bLeft+'px;top:'+bTop+'px';
+    layer.appendChild(bubble);
+    const arrowWrap = document.createElement('div');
+    arrowWrap.innerHTML = '<svg class="guide-arrow" width="40" height="52" viewBox="0 0 40 52"><path d="M20 50 C20 34 20 24 20 12" fill="none" stroke="#FFC24A" stroke-width="6" stroke-linecap="round"/><path d="M6 22 L20 6 L34 22" fill="none" stroke="#FFC24A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const arrow = arrowWrap.firstElementChild;
+    const below = top + rh + 56 < vh;
+    const aLeft = Math.min(Math.max(6, cx - 20), Math.max(6, vw - 46));
+    const aTop = below ? Math.min(top + rh + 2, vh - 56) : Math.max(6, top - 54);
+    arrow.style.left = aLeft + 'px';
+    arrow.style.top = aTop + 'px';
+    if(!below) arrow.style.transform = 'rotate(180deg)';
+    layer.appendChild(arrow);
+    document.body.appendChild(layer);
+    GUIDE.layer = layer;
+    const advance = () => {
+      if(step.until && !step.until()){ guideStep(); return; }
+      GUIDE.idx++;
+      if(GUIDE.idx < GUIDE.steps.length) guideStep(); else guideEnd();
+    };
+    if(step.advance === 'pointerdown'){
+      GUIDE.onDown = e => { try{ if(e.target.closest(step.sel)) setTimeout(advance, 240); }catch(err){} };
+      setTimeout(() => { if(GUIDE.onDown) document.addEventListener('pointerdown', GUIDE.onDown, true); }, 260);
+    }else{
+      GUIDE.onClick = e => { try{ if(e.target.closest(step.sel)) setTimeout(advance, 240); }catch(err){} };
+      setTimeout(() => { if(GUIDE.onClick) document.addEventListener('click', GUIDE.onClick, true); }, 260);
+    }
+  }
+  function tutorialGuideForDay(day){
+    const o = state.order || {};
+    const size = o.size || 'medium';
+    const sizeSel = '.size-btn[data-size="' + size + '"]';
+    if(day === 1){
+      return [
+        { sel:'#stageTabs [data-stage="kitchen"]', text:'第 1 步：先去厨房备料' },
+        { sel:'.cut-btn[data-cut="large"]', text:'点「切大块」，按订单切黄桃' },
+        { sel:'#stageTabs [data-stage="work"]', text:'切好了，去工作台装罐' },
+        { sel:sizeSel, text:'先挑订单要的罐型' },
+        { sel:'[data-piece-plus="large"]', text:'点「+」把黄桃放进罐子' },
+        { sel:'#pourBtn', text:'按住「倒糖水」，倒到绿色区间', advance:'pointerdown' },
+        { sel:'#stageTabs [data-stage="desk"]', text:'装好了，回服务台出餐' },
+        { sel:'#orderTicket', text:'按住订单卡，拖到下面的「订单架」', advance:'pointerdown' }
+      ];
+    }
+    if(day === 4){
+      const jarName = (JARS[o.jar || 'classic'] || {}).name || '订单要的罐型';
+      const steps = [];
+      steps.push({ sel:'#stageTabs [data-stage="work"]', text:'今天的订单更复杂：先去工作台' });
+      steps.push({ sel:'.size-btn[data-size="' + size + '"]', text:'先挑订单要的罐型' });
+      steps.push({ sel:'#jarSwitchBtn', text:'点这里切换罐子，订单要「' + jarName + '」',
+        until:() => state.can.jar === (o.jar || 'classic') });
+      const tops = (o.toppings || o.tops || []).map(x => (x && x.id) || x);
+      if(tops.length) steps.push({ sel:'[data-piece-plus="large"]', text:'按订单放黄桃' });
+      tops.forEach((id, i) => {
+        steps.push({ sel:'.chip[data-topping="' + id + '"]',
+          text:'订单还额外要加料，点「' + ((TOPPINGS[id] || {}).name || id) + '」（' + (i + 1) + '/' + tops.length + '）' });
+      });
+      steps.push({ sel:'#pourBtn', text:'按住「倒糖水」，倒到绿色区间', advance:'pointerdown' });
+      steps.push({ sel:'#stageTabs [data-stage="desk"]', text:'装好了，回服务台出餐' });
+      return steps;
+    }
+    if(day === 2){
+      return [
+        { sel:'#stageTabs [data-stage="work"]', text:'黄桃已经切好放在碗里了，直接去工作台' },
+        { sel:sizeSel, text:'挑订单要的罐型' },
+        { sel:'[data-piece-plus="large"]', text:'点「+」放黄桃，大小要对' },
+        { sel:'#pourBtn', text:'按住「倒糖水」，这次用偏生或焦苦的那锅', advance:'pointerdown' },
+        { sel:'#stageTabs [data-stage="desk"]', text:'回服务台，看看客人的评价' }
+      ];
+    }
+    return null;
+  }
+
   function tutorialStageTip(stage){
-    if(!tutorialActive()) return;
+    if(!tutorialActive() || state.day !== 1) return;
     const dayTips = TUTORIAL_STAGE_TIPS[state.day] || {};
     let tip = dayTips[stage] || TUTORIAL_STAGE_TIPS._default[stage];
     if(stage === 'desk' && state.can && state.can.sealed && !orderOnRack()){
@@ -338,6 +473,7 @@
   }
   function tutorialForceTip(title, text){
     if(!tutorialActive() || !els.tutorialOverlay) return;
+    guidePause();
     state.tutorialQueue = [];
     els.tutorialTitle.textContent = title || '新手教程';
     els.tutorialText.textContent = text || '';
@@ -376,7 +512,24 @@
     if(!els.tutorialOverlay) return;
     els.tutorialOverlay.classList.remove('show');
     els.tutorialOverlay.setAttribute('aria-hidden','true');
-    setTimeout(pumpTutorialTip, 260);
+    setTimeout(() => {
+      pumpTutorialTip();
+      if(GUIDE.steps.length && GUIDE.idx < GUIDE.steps.length && !GUIDE.layer){
+        guideStep();
+        return;
+      }
+      if(tutorialActive() && !(state.tutorialQueue && state.tutorialQueue.length)){
+        const guided = state.tutorial && state.tutorial.guidedDay;
+        if(guided !== state.day){
+          const steps = tutorialGuideForDay(state.day);
+          if(steps && steps.length){
+            state.tutorial = state.tutorial || { seen:{} };
+            state.tutorial.guidedDay = state.day;
+            setTimeout(() => guideStart(steps), 220);
+          }
+        }
+      }
+    }, 260);
   }
   function applyTutorialDay(){
     if(!tutorialActive()) return;
@@ -389,8 +542,8 @@
     state.upgrade.knives = [0,0,0];
     state.tutorial = state.tutorial || { seen:{} };
     state.tutorial.syrups = (sc.syrups || []).slice();
-    state.tutorial.toppings = [];
-    state.tutorial.jars = [];
+    state.tutorial.toppings = (sc.toppings || []).slice();
+    state.tutorial.jars = (sc.jars || []).slice();
     state.batches = [];
     (sc.batches || []).forEach((b, i) => {
       state.batches.push({
@@ -399,6 +552,7 @@
       });
     });
     state.selectedBatch = null;
+    if(sc.prepPeaches){ state.bowl = { large:8, small:8 }; }
     state.coins = state.tutorialCoins == null ? (sc.coins || 0) : state.tutorialCoins;
     if(sc.coins != null) state.tutorialCoins = state.coins;
   }
@@ -939,7 +1093,7 @@
     return ['classic'].concat(['honey','maple','honeysuckle'].filter(id => owned[id]));
   }
   function unlockedToppings(){
-    if(tutorialActive()) return BASE_TOPPINGS.concat((state.tutorial && state.tutorial.toppings) || []);
+    if(tutorialActive()) return Array.from(new Set(BASE_TOPPINGS.concat((state.tutorial && state.tutorial.toppings) || [])));
     if(rogueActive()){
       const extra = rogueOwlToday() ? EXPANSION.topping.map(x => x.id) : state.rogue.toppings;
       return BASE_TOPPINGS.concat(extra);
