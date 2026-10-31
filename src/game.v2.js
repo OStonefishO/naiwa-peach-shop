@@ -355,7 +355,7 @@
     {id:'influencer',name:'网红门店',rarity:'rare',desc:'每天多 1 名客人（每级），上限 3 级',max:3,key:'guests'},
     {id:'alarmPtsd',name:'闹钟PSTD',rarity:'rare',desc:'闹钟响时 33% 自动捞出完美糖，上限 1 级',max:1,key:'alarmAuto'},
     {id:'luckyHorseshoe',name:'金马掌',rarity:'legend',desc:'幸运事件概率 +25%，上限 1 级',max:1,key:'luck'},
-    {id:'goldJar',name:'大金罐',rarity:'legend',desc:'可选金罐，所有客人接受，金币 +20%',max:1,key:'goldJar'},
+    {id:'goldJar',name:'大金罐',rarity:'legend',desc:'可换金罐：罐型和罐子都算通过，小费 +20%',max:1,key:'goldJar'},
     {id:'slowClock',name:'缓慢时钟',rarity:'legend',desc:'所有客人耐心 +1 分钟',max:1,key:'patience'},
     {id:'platinumCard',name:'白金会员卡',rarity:'legend',desc:'所有商店 -50%，上限 1 级；不与会员卡叠加',max:1,key:'discount50'},
     {id:'bigPot',name:'大糖锅',rarity:'curse',desc:'一次熬糖产 3 份；33% 概率全是过/生糖',max:1,key:'triple'},
@@ -2536,29 +2536,47 @@
     const steam = c.temp === 'warm' ? `<g fill="none" stroke="#FFF7E7" stroke-width="2.2" stroke-linecap="round" opacity=".7">
       <path class="steam" d="M53 35c-4-7 4-10 0-17"/><path class="steam s2" d="M83 34c4-7-4-10 0-17"/></g>` : '';
     const toppingArt = toppingDecor();
+    const jarId = c.jar || 'classic';
+    const isGold = jarId === 'gold';
+    const mouth = jarId === 'narrow' ? 37 : jarId === 'wide' ? 48 : isGold ? 43.5 : 43;
+    const bw = 46, topY = 35, botY = 159;
+    const metal = isGold
+      ? ['#A9761F', '#FFF3C6', '#E0B54A', '#FFF8DC', '#9C6C18']
+      : ['#B9B3A6', '#F5F1E6', '#D5CEC0', '#F4EFE4', '#AFA99C'];
+    const metalOffsets = [0, .18, .5, .8, 1];
+    const lidA = isGold ? '#C79A33' : '#DCD6C9';
+    const lidB = isGold ? '#F7E4A8' : '#F4F0E5';
+    const lidStroke = isGold ? '#8E6216' : '#8B8375';
+    const rimStroke = isGold ? '#FFF0BE' : '#FAF6EB';
     const lid = c.sealed ? `<g class="lid-group">
-      <ellipse cx="70" cy="36" rx="41.5" ry="12.5" fill="#DCD6C9" stroke="#8B8375" stroke-width="1.6"/>
-      <ellipse cx="70" cy="34" rx="37" ry="9.6" fill="#F4F0E5" stroke="#AAA295" stroke-width="1.2"/>
-      <ellipse cx="70" cy="34" rx="30" ry="6.4" fill="none" stroke="#D0C9BB" stroke-width="1"/>
-      <path d="M84 33c7 0 12 2 12 3.5s-5 3-12 3" fill="none" stroke="#8B8375" stroke-width="2.2" stroke-linecap="round"/>
+      <ellipse cx="70" cy="36" rx="${mouth - 1.5}" ry="12.5" fill="${lidA}" stroke="${lidStroke}" stroke-width="1.6"/>
+      <ellipse cx="70" cy="34" rx="${mouth - 6}" ry="9.6" fill="${lidB}" stroke="${isGold ? '#B98B2A' : '#AAA295'}" stroke-width="1.2"/>
+      <ellipse cx="70" cy="34" rx="${Math.max(12, mouth - 13)}" ry="6.4" fill="none" stroke="${isGold ? '#E7CE86' : '#D0C9BB'}" stroke-width="1"/>
+      <path d="M${70 + mouth - 29} 33c7 0 12 2 12 3.5s-5 3-12 3" fill="none" stroke="${lidStroke}" stroke-width="2.2" stroke-linecap="round"/>
       <circle cx="80" cy="36" r="1.4" fill="#8F887B"/>
       <g transform="translate(99 139) rotate(8)"><circle cx="0" cy="0" r="11" fill="#FFF5D8" stroke="#D9B76F" stroke-width="1.2"/>
         <circle cx="0" cy="0" r="8.2" fill="#FFD23F" stroke="#D6A00E" stroke-width=".8"/>
         <circle cx="-3" cy="-2" r="1.5" fill="#5B3D1D"/><circle cx="3" cy="-2" r="1.5" fill="#5B3D1D"/>
         <path d="M-2 2c1.5 1.5 3.5 1.5 5 0" fill="none" stroke="#5B3D1D" stroke-width="1" stroke-linecap="round"/></g></g>` : '';
+    const jarTint = isGold
+      ? `<g class="jar-tint"><path d="M${70 - bw + 7} ${topY + 22}l4 ${botY - topY - 40}" stroke="rgba(255,255,255,.55)" stroke-width="3.5" stroke-linecap="round" opacity=".5"/>
+         <path d="M${70 + bw - 10} ${topY + 30}l3 ${botY - topY - 52}" stroke="rgba(120,80,10,.28)" stroke-width="2.6" stroke-linecap="round" opacity=".7"/></g>`
+      : '';
 
     els.canWrap.innerHTML = `
       <svg viewBox="0 0 140 185" role="img" aria-label="${SIZES[c.size].name}黄桃罐头">
         <defs>
-          <linearGradient id="canMetalDyn" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#B9B3A6"/><stop offset=".18" stop-color="#F5F1E6"/><stop offset=".5" stop-color="#D5CEC0"/><stop offset=".8" stop-color="#F4EFE4"/><stop offset="1" stop-color="#AFA99C"/></linearGradient>
-          <linearGradient id="canLabelDyn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3C8C5D"/><stop offset="1" stop-color="#226242"/></linearGradient>
+          <linearGradient id="canMetalDyn" x1="0" y1="0" x2="1" y2="0">${metal.map((col, i) => `<stop offset="${metalOffsets[i]}" stop-color="${col}"/>`).join('')}</linearGradient>
+          <linearGradient id="canLabelDyn" x1="0" y1="0" x2="0" y2="1">${isGold ? '<stop offset="0" stop-color="#B0831F"/><stop offset="1" stop-color="#8A6212"/>' : '<stop offset="0" stop-color="#3C8C5D"/><stop offset="1" stop-color="#226242"/>'}</linearGradient>
           <radialGradient id="canPeachGrad" cx="38%" cy="30%" r="80%"><stop offset="0" stop-color="#FFD56F"/><stop offset=".5" stop-color="#FFB245"/><stop offset="1" stop-color="#EE7C28"/></radialGradient>
           <linearGradient id="syrupGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD76B" stop-opacity=".82"/><stop offset="1" stop-color="#F19A2D" stop-opacity=".9"/></linearGradient>
           <clipPath id="canOpenClip"><path d="M29 37c0 6 18 10 41 10s41-4 41-10l-3 94c-9 6-23 9-38 9s-29-3-38-9z"/></clipPath>
         </defs>
         <ellipse cx="70" cy="178" rx="46" ry="6.5" fill="#3A2410" opacity=".13"/>
-        <path d="M27 35l-3 124c0 10 20 17 46 17s46-7 46-17l-3-124z" fill="url(#canMetalDyn)" stroke="#8B8375" stroke-width="1.5"/>
-        <ellipse cx="70" cy="35" rx="43" ry="13" fill="#EFEADD" stroke="#8B8375" stroke-width="1.4"/>
+        <path d="M${70 - mouth} ${topY} L${70 - bw} ${botY} c0 10 ${bw - 26} 17 ${bw} 17 s${bw} -7 ${bw} -17 L${70 + mouth} ${topY} z" fill="url(#canMetalDyn)" stroke="${isGold ? '#8E6216' : '#8B8375'}" stroke-width="1.5"/>
+        ${jarTint}
+        <ellipse cx="70" cy="${topY}" rx="${mouth}" ry="13" fill="${isGold ? '#FBF0CF' : '#EFEADD'}" stroke="${isGold ? '#8E6216' : '#8B8375'}" stroke-width="1.4"/>
+        <ellipse cx="70" cy="${topY}" rx="${Math.max(10, mouth - 8)}" ry="9" fill="none" stroke="${isGold ? '#C79A33' : '#C9C2B2'}" stroke-width="1"/>
         <g clip-path="url(#canOpenClip)">
           <rect x="24" y="35" width="92" height="115" fill="#F8E5B3"/>
           <rect id="canSyrupRect" x="24" y="${syrupY}" width="92" height="${syrupH}" fill="url(#syrupGrad)"/>
@@ -2567,15 +2585,16 @@
           ${peachG}${iceCubes}${toppingArt}${steam}
         </g>
         <path d="M26 93h88v53c0 13-19 19-44 19s-44-6-44-19z" fill="url(#canLabelDyn)"/>
-        <path d="M28 84h84v11H28z" fill="#F6DD78" opacity=".92"/>
+        <path d="M28 84h84v11H28z" fill="${isGold ? '#F3CE69' : '#F6DD78'}" opacity=".92"/>
+        ${isGold ? '<text x="70" y="92.6" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="7" font-weight="900" letter-spacing="3.6" fill="#7C5310">GOLD</text>' : ''}
         <path d="M35 97h70" stroke="rgba(255,255,255,.22)" stroke-width="1"/>
-        <text x="70" y="116" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="12.5" font-weight="900" letter-spacing=".9" fill="#FFFFFF">YELLOW</text>
-        <text x="70" y="130" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="12.5" font-weight="900" letter-spacing=".9" fill="#FFFFFF">PEACH</text>
-        <text x="70" y="147" text-anchor="middle" font-family="'Microsoft YaHei',sans-serif" font-size="10" font-weight="900" letter-spacing="1.3" fill="#FFE672">黄桃罐头</text>
+        <text x="70" y="116" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="12.5" font-weight="900" letter-spacing=".9" fill="${isGold ? '#FFF6DA' : '#FFFFFF'}">YELLOW</text>
+        <text x="70" y="130" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="12.5" font-weight="900" letter-spacing=".9" fill="${isGold ? '#FFF6DA' : '#FFFFFF'}">PEACH</text>
+        <text x="70" y="147" text-anchor="middle" font-family="'Microsoft YaHei',sans-serif" font-size="10" font-weight="900" letter-spacing="1.3" fill="${isGold ? '#FFEFA8' : '#FFE672'}">黄桃罐头</text>
         <path d="M51 154c4 0 6 2 6 5s-3 5-7 5c-5 0-9-3-8-7 1-4 5-6 9-3z" fill="#F7D24B"/>
         <path d="M55 151c0-2 1-3 3-4 0 2-1 3-3 4z" fill="#B7D990"/>
-        <ellipse cx="70" cy="35" rx="43" ry="13" fill="none" stroke="#FAF6EB" stroke-width="4"/>
-        <ellipse cx="70" cy="35" rx="43" ry="13" fill="none" stroke="#8A8273" stroke-width="1.2"/>
+        <ellipse cx="70" cy="${topY}" rx="${mouth}" ry="13" fill="none" stroke="${rimStroke}" stroke-width="4"/>
+        <ellipse cx="70" cy="${topY}" rx="${mouth}" ry="13" fill="none" stroke="${isGold ? '#8E6216' : '#8A8273'}" stroke-width="1.2"/>
         ${lid}
       </svg>`;
   }
@@ -3648,7 +3667,6 @@
   function rogueCoinMultiplier(){
     let m = 1;
     if(shrimpLevel('challenger')) m *= 1.33;
-    if(shrimpLevel('goldJar')) m *= 1.2;
     return m;
   }
   function beginRun(mode){
@@ -4165,12 +4183,13 @@
 
   function scoreOrder(timedOut){
     const c = state.can, o = state.order;
+    const goldJarUsed = (c.jar || 'classic') === 'gold';
     const counts = countPieces(c.pieces);
     const total = c.pieces.length;
     const need = peachTotal(o.peaches);
-    const sizeOk = c.size === o.size;
+    const sizeOk = goldJarUsed || c.size === o.size;
     const jarChoice = unlockedJars().length > 1;
-    const jarOk = !jarChoice || (c.jar || 'classic') === (o.jar || 'classic');
+    const jarOk = goldJarUsed || !jarChoice || (c.jar || 'classic') === (o.jar || 'classic');
     const countDiff = Math.abs(total - need);
     const sizeDiff = Math.abs(counts.large - o.peaches.large) + Math.abs(counts.small - o.peaches.small);
     const sizeScore = sizeOk ? 6 : 0;
@@ -4284,6 +4303,10 @@
     }
     if(rogueActive() && !timedOut){
       let tipMul = 1;
+      if(goldJarUsed){
+        tipLines.push({k:'大金罐', v:'+20%'});
+        tipMul *= 1.2;
+      }
       const weekF = rogueTipWeekFactor();
       if(weekF > 1.001){
         tipLines.push({k:`第${state.week}周小费加成`, v:`×${weekF.toFixed(2)}`});
@@ -4318,8 +4341,8 @@
       if(shrimpLevel('redEye') && (state.guest.tier === 'elite' || state.guest.tier === 'boss')) coins *= 5;
     }
     const details = [];
-    details.push({ok:sizeScore===6, label:'罐型', text: sizeOk ? `${SIZES[c.size].name} ✓` : `要${SIZES[o.size].name}${c.size ? ` · 用了${SIZES[c.size].name}` : ''}`});
-    if(jarChoice) details.push({ok:jarOk, label:'罐子', text: jarOk ? `${JARS[c.jar || 'classic'].name} ✓` : `要${JARS[o.jar || 'classic'].name}`});
+    details.push({ok:sizeScore===6, label:'罐型', text: goldJarUsed ? '大金罐 · 通用 ✓' : sizeOk ? `${SIZES[c.size].name} ✓` : `要${SIZES[o.size].name}${c.size ? ` · 用了${SIZES[c.size].name}` : ''}`});
+    if(jarChoice) details.push({ok:jarOk, label:'罐子', text: goldJarUsed ? '大金罐 · 通用 ✓' : jarOk ? `${JARS[c.jar || 'classic'].name} ✓` : `要${JARS[o.jar || 'classic'].name}`});
     details.push({ok:peachScore===12, label:'黄桃', text: `${counts.large}大${counts.small}小 · 共${total}块${peachScore===12 ? ' ✓' : ` / 要${peachText(o.peaches)}`}`});
     details.push({ok:kindScore>=7.5, label:'糖浆种类', text: c.syrup > 0 ? `${gotIds.map(id => SYRUPS[id].name).join('+') || '空'}${kindScore>=7.5 ? ' ✓' : ` / 要${wantIds.map(id => SYRUPS[id].name).join('+')}${wantIds.length > 1 ? (o.boilStyle === 'together' ? '·一起熬' : '·分开熬') : ''}`}` : '还没倒糖浆'});
     const ratioText = wantSyrups.map(s => `${SYRUPS[s.id].name} ${Math.round(c.components[s.id] || 0)}/${Math.round(target * s.ratio / 100)}%`).join(' · ');
