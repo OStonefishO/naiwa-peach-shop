@@ -304,7 +304,7 @@
   .skin-thumb svg{height:100%;width:auto}
   .dress-apply{width:100%;margin-top:7px;height:30px;border:none;border-radius:9px;background:linear-gradient(180deg,#FFD25E,#F2AD2F);color:#63400F;font-size:9px;font-weight:900;box-shadow:0 3px 0 #D9992A;cursor:pointer}
   .dress-apply:active{transform:translateY(2px);box-shadow:0 1px 0 #D9992A}
-  body.char-blob .summary-frog{width:120px;height:126px}
+  body.char-blob .summary-frog{width:104px;height:98px;align-self:flex-end;margin-bottom:-4px}
   .hint-frog .char-img{position:static;transform:none;height:100%;filter:none}
   body.char-blob .summary-frog .char-img.is-laugh{animation:bellyLaugh 1.5s ease-in-out infinite;transform-origin:50% 90%}
   @keyframes bellyLaugh{
@@ -903,8 +903,9 @@
   .summary-hero::before{
     content:"";position:absolute;left:50%;top:50%;width:205px;height:205px;transform:translate(-50%,-50%);
     border-radius:50%;background:radial-gradient(circle,rgba(255,221,119,.55),rgba(255,221,119,0) 68%);
+    z-index:0;pointer-events:none;
   }
-  .summary-frog{position:relative;width:105px;height:106px;filter:drop-shadow(0 6px 3px rgba(90,55,20,.12))}
+  .summary-frog{position:relative;z-index:1;width:105px;height:106px;filter:drop-shadow(0 6px 3px rgba(90,55,20,.12))}
   .summary-frog svg{width:100%;height:100%}
   .summary-stars{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;margin-left:7px}
   .summary-big-star{display:flex;align-items:center;gap:3px;color:#FFC62F;font-size:28px;font-weight:900;line-height:1}
