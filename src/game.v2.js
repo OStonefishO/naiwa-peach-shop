@@ -182,6 +182,9 @@
     const d = ((day - 1) % WEEK_DAYS) + 1;
     if(d === 7) return {type:'boss', slot:SPECIAL_SLOT.boss, guest:bossGuestForDay(day)};
     if(d === 5) return {type:'elite', slot:SPECIAL_SLOT.elite, guest:eliteGuestForDay(day)};
+    if(rogueActive() && state.rogue && Number(state.rogue.extraEliteDow) === d){
+      return {type:'elite', slot:SPECIAL_SLOT.elite, guest:eliteGuestForDay(day)};
+    }
     return null;
   }
   function personalityFor(guest){
@@ -784,9 +787,10 @@
     classic:{name:'经典糖浆', short:'经典', color:'#F3BC45', grad:['#FFD76B','#F19A2D'], price:0, desc:'黄桃罐头的招牌糖水'},
     honey:{name:'蜂蜜', short:'蜂蜜', color:'#E7A12B', grad:['#FFD36A','#D98812'], price:120, desc:'更浓更甜，带一点花香'},
     maple:{name:'枫糖浆', short:'枫糖', color:'#A96532', grad:['#D79A5B','#8B4B23'], price:150, desc:'焦糖木香，和蜂蜜很搭'},
-    honeysuckle:{name:'金银花糖浆', short:'金银花', color:'#B7C95A', grad:['#E6F0A6','#93AA39'], price:160, desc:'清爽草本香，和蜂蜜很搭'}
+    honeysuckle:{name:'金银花糖浆', short:'金银花', color:'#B7C95A', grad:['#E6F0A6','#93AA39'], price:160, desc:'清爽草本香，和蜂蜜很搭'},
+    death:{name:'死亡之糖', short:'死亡', color:'#7B5C8C', grad:['#C4A6D6','#4A2B57'], price:0, desc:'顾客吃下当场倒地，小费 ×5，但后面的客人会被吓跑'}
   };
-  const SYRUP_IDS = ['classic','honey','maple','honeysuckle'];
+  const SYRUP_IDS = ['classic','honey','maple','honeysuckle','death'];
   const ALARM_PRICE = 35;
   const SAVE_KEY = 'naiwa_v2_save';
   const POT_PRICES = {1:28, 2:48, 3:75};
@@ -908,7 +912,15 @@
     {id:'bloodCross',name:'血色十字架',rarity:'curse',desc:'每周事件日 +1 天；但 33% 为霉运事件',max:1,key:'badLuck'},
     {id:'redEye',name:'红眼',rarity:'curse',desc:'精英/BOSS 金币 ×5，但要求 +75%',max:1,key:'redEye'},
     {id:'challenger',name:'挑战者',rarity:'curse',desc:'金币 +33%，但精英日 +1',max:1,key:'challenger'},
-    {id:'plusScore',name:'PLUS！',rarity:'curse',desc:'满分 +100；≤70% 时扣更多小费',max:1,key:'plus'}
+    {id:'plusScore',name:'PLUS！',rarity:'curse',desc:'满分 +100；≤70% 时扣更多小费',max:1,key:'plus'},
+    {id:'scoutSpot',name:'探店圣地',rarity:'normal',desc:'每周 10% 概率多出一天精英日，上限 2 级',max:2,key:'scout'},
+    {id:'rateSurge',name:'汇率暴涨',rarity:'normal',desc:'顾客按评分给的小费 +5%（每级），上限 10 级',max:10,key:'rate'},
+    {id:'boilSpeed',name:'狂暴模式熬糖锅',rarity:'rare',desc:'熬糖速度加快 5%（每级），上限 3 级',max:3,key:'boilSpeed'},
+    {id:'plating',name:'摆盘高手',rarity:'rare',desc:'小料评分权重 +3%（每级），上限 3 级',max:3,key:'plating'},
+    {id:'highScore',name:'高分选手！',rarity:'rare',desc:'顾客评分上限 +5 分（每级，可叠加），上限 4 级',max:4,key:'highScore'},
+    {id:'pleaser',name:'讨好型人格',rarity:'legend',desc:'负面性格影响的扣分降低 10%，上限 1 级',max:1,key:'pleaser'},
+    {id:'autoBoil',name:'自动熬糖机',rarity:'legend',desc:'接单时 33% 概率自动熬好所需糖浆，上限 1 级',max:1,key:'autoBoil'},
+    {id:'deathSugar',name:'死亡之糖',rarity:'curse',desc:'解锁专属糖浆「死亡之糖」：顾客食用即死，小费 ×5，但会吓跑后面的客人',max:1,key:'deathSugar'}
   ];
   const ROGUE_RARITY = {
     normal:{name:'普通',color:'#B9B2A7',rate:53.33},
@@ -923,6 +935,8 @@
     {id:'goldPot',name:'黄金锅',price:250,max:4,desc:'一次熬糖产出 2 份'},
     {id:'personality',name:'性格改造器',price:100,max:2,desc:'把客人性格改成随机（消耗）'},
     {id:'sugarOwl',name:'糖枭',price:300,max:1,desc:'仅今天：所有小料、糖浆、罐子解锁（打烊后消耗）'},
+    {id:'wolfClub',name:'狼牙棒',price:200,max:1,desc:'把一位负面性格的客人变成「大方」（消耗品，一局一个）'},
+    {id:'pourGuard',name:'糖浆隔断板',price:1000,max:1,desc:'倒糖水不会再超出完美区间上限，全局有效'},
     {id:'eventCalendar',name:'事件日历',price:180,max:1,desc:'每周随机事件日 +1 天（最多 3 天）'}
   ];
   const ROGUE_EVENTS = [
@@ -1291,7 +1305,7 @@
   function rogueOwlToday(){ return rogueActive() && rogueHas('sugarOwl') && Number(state.rogue.owlDay) === Number(state.day); }
   function availableSyrups(){
     if(tutorialActive()) return ['classic'].concat(state.tutorial && state.tutorial.syrups || []);
-    if(rogueActive()) return ['classic'].concat(SYRUP_IDS.filter(id => id !== 'classic' && (state.rogue.syrups.includes(id) || rogueOwlToday())));
+    if(rogueActive()) return ['classic'].concat(SYRUP_IDS.filter(id => id !== 'classic' && (state.rogue.syrups.includes(id) || rogueOwlToday() || (id === 'death' && shrimpLevel('deathSugar') > 0))));
     const owned = activeProfile && activeProfile.syrups ? activeProfile.syrups : {};
     return ['classic'].concat(['honey','maple','honeysuckle'].filter(id => owned[id]));
   }
@@ -3575,6 +3589,25 @@
     els.patienceTime.textContent = state.phase === 'intro' ? '1:40' : `${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`;
   }
 
+  const NEG_PERSONALITY = ['strict','irritable','petty','impatient'];
+  function canUseWolfClub(){
+    if(!rogueActive()) return false;
+    if(!(state.rogue.items && state.rogue.items.wolfClub > 0)) return false;
+    const pid = state.personality && state.personality.id;
+    return !!pid && NEG_PERSONALITY.includes(pid);
+  }
+  function useWolfClub(){
+    if(!canUseWolfClub()){ toast('这一单的客人不需要狼牙棒'); return; }
+    state.rogue.items.wolfClub -= 1;
+    if(state.rogue.items.wolfClub <= 0) delete state.rogue.items.wolfClub;
+    state.personality = PERSONALITIES.generous;
+    const dg = (state.dayGuests || [])[state.guestIndex];
+    if(dg) dg.personality = PERSONALITIES.generous;
+    const rec = (state.orders || []).find(o => o.id === state.activeOrderId);
+    if(rec) rec.personality = PERSONALITIES.generous;
+    toast('狼牙棒生效：客人变得大方了，评分更宽松');
+    renderDesk(); renderRogueHud(); sfx.coin();
+  }
   function renderDesk(){
     if(!state.guest) return;
     els.deskAvatar.innerHTML = guestSVG(state.guest, state.guestIndex);
@@ -3597,7 +3630,11 @@
       if(!state.can.toppingTouched) miss.push('加料');
       text = miss.length ? `还差：<b>${miss.join('、')}</b>。回工作台继续装罐吧。` : `都配齐了，去工作台点「封盖」，再回来出餐。`;
     }
-    els.deskStatus.innerHTML = text;
+    els.deskStatus.innerHTML = text + (canUseWolfClub()
+      ? '<div style="margin-top:6px"><button class="ghost-btn" id="wolfClubBtn" type="button" style="height:28px;font-size:9px">🐺 用狼牙棒把这位客人变成「大方」</button></div>'
+      : '');
+    const wcb = document.getElementById('wolfClubBtn');
+    if(wcb) wcb.onclick = useWolfClub;
     if(tutorialActive() && state.can.sealed && !orderOnRack()){
       const sid = `d${state.day}-submit`;
       if(!state.tutorial) state.tutorial = { seen:{} };
@@ -4171,6 +4208,13 @@
     };
     state.orders.push(rec);
     dg.accepted = true;
+    if(rogueActive() && shrimpLevel('autoBoil') && Math.random() < .33){
+      const ids = (rec.order.syrups || [{id:'classic'}]).map(s => s.id);
+      const types = ids.filter((v, i, a) => a.indexOf(v) === i).slice(0, 2);
+      state.batches.push({ id: ++state.batchSeq, sugar: clamp(rec.order.sugar, 1, 3), quality: 'perfect', types, used: 0,
+        ratios: types.length > 1 ? { [types[0]]: 50, [types[1]]: 50 } : { [types[0]]: 100 } });
+      setTimeout(() => toast('自动熬糖机：已经替你熬好一锅完美糖水'), 600);
+    }
     dg.orderId = id;
     if(!opts.auto) toast(`已接单：${dg.guest.name}。可以现在做，也可以先去招呼别人。`);
     if(dg.guest.kind === 'author') toast(`彩蛋客人「奶龙学长」到店！小费 ×${dg.guest.coin.toFixed(1)}`);
@@ -4247,7 +4291,7 @@
           const progress = clamp(Number(p.progress) || 0, 0, 100);
           return {...p, mixA:clamp(Number(p.mixA) || 0, 0, 100), mixB:clamp(Number(p.mixB) || 0, 0, 100), types:(p.types && p.types.length) ? p.types : ['classic'],
             progress, alarmFired:!!p.alarmFired,
-            startedAt:p.status === 'heating' ? performance.now() - progress / 100 * BOIL_MS : 0};
+            startedAt:p.status === 'heating' ? performance.now() - progress / 100 * boilDuration() : 0};
         })
       : makePots();
     state.stock = Infinity;
@@ -4680,7 +4724,7 @@
     state.upgrade = state.rogue.upgrades;
     state.coins = 0;
   }
-  function rogueMaxScore(){ return 100 + 10 * shrimpLevel('overScore') + 100 * shrimpLevel('plusScore'); }
+  function rogueMaxScore(){ return 100 + 10 * shrimpLevel('overScore') + 100 * shrimpLevel('plusScore') + 5 * shrimpLevel('highScore'); }
   function rogueTipMultiplier(){
     return rogueTipWeekFactor() * (1 + .07 * shrimpLevel('fortune'));
   }
@@ -4957,6 +5001,7 @@
     sfx.tap();
     renderPots();
   }
+  function boilDuration(){ return BOIL_MS / (1 + .05 * (rogueActive() ? shrimpLevel('boilSpeed') : 0)); }
   function startBoil(potId){
     if(state.phase !== 'playing' || state.stage !== 'kitchen') return;
     const p = state.pots[potId];
@@ -4975,7 +5020,7 @@
     const p = state.pots[potId];
     if(!p || p.status !== 'heating') return;
     const elapsed = performance.now() - p.startedAt;
-    const pct = clamp(elapsed / BOIL_MS * 100, 0, 100);
+    const pct = clamp(elapsed / boilDuration() * 100, 0, 100);
     p.progress = pct;
     const widen = rogueActive() ? 2.2 * shrimpLevel('fireMaster') : 0;
     const quality = pct < (BOIL_MIN - widen) ? 'thin' : pct > (BOIL_MAX + widen) ? 'burnt' : 'perfect';
@@ -5014,7 +5059,7 @@
   function updateBoils(now){
     state.pots.forEach(p => {
       if(p.status !== 'heating') return;
-      p.progress = clamp((now - p.startedAt) / BOIL_MS * 100, 0, 100);
+      p.progress = clamp((now - p.startedAt) / boilDuration() * 100, 0, 100);
       if(p.alarm && !p.alarmFired && p.progress >= 50){
         p.alarmFired = true;
         sfx.alarm(); buzz(35);
@@ -5140,7 +5185,12 @@
       const share = (ratios[id] != null ? ratios[id] : 100 / types.length) / 100;
       c.components[id] = clamp((c.components[id] || 0) + add * share, 0, 100);
     });
-    c.syrup = clamp(c.syrup + add, 0, 100);
+    if(rogueActive() && state.rogue.items && state.rogue.items.pourGuard){
+      const tgt = SUGAR[state.order.sugar].target, tol2 = (state.order.tol || SUGAR[state.order.sugar].tol);
+      c.syrup = clamp(c.syrup + add, 0, Math.min(100, tgt + tol2));
+    }else{
+      c.syrup = clamp(c.syrup + add, 0, 100);
+    }
     if(!c.batchIds.includes(batch.id)) c.batchIds.push(batch.id);
     // 记录倒入顺序：同一锅连续倒只累加一次，换锅就新增一条
     if(!Array.isArray(c.pourLog)) c.pourLog = [];
@@ -5370,7 +5420,7 @@
       toppingKindScore = Math.max(0, 10 * kindHit / wantTops.length - extraId * 3);
       toppingQtyScore = 5 * qtyRatioSum / wantTops.length;
     }
-    const toppingScore = toppingKindScore + toppingQtyScore;
+    const toppingScore = (toppingKindScore + toppingQtyScore) * (1 + .03 * (rogueActive() ? shrimpLevel('plating') : 0));
     const remain = Math.max(0, state.deadline - performance.now());
     const speedScore = remain >= state.patienceMs * .5 ? 6 : remain >= state.patienceMs * .25 ? 4 : remain > 0 ? 2 : 0;
     const baseScore = timedOut ? 0 : Math.round(sizeScore + jarScore + peachScore + kindScore + ratioScore + boilScore + pourScore + stirScore + tempScore + toppingScore + speedScore);
@@ -5381,7 +5431,8 @@
       else if(p.id === 'strict') score = Math.max(0, Math.round(baseScore - (baseScore < 100 ? 4 : 0)));
       else if(p.id === 'irritable') score = Math.max(0, Math.round(100 - (100 - baseScore) * 1.75));
     }
-    const pDelta = score - baseScore;
+    let pDelta = score - baseScore;
+    if(rogueActive() && pDelta < 0 && shrimpLevel('pleaser')) pDelta = pDelta * (1 - .1 * shrimpLevel('pleaser'));
     const dg = (state.dayGuests || [])[state.guestIndex];
     const queueBonus = (!timedOut && state.queueInfo) ? (state.queueInfo.bonus || 0) : 0;
     const queuePenalty = (!timedOut && dg) ? (dg.queuePenalty || 0) : 0;
@@ -5418,6 +5469,8 @@
     const scoreTip = timedOut ? 0 : 8 + Math.round(score * .12) + (perfect ? 5 : 0);
     const addTip = timedOut ? 0 : tipInfo.tip;
     const tipBase = scoreTip + addTip;
+    const deathHit = rogueActive() && !timedOut && (c.components && (c.components.death || 0) > .5);
+
     const tipLines = [];
     let tipMul = 1;
     const mulLines = [];
@@ -5431,6 +5484,10 @@
       tipLines.push({k:'小计（基础 + 加算）', v:`+${tipBase}`, sub:true});
     }
     if(rogueActive() && !timedOut){
+      if(deathHit){
+        mulLines.push({k:'死亡之糖', v:'×5'});
+        tipMul *= 5;
+      }
       if(goldJarUsed){
         mulLines.push({k:'大金罐', v:'+20%'});
         tipMul *= 1.2;
@@ -5439,6 +5496,11 @@
       if(weekF > 1.001){
         mulLines.push({k:`第${state.week}周小费成长`, v:`×${weekF.toFixed(2)}`});
         tipMul *= weekF;
+      }
+      const rateLv = shrimpLevel('rateSurge');
+      if(rateLv){
+        mulLines.push({k:'汇率暴涨', v:'+' + (rateLv * 5) + '%'});
+        tipMul *= 1 + .05 * rateLv;
       }
       const fortuneLv = shrimpLevel('fortune');
       if(fortuneLv){
@@ -5491,7 +5553,7 @@
       details.push({ok:queueDelta > 0, label:'排队', text: queueDelta > 0 ? `提前服务 +${queueDelta}` : `被插队 ${queueDelta}`});
     }
     details.push({ok:speedScore===6, label:'出餐速度', text: timedOut ? '超时了…' : speedScore===6 ? '手速超快' : speedScore===4 ? '稍微有点慢' : '客人等急了'});
-    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipBase, scoreTip, addTip, tipInfoTip:tipInfo.tip, tipLines, tipNotes:tipInfo.notes, details, timedOut, guest:state.guest};
+    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipBase, scoreTip, addTip, tipInfoTip:tipInfo.tip, tipLines, tipNotes:tipInfo.notes, details, timedOut, death:deathHit, guest:state.guest};
   }
 
   function commentFor(result){
@@ -5524,6 +5586,11 @@
     state.queueInfo = null;
     state.rackOrderId = null;
     state.scoreResult = result;
+    if(result.death){
+      (state.dayGuests || []).forEach(g => { if(!g.served) g.scared = true; });
+      (state.orders || []).forEach(o => { if(!o.served) o.served = true; });
+      setTimeout(() => toast('死亡之糖：后面的客人被吓跑了'), 900);
+    }
     state.reviews.push(result);
     state.dayStars += result.stars;
     state.dayCoins += result.coins;
@@ -5811,6 +5878,7 @@
         state.rogue.weekTarget = state.weekTarget;
         if(!(state.rogue.items && state.rogue.items.sugarOwl)) state.rogue.owlDay = null;
         state.rogue.events = rogueWeekEvents();
+        state.rogue.extraEliteDow = (shrimpLevel('scoutSpot') && Math.random() < .10 * shrimpLevel('scoutSpot')) ? 3 : 0;
         state.rogue.shopStock = makeRogueShopStock();
         state.rogue.pendingShop = null;
       }
