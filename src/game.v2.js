@@ -702,6 +702,12 @@
       if(accept) tutorialPointerHint('d3-accept', accept, '点「接单」，让后来的客人先做——这就是插队', {});
       else tutorialPointerHint('d3-tab', '#stageTabs [data-stage="restaurant"]', '去「餐厅」点「接单」，试试插队');
     }
+    if(day === 1 && stage === 'kitchen') tutorialPointerHint('d1-boil', '[data-pot-sugar="1"]', '先加两勺糖，再点「开火」熬到绿色区');
+    if(day === 1 && stage === 'work'){
+      const c = state.can || {};
+      if(!(c.syrup > 0)) tutorialPointerHint('d1-pour', '#pourBtn', '按住这个按钮往罐里倒糖水，松手停');
+      else if(!c.stirred) tutorialPointerHint('d1-stir', '#stirBtn', '倒好了，点「搅拌一下」');
+    }
     if(day === 3 && stage === 'desk'){
       const jumped = !!(state.tutorial && state.tutorial.seen && state.tutorial.seen['d3-jumped']);
       if(!jumped) tutorialPointerHint('d3-go', '#stageTabs [data-stage="restaurant"]', '先去「餐厅」，点后面那位客人的「接单」');
@@ -3725,15 +3731,16 @@
     const two = expected.length > 1;
     const poured = expected.filter(s => (c.components[s.id] || 0) > 0).length;
     if(els.stirBtn){
-      els.stirBtn.disabled = false;
+      els.stirBtn.disabled = !!c.sealed || !(c.syrup > 0);
       els.stirBtn.classList.toggle('on', !!c.stirred);
       els.stirBtn.textContent = c.stirred ? '已搅拌 · 点一下恢复分层' : '搅拌一下';
     }
   }
 
   function toggleStir(){
-    tutFlag('stir');
     if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    if(!(state.can.syrup > 0)){ toast('先倒糖水，才谈得上搅拌'); return; }
+    tutFlag('stir');
     state.can.stirred = !state.can.stirred;
     updateSyrupVisual();
     renderWork();
@@ -5030,6 +5037,7 @@
     els.pourBtn.classList.add('pouring');
   }
   function stopPour(){
+    setTimeout(() => { if(tutorialActive() && state.day === 1 && state.can && state.can.syrup > 0) tutorialPointerHint('d1-stir', '#stirBtn', '倒好了，点「搅拌一下」'); }, 320);
     if(!state.pouring) return;
     state.pouring = false;
     if(els.pourBtn) els.pourBtn.classList.remove('pouring');
