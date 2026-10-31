@@ -3775,6 +3775,13 @@
     els.alarmTrayItems.innerHTML = Array.from({length: free}, (_,i) =>
       `<div class="alarm-token" draggable="true" data-alarm="${i}" title="拖到锅炉上设置闹钟">⏰</div>`).join('');
   }
+  function togglePotAlarm(potId){
+    ensureAudio();
+    const p = state.pots[potId];
+    if(!p) return;
+    if(p.alarm){ removeAlarm(potId); toast('闹钟已收回'); return; }
+    assignAlarm(potId);
+  }
   function assignAlarm(potId){
     const p = state.pots[potId];
     if(!p || p.alarm) return;
@@ -3841,7 +3848,7 @@
           <button type="button" data-pot-sugar="1" data-pot="${i}" ${p.sugar>=3?'disabled':''}>糖+</button>
           <button class="primary" type="button" data-pot-start="${i}" ${p.sugar<1?'disabled':''}>开火</button>`;
       }
-      const alarm = p.alarm ? `<button class="pot-alarm" type="button" data-pot-alarm="${i}" title="点击收回闹钟，或拖到其他锅">⏰ 闹钟</button>` : '';
+      const alarm = `<button class="pot-bell ${p.alarm ? 'on' : ''}" type="button" data-pot-bell="${i}" title="${p.alarm ? '点击收回闹钟' : '点击放上闹钟（也可以从闹钟栏拖过来）'}">${p.alarm ? '🔔' : '＋'}</button>`;
       let mixRow = '';
       if(p.types.length > 1){
         const a = p.types[0], b = p.types[1];
@@ -3857,7 +3864,7 @@
         mixRow = `<div class="pot-mix2-wrap">${row(0, nameA, SYRUPS[a].color, va)}${row(1, nameB, SYRUPS[b].color, vb)}</div>`;
       }
       html += `<div class="pot-card" data-status="${p.status}" data-pot-drop="${i}">
-        <div class="pot-head"><b>熬糖锅 ${i+1}</b><span class="pot-sugar">${dots}${alarm}</span></div>
+        <div class="pot-head"><b>熬糖锅 ${i+1}</b><span class="pot-sugar">${alarm}${dots}</span></div>
         <div class="pot-types">${types}</div>
         ${mixRow}
         <div class="pot-gauge"><div class="pot-zone"></div><div class="pot-fill" id="potFill${i}" style="width:${p.progress}%"></div></div>
@@ -6573,6 +6580,8 @@
       if(stop){ stopBoil(Number(stop.dataset.potStop)); return; }
       const dump = e.target.closest('[data-pot-dump]');
       if(dump){ dumpPot(Number(dump.dataset.potDump)); return; }
+      const bell = e.target.closest('[data-pot-bell]');
+      if(bell){ togglePotAlarm(Number(bell.dataset.potBell)); return; }
       const step = e.target.closest('[data-mix2-step]');
       if(step){ stepPotMix(Number(step.dataset.pot), Number(step.dataset.idx), Number(step.dataset.mix2Step)); return; }
     });
