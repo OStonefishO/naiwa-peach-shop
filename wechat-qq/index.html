@@ -1606,11 +1606,11 @@
   .tutorial-overlay{position:fixed;inset:0;z-index:520;display:flex;align-items:center;justify-content:center;
     padding:18px 14px;pointer-events:none;background:rgba(24,38,26,0);transition:background .2s ease}
   .tutorial-overlay.show{background:rgba(24,38,26,.34);pointer-events:auto}
-  .tutorial-card{pointer-events:auto;width:min(100%,400px);max-height:78vh;overflow:auto;padding:16px 16px 14px;border-radius:18px;
+  .tutorial-card{pointer-events:none;visibility:hidden;width:min(100%,400px);max-height:78vh;overflow:auto;padding:16px 16px 14px;border-radius:18px;
     border:2px solid #E6C68C;background:linear-gradient(180deg,#FFFDF4,#FFF4D8);
     box-shadow:0 22px 54px rgba(40,26,8,.42);
     transform:translateY(10px) scale(.96);opacity:0;transition:transform .24s cubic-bezier(.22,.9,.3,1.1),opacity .18s ease}
-  .tutorial-overlay.show .tutorial-card{transform:translateY(0) scale(1);opacity:1}
+  .tutorial-overlay.show .tutorial-card{transform:translateY(0) scale(1);opacity:1;visibility:visible;pointer-events:auto}
   .tutorial-kicker{font-size:7.6px;font-weight:900;letter-spacing:.12em;color:#C08A2E;margin-bottom:4px}
   .tutorial-title{font-size:16px;font-weight:900;color:#4A3017;margin:0 0 6px}
   .tutorial-text{font-size:10px;font-weight:700;line-height:1.75;color:#7A5836;margin:0 0 12px}
