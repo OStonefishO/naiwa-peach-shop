@@ -470,7 +470,7 @@
       { id:'t5c', text:'完成精英客人的订单', check: () => served >= 1 }
     ];
     if(day === 6) return [
-      { id:'t6a', text:'调出 60 : 40 的混合糖（滑块或 ＋/−）', check: () => tutF('mix') || (state.pots || []).some(p => p.types && p.types.length === 2 && Number(p.mix) === 60) },
+      { id:'t6a', text:'调出 60 : 40 的混合糖（滑块或 ＋/−）', check: () => tutF('mix') || (state.pots || []).some(p => { const r = potMixRatios(p); return r && Object.values(r).some(v => Math.abs(v - 60) <= 5); }) },
       { id:'t6b', text:'按订单「分开熬 / 一起熬」熬好', check: () => tutF('boil') },
       { id:'t6c', text:'该搅拌时点「搅拌一下」', check: () => tutF('stir') || !!(state.can && state.can.stirred) },
       { id:'t6d', text:'完成这单混合糖浆订单', check: () => served >= 1 }
@@ -3844,17 +3844,17 @@
       const alarm = p.alarm ? `<button class="pot-alarm" type="button" data-pot-alarm="${i}" title="点击收回闹钟，或拖到其他锅">⏰ 闹钟</button>` : '';
       let mixRow = '';
       if(p.types.length > 1){
-        const mix = clamp(Number(p.mix) || 50, 10, 90);
         const a = p.types[0], b = p.types[1];
+        const va = clamp(Number(p.mixA) || 0, 0, 100);
+        const vb = clamp(Number(p.mixB) || 0, 0, 100);
         const nameA = SYRUPS[a].name.replace('糖浆',''), nameB = SYRUPS[b].name.replace('糖浆','');
-        mixRow = `<div class="pot-mix" data-pot-mix-row="${i}" style="--mixp:${mix}%;--mixac:${SYRUPS[a].color};--mixbc:${SYRUPS[b].color}">
-          <div class="pot-mix-head"><span><i class="mix-dot" style="background:${SYRUPS[a].color}"></i>${nameA} <b data-mix-a>${mix}%</b></span><span><b data-mix-b>${100-mix}%</b> ${nameB}<i class="mix-dot" style="background:${SYRUPS[b].color}"></i></span></div>
-          <div class="pot-mix-ctrl">
-            <button class="mix-step" type="button" data-mix-step="-5" data-pot="${i}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="减少 5%">−</button>
-            <input type="range" min="10" max="90" step="5" value="${mix}" data-pot-mix="${i}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="${nameA}与${nameB}比例">
-            <button class="mix-step" type="button" data-mix-step="5" data-pot="${i}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="增加 5%">＋</button>
-          </div>
-        </div>`;
+        const row = (idx, name, color, val) => `<div class="pot-mix2" data-pot-mix2-row="${i}" data-mix2-idx="${idx}" style="--p:${val}%;--c:${color}">
+            <span class="pm2-name"><i class="mix-dot" style="background:${color}"></i>${name}<b data-mix2-val="${idx}">${val}%</b></span>
+            <button class="mix-step" type="button" data-mix2-step="-5" data-pot="${i}" data-idx="${idx}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="减少 5%">−</button>
+            <input type="range" min="0" max="100" step="5" value="${val}" data-pot-mix2="${i}" data-idx="${idx}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="${name}比例">
+            <button class="mix-step" type="button" data-mix2-step="5" data-pot="${i}" data-idx="${idx}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="增加 5%">＋</button>
+          </div>`;
+        mixRow = `<div class="pot-mix2-wrap">${row(0, nameA, SYRUPS[a].color, va)}${row(1, nameB, SYRUPS[b].color, vb)}</div>`;
       }
       html += `<div class="pot-card" data-status="${p.status}" data-pot-drop="${i}">
         <div class="pot-head"><b>熬糖锅 ${i+1}</b><span class="pot-sugar">${dots}${alarm}</span></div>
@@ -4228,7 +4228,7 @@
     state.pots = Array.isArray(run.pots) && run.pots.length
       ? run.pots.map(p => {
           const progress = clamp(Number(p.progress) || 0, 0, 100);
-          return {...p, mix:clamp(Number(p.mix) || 50, 10, 90), types:(p.types && p.types.length) ? p.types : ['classic'],
+          return {...p, mixA:clamp(Number(p.mixA) || 0, 0, 100), mixB:clamp(Number(p.mixB) || 0, 0, 100), types:(p.types && p.types.length) ? p.types : ['classic'],
             progress, alarmFired:!!p.alarmFired,
             startedAt:p.status === 'heating' ? performance.now() - progress / 100 * BOIL_MS : 0};
         })
@@ -4887,43 +4887,50 @@
       p.types.push(type);
       if(p.types.length >= 2) tutFlag('pot2');
     }
-    p.mix = clamp(Number(p.mix) || 50, 10, 90);
     if(p.types.length === 2){
-      const want = (state.order && state.order.syrups) || [];
-      const first = want.find(s => s.id === p.types[0]);
-      if(first) p.mix = clamp(Math.round(first.ratio / 5) * 5, 10, 90);
+      p.mixA = clamp(Number(p.mixA) || 0, 0, 100);
+      p.mixB = clamp(Number(p.mixB) || 0, 0, 100);
+    }else{
+      p.mixA = 0; p.mixB = 0;
     }
     sfx.tap();
     renderPots();
   }
+  function setPotMix(potId, idx, value){
+    const p = state.pots[potId];
+    if(!p || p.status !== 'idle' || p.types.length < 2) return;
+    const v = clamp(Math.round(Number(value) / 5) * 5, 0, 100);
+    if(idx === 0) p.mixA = v; else p.mixB = v;
+    if(p.mixA === 60 || p.mixB === 60 || p.mixA === 40) tutFlag('mix');
+    paintPotMix(potId);
+  }
+  function stepPotMix(potId, idx, delta){
+    const p = state.pots[potId];
+    if(!p || p.status !== 'idle') return;
+    const cur = idx === 0 ? (Number(p.mixA) || 0) : (Number(p.mixB) || 0);
+    setPotMix(potId, idx, cur + delta);
+    sfx.tap();
+  }
   function paintPotMix(potId){
     const p = state.pots[potId];
     if(!p) return;
-    const row = els.potGrid.querySelector(`[data-pot-mix-row="${potId}"]`);
-    if(!row) return;
-    const mix = clamp(Math.round(Number(p.mix) || 50), 10, 90);
-    const a = row.querySelector('[data-mix-a]'), b = row.querySelector('[data-mix-b]');
-    if(a) a.textContent = mix + '%';
-    if(b) b.textContent = (100 - mix) + '%';
-    row.style.setProperty('--mixp', mix + '%');
-    const input = row.querySelector('input[type="range"]');
-    if(input && Number(input.value) !== mix) input.value = mix;
+    [0,1].forEach(idx => {
+      const v = idx === 0 ? clamp(Number(p.mixA) || 0, 0, 100) : clamp(Number(p.mixB) || 0, 0, 100);
+      const rowEl = document.querySelector(`.pot-mix2[data-pot-mix2-row="${potId}"][data-mix2-idx="${idx}"]`);
+      if(!rowEl) return;
+      rowEl.style.setProperty('--p', v + '%');
+      const b = rowEl.querySelector(`[data-mix2-val="${idx}"]`);
+      if(b) b.textContent = v + '%';
+      const inp = rowEl.querySelector('input[type="range"]');
+      if(inp && Number(inp.value) !== v) inp.value = v;
+    });
   }
-  function setPotMix(potId, value){
-    if(Number(value) === 60) tutFlag('mix');
-    const p = state.pots[potId];
-    if(!p || p.status !== 'idle') return;
-    p.mix = clamp(Math.round((Number(value) || 50) / 5) * 5, 10, 90);
-    paintPotMix(potId);
-  }
-  function stepPotMix(potId, delta){
-    const p = state.pots[potId];
-    if(!p || p.status !== 'idle') return;
-    const next = clamp(p.mix + delta, 10, 90);
-    if(next === p.mix) return;
-    p.mix = next;
-    paintPotMix(potId);
-    sfx.tap();
+  function potMixRatios(p){
+    if(!p || !p.types || p.types.length < 2) return null;
+    let a = Math.max(0, Number(p.mixA) || 0), b = Math.max(0, Number(p.mixB) || 0);
+    if(a + b <= 0){ a = 1; b = 1; }
+    const total = a + b;
+    return { [p.types[0]]: Math.round(a / total * 100), [p.types[1]]: Math.round(b / total * 100) };
   }
   function addSugar(potId, delta){
     if(state.phase !== 'playing' || state.stage !== 'kitchen') return;
@@ -4960,14 +4967,7 @@
   function bottlePot(p, quality){
     tutFlag('boil');
     const types = (p.types || ['classic']).slice();
-    const ratios = {};
-    if(types.length > 1){
-      const mix = clamp(Number(p.mix) || 50, 10, 90);
-      ratios[types[0]] = mix;
-      ratios[types[1]] = 100 - mix;
-    }else{
-      ratios[types[0]] = 100;
-    }
+    const ratios = potMixRatios(p) || { [types[0]]: 100 };
     let count = 1;
     if(rogueActive() && rogueHas('goldPot')) count *= 2;
     if(rogueActive() && shrimpLevel('bigPot')) count *= 3;
@@ -6572,12 +6572,12 @@
       if(stop){ stopBoil(Number(stop.dataset.potStop)); return; }
       const dump = e.target.closest('[data-pot-dump]');
       if(dump){ dumpPot(Number(dump.dataset.potDump)); return; }
-      const step = e.target.closest('[data-mix-step]');
-      if(step){ stepPotMix(Number(step.dataset.pot), Number(step.dataset.mixStep)); return; }
+      const step = e.target.closest('[data-mix2-step]');
+      if(step){ stepPotMix(Number(step.dataset.pot), Number(step.dataset.idx), Number(step.dataset.mix2Step)); return; }
     });
     els.potGrid.addEventListener('input', e => {
-      const mix = e.target.closest('[data-pot-mix]');
-      if(mix) setPotMix(Number(mix.dataset.potMix), mix.value);
+      const mix = e.target.closest('[data-pot-mix2]');
+      if(mix) setPotMix(Number(mix.dataset.potMix2), Number(mix.dataset.idx), mix.value);
     });
     if(els.alarmTrayItems){
       let alarmDrag = null;
@@ -6929,7 +6929,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
+      window.__naiwa = { state, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
     }
   }
 
