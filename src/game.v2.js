@@ -254,7 +254,7 @@
         work:[{key:'d2-syrup', title:'这两锅糖水都不完美', text:'看「倒糖水」这一行：已经备好两锅糖，一锅<b>偏生</b>、一锅<b>焦苦</b>。故意用它们试试，看看客人怎么评价火候。'}]
       },
       pots:1, alarms:0,
-      batches:[{sugar:2, quality:'raw', types:['classic']},{sugar:2, quality:'burnt', types:['classic']}],
+      batches:[{sugar:2, quality:'thin', types:['classic']},{sugar:2, quality:'burnt', types:['classic']}],
       intro:[
         {key:'d2-start', title:'大方的客人和苛刻的客人', text:'今天两位客人性格不同：豆豆「大方」，评分更宽松、小费更多；口水猫「苛刻」，要求高、扣分更狠。'},
         {key:'d2-peach2', title:'黄桃已经帮你切好了', text:'今天的黄桃<b>提前切好放在碗里</b>了，去工作台点「＋」直接装罐，不用再进厨房。'}
@@ -451,7 +451,7 @@
       { id:'t1d', text:'拖订单到订单架，交给客人', check: () => served > 0 }
     ];
     if(day === 2) return [
-      { id:'t2a', text:'用「偏生」的糖水做一罐', check: () => qs.includes('raw') },
+      { id:'t2a', text:'用「偏生」的糖水做一罐', check: () => qs.includes('thin') },
       { id:'t2b', text:'用「焦苦」的糖水做一罐', check: () => qs.includes('burnt') },
       { id:'t2c', text:'看看两位客人的评价差多少', check: () => served >= 2 }
     ];
