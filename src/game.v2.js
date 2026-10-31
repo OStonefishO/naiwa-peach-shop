@@ -431,20 +431,23 @@
       setTimeout(() => { if(GUIDE.onClick) document.addEventListener('click', GUIDE.onClick, true); }, 260);
     }
   }
-  function servedQualities(){
-    return (state.tutorial && state.tutorial.servedQuality) || [];
+  function tutFlag(k){
+    if(!tutorialActive()) return;
+    state.tutorial = state.tutorial || { seen:{} };
+    state.tutorial.flags = state.tutorial.flags || {};
+    if(state.tutorial.flags[k]) return;
+    state.tutorial.flags[k] = 1;
+    renderTutorialTasks();
   }
+  function tutF(k){ return !!(state.tutorial && state.tutorial.flags && state.tutorial.flags[k]); }
   function tutorialTasksForDay(day){
     const orders = state.orders || [];
     const served = orders.filter(o => o.served).length;
-    const filled = state.can && state.can.pieces ? state.can.pieces.length : 0;
-    const batches = (state.batches || []).length;
-    const jumped = !!(state.tutorial && state.tutorial.seen && state.tutorial.seen['d3-jumped']);
-    const qs = servedQualities();
+    const qs = (state.tutorial && state.tutorial.servedQuality) || [];
     if(day === 1) return [
-      { id:'t1a', text:'看订单卡，去厨房切黄桃', check: () => filled > 0 || batches > 0 },
-      { id:'t1b', text:'熬一锅糖水', check: () => batches > 0 || (state.can && state.can.syrup > 0) },
-      { id:'t1c', text:'装罐并封盖', check: () => !!(state.can && state.can.sealed) },
+      { id:'t1a', text:'看订单卡，去厨房切黄桃', check: () => tutF('cut') || tutF('boil') || served > 0 },
+      { id:'t1b', text:'熬一锅糖水', check: () => tutF('boil') || served > 0 },
+      { id:'t1c', text:'装罐并封盖', check: () => tutF('seal') || served > 0 },
       { id:'t1d', text:'拖订单到订单架，交给客人', check: () => served > 0 }
     ];
     if(day === 2) return [
@@ -453,23 +456,23 @@
       { id:'t2c', text:'看看两位客人的评价差多少', check: () => served >= 2 }
     ];
     if(day === 3) return [
-      { id:'t3a', text:'去餐厅，点后面那位客人的「接单」', check: () => jumped },
+      { id:'t3a', text:'去餐厅，点后面那位客人的「接单」', check: () => !!(state.tutorial && state.tutorial.seen && state.tutorial.seen['d3-jumped']) },
       { id:'t3b', text:'把插队那单做完交给客人', check: () => served >= 1 }
     ];
     if(day === 4) return [
-      { id:'t4a', text:'切换罐型，切到订单要的罐子', check: () => !!(state.can && state.can.jar && state.order && state.can.jar === (state.order.jar || 'classic')) },
-      { id:'t4b', text:'加够订单要的小料', check: () => !!(state.can && state.can.toppings && Object.keys(state.can.toppings).length >= 2) },
+      { id:'t4a', text:'切换罐型，切到订单要的罐子', check: () => tutF('jar') || !!(state.can && state.order && state.can.jar && state.can.jar === (state.order.jar || 'classic')) },
+      { id:'t4b', text:'加够订单要的小料', check: () => tutF('top') },
       { id:'t4c', text:'封盖出餐，看看复杂订单的评分', check: () => served >= 1 }
     ];
     if(day === 5) return [
-      { id:'t5a', text:'同时用两口锅熬糖（点锅 2 选糖）', check: () => (state.pots || []).filter(p => p.types.length > 0).length >= 2 },
-      { id:'t5b', text:'给熬着的锅放一个闹钟', check: () => (state.pots || []).some(p => p.alarm) },
+      { id:'t5a', text:'同时用两口锅熬糖（点锅 2 选糖）', check: () => tutF('pot2') },
+      { id:'t5b', text:'给熬着的锅放一个闹钟', check: () => tutF('alarm') },
       { id:'t5c', text:'完成精英客人的订单', check: () => served >= 1 }
     ];
     if(day === 6) return [
-      { id:'t6a', text:'调出 60 : 40 的混合糖（滑块或 ＋/−）', check: () => (state.pots || []).some(p => p.types.length === 2 && p.mix === 60) },
-      { id:'t6b', text:'按订单「分开熬 / 一起熬」熬好', check: () => batches > 0 },
-      { id:'t6c', text:'该搅拌时点「搅拌一下」', check: () => !!(state.can && state.can.stirred) },
+      { id:'t6a', text:'调出 60 : 40 的混合糖（滑块或 ＋/−）', check: () => tutF('mix') },
+      { id:'t6b', text:'按订单「分开熬 / 一起熬」熬好', check: () => tutF('boil') },
+      { id:'t6c', text:'该搅拌时点「搅拌一下」', check: () => tutF('stir') },
       { id:'t6d', text:'完成这单混合糖浆订单', check: () => served >= 1 }
     ];
     return [
@@ -480,26 +483,39 @@
     if(!tutorialActive() || !els.game) return;
     const day = state.day;
     const list = tutorialTasksForDay(day);
+    const done = list.map(x => !!x.check());
+    const allDone = done.every(Boolean);
+
+    let tab = document.getElementById('taskTab');
+    if(!tab){
+      tab = document.createElement('button');
+      tab.id = 'taskTab';
+      tab.type = 'button';
+      tab.className = 'task-tab';
+      tab.addEventListener('click', () => {
+        const p2 = document.getElementById('taskPanel');
+        if(p2) p2.classList.toggle('open');
+        tab.classList.toggle('open');
+      });
+      els.game.appendChild(tab);
+    }
     let panel = document.getElementById('taskPanel');
     if(!panel){
       panel = document.createElement('div');
       panel.id = 'taskPanel';
       panel.className = 'task-panel';
       els.game.appendChild(panel);
-      panel.addEventListener('click', () => panel.classList.toggle('open'));
     }
-    const doneKey = 'taskDone' + day;
-    const done = list.map(x => !!x.check());
-    const allDone = done.every(Boolean);
-    panel.innerHTML = `<div class="task-head"><span>今日任务 ${allDone ? '· 完成' : ''}</span><em>${done.filter(Boolean).length}/${list.length} ▾</em></div>
+    const count = `${done.filter(Boolean).length}/${list.length}`;
+    tab.innerHTML = `<span>任务</span><em>${count}</em>`;
+    panel.innerHTML = `<div class="task-head"><span>今日任务</span><em>${count}</em></div>
       <ul>${list.map((x, i) => `<li class="${done[i] ? 'done' : ''}"><i>${done[i] ? '✓' : ''}</i><span>${x.text}</span></li>`).join('')}</ul>`;
     panel.classList.toggle('all-done', allDone);
     const note = document.querySelector('.desk-note');
     if(note) note.style.display = 'none';
-    if(allDone && !(state.tutorial && state.tutorial[doneKey])){
+    if(allDone && !(state.tutorial && state.tutorial['taskDone' + day])){
       state.tutorial = state.tutorial || { seen:{} };
-      state.tutorial[doneKey] = 1;
-      sfx.star && sfx.star();
+      state.tutorial['taskDone' + day] = 1;
       toast('今日任务全部完成！');
     }
   }
@@ -3716,6 +3732,7 @@
   }
 
   function toggleStir(){
+    tutFlag('stir');
     if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
     state.can.stirred = !state.can.stirred;
     updateSyrupVisual();
@@ -3758,6 +3775,7 @@
     if(assigned >= (state.upgrade.alarms || 0)){ toast('没有空闲闹钟了，去道具商店再买一个'); return; }
     p.alarm = true;
     p.alarmFired = false;
+    tutFlag('alarm');
     sfx.ding();
     toast(`闹钟已放到熬糖锅 ${potId+1}，到火候区会响`);
     renderPots();
@@ -4117,6 +4135,7 @@
   }
 
   function acceptGuest(index, opts={}){
+    if(!opts || !opts.auto) tutFlag('accept');
     const dg = state.dayGuests[index];
     if(!dg || dg.served) return;
     if(dg.accepted){ activateOrder(dg.orderId); return; }
@@ -4790,6 +4809,7 @@
     sfx.tap();
   }
   function setTopping(topping){
+    if(topping && topping !== 'none') tutFlag('top');
     if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
     state.can.toppingTouched = true;
     if(topping === 'none'){
@@ -4830,6 +4850,7 @@
     const jars = unlockedJars();
     const idx = Math.max(0, jars.indexOf(state.can.jar || 'classic'));
     state.can.jar = jars[(idx + 1) % jars.length];
+    if(state.order && state.can.jar === (state.order.jar || 'classic')) tutFlag('jar');
     renderCan();
     renderWork();
     toast(`换成了${JARS[state.can.jar].name}`);
@@ -4840,6 +4861,7 @@
     if(state.phase !== 'playing' || state.stage !== 'kitchen') return;
     if(state.bowl.large + state.bowl.small >= 30){ toast('碗满了，先去做罐头吧'); return; }
     state.bowl[size]++;
+    tutFlag('cut');
     els.cutStage.classList.add('chop');
     setTimeout(() => els.cutStage.classList.remove('chop'), 160);
     sfx.chop();
@@ -4856,6 +4878,7 @@
     }else{
       if(p.types.length >= 2){ toast('一口锅最多两种糖浆'); return; }
       p.types.push(type);
+      if(p.types.length >= 2) tutFlag('pot2');
     }
     p.mix = clamp(Number(p.mix) || 50, 10, 90);
     if(p.types.length === 2){
@@ -4880,6 +4903,7 @@
     if(input && Number(input.value) !== mix) input.value = mix;
   }
   function setPotMix(potId, value){
+    if(Number(value) === 60) tutFlag('mix');
     const p = state.pots[potId];
     if(!p || p.status !== 'idle') return;
     p.mix = clamp(Math.round((Number(value) || 50) / 5) * 5, 10, 90);
@@ -4927,6 +4951,7 @@
     bottlePot(p, quality);
   }
   function bottlePot(p, quality){
+    tutFlag('boil');
     const types = (p.types || ['classic']).slice();
     const ratios = {};
     if(types.length > 1){
@@ -5133,6 +5158,7 @@
     if(!c.temp){ toast('还没选温度'); return; }
     if(!c.toppingTouched){ toast('还没选加料，点「不加」也可以'); return; }
     c.sealed = true;
+    tutFlag('seal');
     const batch = findBatch();
     if(batch){
       if(!state.can.batchId) state.can.batchId = batch.id;
@@ -6857,6 +6883,7 @@
   }
 
   function init(){
+    setInterval(() => { if(tutorialActive()){ try { renderTutorialTasks(); } catch(e){} } }, 900);
     cacheEls();
     lockViewport();
     loadSave();
