@@ -13,7 +13,7 @@
 <meta property="og:title" content="奶蛙黄桃罐头店 · 点开即玩">
 <meta property="og:description" content="接单、装罐、封盖、出餐，做一罐甜甜的黄桃罐头。微信/QQ 内直接打开。">
 <meta property="og:type" content="website">
-<title>奶蛙黄桃罐头店 · 正式版 1.2</title>
+<title>奶蛙黄桃罐头店 · 正式版 1.5</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23FFD23F'/%3E%3Ccircle cx='50' cy='58' r='27' fill='%23FFC42E'/%3E%3Ccircle cx='39' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='61' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='50' cy='72' r='4' fill='%23FFF3CE'/%3E%3C/svg%3E">
 <style>
   :root{
@@ -1903,6 +1903,22 @@
   .bag-row b{color:#4A3418;font-size:8.2px}
   .bag-empty{padding:12px;text-align:center;font-size:8px;color:#A08B65;font-weight:700}
   .bag-kind{margin:6px 2px 2px;font-size:7px;letter-spacing:1px;color:#B08A4C;font-weight:900}
+  .shrimp-cabinet{display:flex;align-items:center;gap:8px;width:100%;margin-top:6px;padding:7px 9px;border:1.5px dashed #B7D3B0;border-radius:11px;background:#F4FAF1;text-align:left;cursor:pointer;transition:transform .06s ease,background .15s}
+  .shrimp-cabinet:active{transform:scale(.99);background:#EAF5E4}
+  .cabinet-ico{width:26px;height:26px;flex:0 0 auto;display:grid;place-items:center;border-radius:8px;background:#E3F1DB;font-size:14px}
+  .cabinet-copy{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+  .cabinet-copy b{font-size:9px;color:#3E6B42}
+  .cabinet-copy small{font-size:7.2px;font-weight:800;color:#6E8E6F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cabinet-arrow{flex:0 0 auto;font-size:15px;font-weight:900;color:#7FA37F}
+  .cabinet-sub{margin:-4px 0 8px;font-size:8px;font-weight:800;color:#8B7355}
+  .shrimp-body{max-height:58dvh;overflow-y:auto;scrollbar-width:none}
+  .shrimp-card{display:flex;gap:8px;align-items:flex-start;padding:8px;border:1px solid #EBDDC0;border-radius:11px;background:#FFFDF6}
+  .shrimp-card .sc-ico{width:24px;height:24px;flex:0 0 auto;display:grid;place-items:center;border-radius:7px;background:#FCEFE3;font-size:13px}
+  .shrimp-card .sc-main{flex:1;min-width:0}
+  .shrimp-card b{font-size:9px;color:#4A3418}
+  .shrimp-card .sc-badge{margin-left:4px;padding:1px 4px;border-radius:5px;font-size:6.6px;font-weight:900;color:#fff;vertical-align:1px}
+  .shrimp-card .sc-stack{margin-left:4px;font-size:7px;font-weight:900;color:#B8862B}
+  .shrimp-card small{display:block;margin-top:3px;font-size:7.4px;font-weight:800;line-height:1.5;color:#8B7355}
   .dev-end-btn{flex:0 0 auto;height:26px;padding:0 7px;border:1px solid #C98C7E;border-radius:8px;background:#FFF0EC;color:#9C4638;font:900 7.4px/1 inherit;cursor:pointer}
   .dev-end-btn[hidden]{display:none!important}
   .game[data-mode="rogue"] .coin-chip{border-color:#8CAE69;background:#E7F2D2;color:#3F6329;box-shadow:inset 0 -2px 0 #C4DDA3}
@@ -2258,6 +2274,11 @@
       <div class="rogue-hud-panel" id="rogueHudPanel" hidden>
         <div class="rogue-day-line"><span class="rogue-day-tag" id="rogueDayTag">普通日</span><span class="rogue-event-line" id="rogueEventLine">今日事件：无</span></div>
         <div class="rogue-items-bar" id="rogueItemsBar"></div>
+        <button class="shrimp-cabinet" id="shrimpCabinetBtn" type="button">
+          <span class="cabinet-ico">🦐</span>
+          <span class="cabinet-copy"><b>辣虾收纳柜</b><small id="shrimpCabinetMeta">本局还没有辣虾，去精英日/BOSS日抽</small></span>
+          <span class="cabinet-arrow">›</span>
+        </button>
       </div>
     </div>
 
@@ -2380,7 +2401,7 @@
     <div class="intro-card">
       <div class="intro-hero">
         <span class="intro-tag">SUMMER PEACH · 2026</span>
-        <span class="intro-badge">1.2<br>正式版</span>
+        <span class="intro-badge">1.5<br>正式版</span>
         <span class="intro-badge update-badge">肉鸽更新！</span>
         <svg viewBox="0 0 312 210" aria-hidden="true">
           <use href="#frog-chef" x="8" y="15" width="180" height="206"></use>
@@ -2709,7 +2730,7 @@
         <button id="devExitBtn" class="redeem-exit" type="button" hidden>退出开发者模式</button>
       </div>
       <button class="settings-codex" id="codexFromSettings" type="button">📖 打开奶蛙图鉴</button>
-      <button class="settings-changelog" id="changelogBtn" type="button">📝 更新日志 · 1.2 配比优化</button>
+      <button class="settings-changelog" id="changelogBtn" type="button">📝 更新日志 · 1.5 评分与收纳柜</button>
       <button class="settings-pause" id="settingsPauseBtn" type="button" hidden>暂时打烊（保存进度）</button>
       <button class="settings-early" id="settingsEarlyBtn" type="button" hidden>提前下班</button>
       <button class="settings-done" id="settingsDone" type="button">完成</button>
@@ -2786,6 +2807,16 @@
     </div>
   </div>
 
+  <div class="overlay bag-overlay" id="shrimpCabinetOverlay" aria-hidden="true">
+    <div class="bag-card">
+      <button class="codex-close" id="shrimpCabinetClose" type="button">✕</button>
+      <div class="rogue-kicker">SHRIMP CABINET</div>
+      <h2>辣虾收纳柜</h2>
+      <p class="cabinet-sub" id="shrimpCabinetSub">本局已收集的辣虾</p>
+      <div class="bag-body shrimp-body" id="shrimpCabinetBody"></div>
+    </div>
+  </div>
+
   <div class="overlay event-overlay" id="eventOverlay" aria-hidden="true">
     <div class="event-card">
       <div class="rogue-kicker">ROGUE EVENT</div>
@@ -2802,6 +2833,8 @@
       <div class="rogue-kicker">CHANGELOG</div>
       <h2>更新日志</h2>
       <div class="changelog-body">
+        <div class="changelog-item"><b>1.5 · 评分更看重糖与小料</b><span>糖浆比例 14 分、熬糖火候 15 分、加料 15 分（种类 10 + 数量 5）权重上调：比例超出容差、火候偏生焦苦、加料多放少放或放错扣分更狠；黄桃、温度、搅拌权重下调，满分更难。「增幅道具」下方新增「辣虾收纳柜」，可以查看本局收集到的全部辣虾；每周基础事件日至多 2 天，血色十字架与事件日历各 +1 天（最多 4 天）。</span></div>
+        <div class="changelog-item"><b>1.3 · 肉鸽事件日</b><span>每周基础随机事件日改为至多 2 天（1–2 天）；辣虾「血色十字架」和夜市道具「事件日历」各让每周事件日 +1 天（最多 4 天）。事件日历买下时会先给本周补一天，之后每周持续生效。</span></div>
         <div class="changelog-item"><b>1.2 · 配比更好调</b><span>比例滑块两端加了 − / ＋ 按钮（每次 5%），拖动更跟手不再跳；滑块轨道直接用两种糖的颜色显示比例；客人订单出现更多比例（55:45、65:35、70:30、75:25、80:20 等），前期温和、后期更悬殊。</span></div>
         <div class="changelog-item"><b>1.1 · 糖水配比与肉鸽平衡</b><span>两口锅双糖浆时可用滑块调比例（10%–90%），订单要 60:40 也能做满分；工作台每种糖浆都有绿色完美区间，并显示「倒入顺序」；肉鸽周目标改为线性随机成长（×1.4～2.0），客人小费改为每周 ×1.6 复利；糖枭改为当天生效；局内锅与闹钟新开一局会重置。</span></div>
         <div class="changelog-item"><b>1.0 · 肉鸽更新！</b><span>肉鸽模式上线：周金币指标、随机事件、辣虾三选一、肉鸽夜市、肉鸽图鉴、奶鼠 BOSS、豆包帮手；普通模式改为 28 天。</span></div>

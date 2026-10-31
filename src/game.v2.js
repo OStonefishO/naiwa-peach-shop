@@ -359,7 +359,7 @@
     {id:'slowClock',name:'缓慢时钟',rarity:'legend',desc:'所有客人耐心 +1 分钟',max:1,key:'patience'},
     {id:'platinumCard',name:'白金会员卡',rarity:'legend',desc:'所有商店 -50%，上限 1 级；不与会员卡叠加',max:1,key:'discount50'},
     {id:'bigPot',name:'大糖锅',rarity:'curse',desc:'一次熬糖产 3 份；33% 概率全是过/生糖',max:1,key:'triple'},
-    {id:'bloodCross',name:'血色十字架',rarity:'curse',desc:'事件概率 +67%；但 33% 为霉运事件',max:1,key:'badLuck'},
+    {id:'bloodCross',name:'血色十字架',rarity:'curse',desc:'每周事件日 +1 天；但 33% 为霉运事件',max:1,key:'badLuck'},
     {id:'redEye',name:'红眼',rarity:'curse',desc:'精英/BOSS 金币 ×5，但要求 +75%',max:1,key:'redEye'},
     {id:'challenger',name:'挑战者',rarity:'curse',desc:'金币 +33%，但精英日 +1',max:1,key:'challenger'},
     {id:'plusScore',name:'PLUS！',rarity:'curse',desc:'满分 +100；≤70% 时扣更多小费',max:1,key:'plus'}
@@ -376,7 +376,8 @@
     {id:'cashback',name:'好评返现福利',price:50,max:3,desc:'客人至少得到 80 分（消耗）'},
     {id:'goldPot',name:'黄金锅',price:250,max:4,desc:'一次熬糖产出 2 份'},
     {id:'personality',name:'性格改造器',price:100,max:2,desc:'把客人性格改成随机（消耗）'},
-    {id:'sugarOwl',name:'糖枭',price:300,max:1,desc:'本局所有材料、罐子、糖浆解锁'}
+    {id:'sugarOwl',name:'糖枭',price:300,max:1,desc:'本局所有材料、罐子、糖浆解锁'},
+    {id:'eventCalendar',name:'事件日历',price:180,max:1,desc:'每周随机事件日 +1 天（基础至多 2 天，最多 4 天）'}
   ];
   const ROGUE_EVENTS = [
     {id:'eager',name:'急切的客人',type:'bad',desc:'所有客人耐心 -50%'},
@@ -1548,6 +1549,7 @@
       'eventOverlay','eventIcon','eventTitle','eventDesc','eventContinue','changelogOverlay','changelogClose','changelogDone','changelogBtn',
       'rogueHudPanel','rogueDayTag','rogueEventLine','rogueItemsBar','buffBagBtn','buffCount','rogueShopBtn','rogueCoinShopBtn',
       'rogueMarketCoin','rogueMarketBag','buffBagOverlay','buffBagClose','buffBagBody','summaryPauseBtn','devEndDayBtn',
+      'shrimpCabinetBtn','shrimpCabinetMeta','shrimpCabinetOverlay','shrimpCabinetClose','shrimpCabinetBody','shrimpCabinetSub',
       'startActions','continueBtn','continueMeta','rogueModeCard','rogueBadge','rogueNote',
       'playerMenuToggle','playerMenu',
       'settingsPauseBtn','rogueOverlay','rogueTitle','rogueStayBtn','rogueHomeBtn','confirmTitle','confirmCopy'];
@@ -3455,10 +3457,11 @@
   }
   function rogueWeekEvents(){
     const out = {};
-    const count = 1 + Math.floor(Math.random() * 3);
+    // 基础：每周最多 2 天随机事件（1~2 天）；道具/辣虾可以增加
+    const bonus = (shrimpLevel('bloodCross') ? 1 : 0) + ((state.rogue && state.rogue.items && state.rogue.items.eventCalendar) ? 1 : 0);
+    const count = Math.min(4, 1 + Math.floor(Math.random() * 2) + bonus);
     const days = [1,2,3,4,5,6,7].sort(() => Math.random() - .5).slice(0, count);
     const luckyBoost = shrimpLevel('luckyHorseshoe') ? .25 : 0;
-    const badBias = shrimpLevel('bloodCross') ? .33 : 0;
     days.forEach(day => {
       const lucky = Math.random() < .5 + luckyBoost;
       const pool = ROGUE_EVENTS.filter(e => (lucky ? e.type === 'good' : e.type === 'bad'));
@@ -3466,6 +3469,22 @@
       if(ev) out[day] = ev.id;
     });
     return out;
+  }
+  function addExtraRogueEventDay(){
+    if(!rogueActive()) return false;
+    const events = state.rogue.events;
+    if(Object.keys(events).length >= 4) return false;
+    const free = [1,2,3,4,5,6,7].filter(d => !events[d]);
+    if(!free.length) return false;
+    const ahead = free.filter(d => d >= state.day);
+    const poolDays = ahead.length ? ahead : free;
+    const pick = poolDays[Math.floor(Math.random() * poolDays.length)];
+    const lucky = Math.random() < .5 + (shrimpLevel('luckyHorseshoe') ? .25 : 0);
+    const pool = ROGUE_EVENTS.filter(e => (lucky ? e.type === 'good' : e.type === 'bad'));
+    const ev = pool[Math.floor(Math.random() * pool.length)];
+    if(!ev) return false;
+    events[pick] = ev.id;
+    return true;
   }
   function rogueEventToday(){
     if(!rogueActive()) return null;
@@ -3494,6 +3513,44 @@
       if((state.rogue.items.sugarOwl || 0) > 0) chips.push(`<span class="rogue-item-chip passive">糖枭</span>`);
       els.rogueItemsBar.innerHTML = chips.join('') || '<span class="rogue-item-chip passive">暂无可用增幅道具</span>';
     }
+    renderShrimpCabinet();
+  }
+  function shrimpOwnedList(){
+    const src = (state.rogue && state.rogue.shrimp) || [];
+    const map = new Map();
+    src.forEach(id => map.set(id, (map.get(id) || 0) + 1));
+    return SHRIMPS.filter(s => map.has(s.id)).map(s => ({...s, stack: map.get(s.id)}));
+  }
+  function renderShrimpCabinet(){
+    if(!els.shrimpCabinetMeta) return;
+    const owned = shrimpOwnedList();
+    const total = ((state.rogue && state.rogue.shrimp) || []).length;
+    els.shrimpCabinetMeta.textContent = owned.length
+      ? `已收集 ${owned.length} 种 · 共 ${total} 只`
+      : '本局还没有辣虾，去精英日/BOSS日抽';
+  }
+  function openShrimpCabinet(){
+    if(!rogueActive()) return toast('辣虾只在肉鸽模式里收集');
+    const owned = shrimpOwnedList();
+    const total = (state.rogue.shrimp || []).length;
+    if(els.shrimpCabinetBody){
+      els.shrimpCabinetBody.innerHTML = owned.length ? owned.map(s => {
+        const r = ROGUE_RARITY[s.rarity] || {name:'普通', color:'#B9B2A7'};
+        const stack = s.stack > 1 ? `<span class="sc-stack">Lv.${s.stack}</span>` : '';
+        return `<div class="shrimp-card"><span class="sc-ico">🦐</span><span class="sc-main"><b>${s.name}</b><span class="sc-badge" style="background:${r.color}">${r.name}</span>${stack}<small>${s.desc}</small></span></div>`;
+      }).join('') : '<div class="bag-empty">柜子还是空的。每周第 5 天（精英日）和第 7 天（BOSS 日）打烊后，可以从三只辣虾里挑一只。</div>';
+    }
+    if(els.shrimpCabinetSub){
+      els.shrimpCabinetSub.textContent = owned.length
+        ? `本局 ${owned.length} 种 · 共 ${total} 只，同一只可以叠加`
+        : '本局已收集的辣虾';
+    }
+    if(els.shrimpCabinetOverlay){ els.shrimpCabinetOverlay.classList.add('show'); els.shrimpCabinetOverlay.setAttribute('aria-hidden','false'); }
+  }
+  function closeShrimpCabinet(){
+    if(!els.shrimpCabinetOverlay) return;
+    els.shrimpCabinetOverlay.classList.remove('show');
+    els.shrimpCabinetOverlay.setAttribute('aria-hidden','true');
   }
   function useRogueItem(id){
     if(!rogueActive()) return;
@@ -4118,7 +4175,7 @@
     const sizeDiff = Math.abs(counts.large - o.peaches.large) + Math.abs(counts.small - o.peaches.small);
     const sizeScore = sizeOk ? 6 : 0;
     const jarScore = jarChoice ? (jarOk ? 2 : 0) : 2;
-    const countScore = countDiff === 0 ? 8 : countDiff === 1 ? 4 : 0;
+    const countScore = countDiff === 0 ? 5 : countDiff === 1 ? 2 : 0;
     const pieceSizeScore = sizeDiff === 0 ? 7 : Math.max(0, 7 - sizeDiff * 3.5);
     const peachScore = countScore + pieceSizeScore;
 
@@ -4135,7 +4192,7 @@
       : o.boilStyle === 'together'
         ? batchTypes.some(t => t.length > 1)
         : batchTypes.every(t => t.length === 1);
-    const kindScore = Math.max(0, 7 * matched.length / wantIds.length - extra * 3) + (styleOk ? 3 : 0);
+    const kindScore = Math.max(0, 5 * matched.length / wantIds.length - extra * 3) + (styleOk ? 3 : 0);
 
     const target = SUGAR[o.sugar].target, tol = (o.tol || SUGAR[o.sugar].tol) + (rogueActive() ? 1.5 * shrimpLevel('caliper') : 0);
     let maxRatioDiff = 0;
@@ -4143,33 +4200,42 @@
       const want = target * s.ratio / 100;
       maxRatioDiff = Math.max(maxRatioDiff, Math.abs((c.components[s.id] || 0) - want));
     });
-    const ratioScore = maxRatioDiff <= tol ? 8 : Math.max(0, 8 - (maxRatioDiff - tol) * .7);
+    const ratioScore = maxRatioDiff <= tol ? 14 : Math.max(0, 14 - (maxRatioDiff - tol) * 1.15);
 
-    const qualityPts = usedBatches.map(b => b.quality === 'perfect' ? 10 : b.quality === 'thin' ? 5 : 1);
+    const qualityPts = usedBatches.map(b => b.quality === 'perfect' ? 15 : b.quality === 'thin' ? 7 : 0);
     const batch = usedBatches[0] || null;
     const boilScore = qualityPts.length ? qualityPts.reduce((a,b) => a+b, 0) / qualityPts.length : 0;
 
     const pourDiff = Math.abs(c.syrup - target);
-    const pourScore = c.syrup <= 0 ? 0 : pourDiff <= tol ? 12 : Math.max(0, 12 - (pourDiff - tol) * .8);
+    const pourScore = c.syrup <= 0 ? 0 : pourDiff <= tol ? 13 : Math.max(0, 13 - (pourDiff - tol) * 1);
 
-    const stirScore = wantIds.length > 1 ? (!!c.stirred === !!o.stirred ? 7 : 0) : 7;
+    const stirScore = wantIds.length > 1 ? (!!c.stirred === !!o.stirred ? 3 : 0) : 3;
 
-    const tempScore = c.temp === o.temp ? 10 : 0;
+    const tempScore = c.temp === o.temp ? 6 : 0;
     const wantTops = o.toppings || [], gotTops = c.toppings || [];
     let toppingKindScore = 0, toppingQtyScore = 0;
     if(!wantTops.length){
-      toppingKindScore = gotTops.length ? 0 : 6;
-      toppingQtyScore = gotTops.length ? 0 : 4;
+      const extraSpoons = gotTops.reduce((s,t) => s + (t.qty || 1), 0);
+      toppingKindScore = gotTops.length ? Math.max(0, 10 - extraSpoons * 3) : 10;
+      toppingQtyScore = gotTops.length ? 0 : 5;
     }else{
-      const topMatched = wantTops.filter(w => gotTops.some(g => g.id === w.id));
-      const exact = wantTops.filter(w => gotTops.some(g => g.id === w.id && g.qty === w.qty));
-      const topExtra = gotTops.filter(g => !wantTops.some(w => w.id === g.id)).length;
-      toppingKindScore = Math.max(0, 6 * topMatched.length / wantTops.length - topExtra * 1.5);
-      toppingQtyScore = 4 * exact.length / wantTops.length;
+      let kindHit = 0, qtyRatioSum = 0, extraId = 0;
+      wantTops.forEach(w => {
+        const got = gotTops.find(g => g.id === w.id);
+        const wantQty = w.qty || 1;
+        if(got){
+          kindHit++;
+          const diff = Math.abs((got.qty || 1) - wantQty);
+          qtyRatioSum += Math.max(0, 1 - diff / Math.max(1, wantQty));
+        }
+      });
+      extraId = gotTops.filter(g => !wantTops.some(w => w.id === g.id)).length;
+      toppingKindScore = Math.max(0, 10 * kindHit / wantTops.length - extraId * 3);
+      toppingQtyScore = 5 * qtyRatioSum / wantTops.length;
     }
     const toppingScore = toppingKindScore + toppingQtyScore;
     const remain = Math.max(0, state.deadline - performance.now());
-    const speedScore = remain >= state.patienceMs * .5 ? 10 : remain >= state.patienceMs * .25 ? 7 : remain > 0 ? 4 : 0;
+    const speedScore = remain >= state.patienceMs * .5 ? 6 : remain >= state.patienceMs * .25 ? 4 : remain > 0 ? 2 : 0;
     const baseScore = timedOut ? 0 : Math.round(sizeScore + jarScore + peachScore + kindScore + ratioScore + boilScore + pourScore + stirScore + tempScore + toppingScore + speedScore);
     const p = state.personality || (state.guest && state.guest.personality ? PERSONALITIES[state.guest.personality] : null);
     let score = baseScore;
@@ -4228,19 +4294,19 @@
     const details = [];
     details.push({ok:sizeScore===6, label:'罐型', text: sizeOk ? `${SIZES[c.size].name} ✓` : `要${SIZES[o.size].name}${c.size ? ` · 用了${SIZES[c.size].name}` : ''}`});
     if(jarChoice) details.push({ok:jarOk, label:'罐子', text: jarOk ? `${JARS[c.jar || 'classic'].name} ✓` : `要${JARS[o.jar || 'classic'].name}`});
-    details.push({ok:peachScore===15, label:'黄桃', text: `${counts.large}大${counts.small}小 · 共${total}块${peachScore===15 ? ' ✓' : ` / 要${peachText(o.peaches)}`}`});
-    details.push({ok:kindScore>=9.5, label:'糖浆种类', text: c.syrup > 0 ? `${gotIds.map(id => SYRUPS[id].name).join('+') || '空'}${kindScore>=9.5 ? ' ✓' : ` / 要${wantIds.map(id => SYRUPS[id].name).join('+')}${wantIds.length > 1 ? (o.boilStyle === 'together' ? '·一起熬' : '·分开熬') : ''}`}` : '还没倒糖浆'});
+    details.push({ok:peachScore===12, label:'黄桃', text: `${counts.large}大${counts.small}小 · 共${total}块${peachScore===12 ? ' ✓' : ` / 要${peachText(o.peaches)}`}`});
+    details.push({ok:kindScore>=7.5, label:'糖浆种类', text: c.syrup > 0 ? `${gotIds.map(id => SYRUPS[id].name).join('+') || '空'}${kindScore>=7.5 ? ' ✓' : ` / 要${wantIds.map(id => SYRUPS[id].name).join('+')}${wantIds.length > 1 ? (o.boilStyle === 'together' ? '·一起熬' : '·分开熬') : ''}`}` : '还没倒糖浆'});
     const ratioText = wantSyrups.map(s => `${SYRUPS[s.id].name} ${Math.round(c.components[s.id] || 0)}/${Math.round(target * s.ratio / 100)}%`).join(' · ');
-    details.push({ok:ratioScore>=7.5, label:'糖浆比例', text: ratioText});
-    details.push({ok:boilScore>=9.5, label:'熬糖火候', text: usedBatches.length ? usedBatches.map(b => `${(b.types||['classic']).map(id=>SYRUPS[id].name).join('+')}：${b.quality === 'perfect' ? '完美' : b.quality === 'thin' ? '偏生' : '焦苦'}`).join(' / ') : '没有可用糖水'});
-    details.push({ok:pourScore>=11.5, label:'倒糖量', text: `总 ${Math.round(c.syrup)}% / 目标 ${Math.round(target)}%`});
-    details.push({ok:stirScore===7, label:'搅拌', text: wantIds.length > 1 ? (c.stirred ? '已搅拌 ✓' : '分层') + (o.stirred === !!c.stirred ? ' ✓' : o.stirred ? ' / 要搅拌' : ' / 要分层') : '单糖浆 ✓'});
-    details.push({ok:tempScore===10, label:'温度', text: c.temp ? `${TEMPS[c.temp]}${tempScore===10 ? ' ✓' : ` / 要${TEMPS[o.temp]}`}` : '没选温度'});
-    details.push({ok:toppingScore>=9.5, label:'加料', text: c.toppingTouched ? `${toppingText(gotTops)}${toppingScore>=9.5 ? ' ✓' : ` / 要${toppingText(wantTops)}`}` : '没选加料'});
+    details.push({ok:ratioScore>=13, label:'糖浆比例', text: ratioText});
+    details.push({ok:boilScore>=14, label:'熬糖火候', text: usedBatches.length ? usedBatches.map(b => `${(b.types||['classic']).map(id=>SYRUPS[id].name).join('+')}：${b.quality === 'perfect' ? '完美' : b.quality === 'thin' ? '偏生' : '焦苦'}`).join(' / ') : '没有可用糖水'});
+    details.push({ok:pourScore>=12, label:'倒糖量', text: `总 ${Math.round(c.syrup)}% / 目标 ${Math.round(target)}%`});
+    details.push({ok:stirScore===3, label:'搅拌', text: wantIds.length > 1 ? (c.stirred ? '已搅拌 ✓' : '分层') + (o.stirred === !!c.stirred ? ' ✓' : o.stirred ? ' / 要搅拌' : ' / 要分层') : '单糖浆 ✓'});
+    details.push({ok:tempScore===6, label:'温度', text: c.temp ? `${TEMPS[c.temp]}${tempScore===6 ? ' ✓' : ` / 要${TEMPS[o.temp]}`}` : '没选温度'});
+    details.push({ok:toppingScore>=13.5, label:'加料', text: c.toppingTouched ? `${toppingText(gotTops)}${toppingScore>=13.5 ? ' ✓' : ` / 要${toppingText(wantTops)}`}` : '没选加料'});
     if(queueDelta){
       details.push({ok:queueDelta > 0, label:'排队', text: queueDelta > 0 ? `提前服务 +${queueDelta}` : `被插队 ${queueDelta}`});
     }
-    details.push({ok:speedScore===10, label:'出餐速度', text: timedOut ? '超时了…' : speedScore===10 ? '手速超快' : speedScore===7 ? '稍微有点慢' : '客人等急了'});
+    details.push({ok:speedScore===6, label:'出餐速度', text: timedOut ? '超时了…' : speedScore===6 ? '手速超快' : speedScore===4 ? '稍微有点慢' : '客人等急了'});
     return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipNotes:tipInfo.notes, details, timedOut, guest:state.guest};
   }
 
@@ -4856,6 +4922,10 @@
       state.rogue.owlDay = state.day;
       toast('糖枭生效：今天所有材料、罐子、糖浆都能用（明天失效）');
     }
+    if(id === 'eventCalendar'){
+      const added = addExtraRogueEventDay();
+      toast(added ? '事件日历：本周多安排了一个事件日' : '事件日历：本周事件日已满，下周起每周 +1 天');
+    }
     renderRogueShop();
     renderRogueHud();
     sfx.coin();
@@ -5318,6 +5388,11 @@
     });
     if(els.eventContinue) els.eventContinue.addEventListener('click', closeRogueEventPopup);
     if(els.buffBagBtn) els.buffBagBtn.addEventListener('click', showBuffBag);
+    if(els.shrimpCabinetBtn) els.shrimpCabinetBtn.addEventListener('click', openShrimpCabinet);
+    if(els.shrimpCabinetClose) els.shrimpCabinetClose.addEventListener('click', closeShrimpCabinet);
+    if(els.shrimpCabinetOverlay) els.shrimpCabinetOverlay.addEventListener('click', e => {
+      if(e.target === els.shrimpCabinetOverlay) closeShrimpCabinet();
+    });
     if(els.rogueShopBtn) els.rogueShopBtn.addEventListener('click', openRogueShop);
     if(els.rogueCoinShopBtn) els.rogueCoinShopBtn.addEventListener('click', () => openShop(true));
     if(els.changelogBtn) els.changelogBtn.addEventListener('click', () => {
@@ -5471,7 +5546,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, renderRogueHud, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar };
+      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar };
     }
   }
 
