@@ -337,7 +337,7 @@
   const ROGUE_BASE_TARGET = 400;
   // 肉鸽周目标成长：每周线性随机 +40%~+100%（400 → 560~800 → …），不再指数爆炸
   function rogueGrowthTarget(prev){
-    const growth = .4 + Math.random() * .6;
+    const growth = .8 + Math.random() * .8;
     return Math.round((Number(prev) || ROGUE_BASE_TARGET) * (1 + growth));
   }
   const ROGUE_TARGET = () => ROGUE_BASE_TARGET;
@@ -377,7 +377,7 @@
     {id:'goldPot',name:'黄金锅',price:250,max:4,desc:'一次熬糖产出 2 份'},
     {id:'personality',name:'性格改造器',price:100,max:2,desc:'把客人性格改成随机（消耗）'},
     {id:'sugarOwl',name:'糖枭',price:300,max:1,desc:'仅今天：所有小料、糖浆、罐子解锁（打烊后消耗）'},
-    {id:'eventCalendar',name:'事件日历',price:180,max:1,desc:'每周随机事件日 +1 天（基础至多 2 天，最多 4 天）'}
+    {id:'eventCalendar',name:'事件日历',price:180,max:1,desc:'每周随机事件日 +1 天（最多 3 天）'}
   ];
   const ROGUE_EVENTS = [
     {id:'eager',name:'急切的客人',type:'bad',desc:'所有客人耐心 -50%'},
@@ -3480,9 +3480,9 @@
   }
   function rogueWeekEvents(){
     const out = {};
-    // 基础：每周最多 2 天随机事件（1~2 天）；道具/辣虾可以增加
+    // 基础：每周 1~2 天随机事件；道具/辣虾各 +1 天，最多 3 天
     const bonus = (shrimpLevel('bloodCross') ? 1 : 0) + ((state.rogue && state.rogue.items && state.rogue.items.eventCalendar) ? 1 : 0);
-    const count = Math.min(4, 1 + Math.floor(Math.random() * 2) + bonus);
+    const count = Math.min(3, 1 + Math.floor(Math.random() * 2) + bonus);
     const days = [1,2,3,4,5,6,7].sort(() => Math.random() - .5).slice(0, count);
     const luckyBoost = shrimpLevel('luckyHorseshoe') ? .25 : 0;
     days.forEach(day => {
@@ -3496,7 +3496,7 @@
   function addExtraRogueEventDay(){
     if(!rogueActive()) return false;
     const events = state.rogue.events;
-    if(Object.keys(events).length >= 4) return false;
+    if(Object.keys(events).length >= 3) return false;
     const free = [1,2,3,4,5,6,7].filter(d => !events[d]);
     if(!free.length) return false;
     const ahead = free.filter(d => d >= state.day);
@@ -5680,7 +5680,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar };
+      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget };
     }
   }
 
