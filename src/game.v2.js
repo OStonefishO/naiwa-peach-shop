@@ -224,12 +224,149 @@
 
   const MODES = {
     normal:{name:'普通模式', days:28, desc:'4 周 · 28 天 · 尽可能多赚钱'},
+    tutorial:{name:'新手模式', weekDays:7, desc:'7 天教学 · 出餐 / 性格 / 商店 / 精英 / 混合糖浆'},
     endless:{name:'无尽模式', weekDays:7, desc:'每周完成业绩 · 不达标就关门'},
     rogue:{name:'肉鸽模式', weekDays:7, desc:'每周业绩 · 辣虾 · 随机事件 · 肉鸽商店'}
   };
   const NORMAL_DAYS = 28;
   const WEEK_DAYS = 7;
+  const TUTORIAL_DAYS = 7;
   const weekTargetFor = week => Math.min(900, 280 + (week - 1) * 55);
+
+  /* -------------------- 新手模式 -------------------- */
+  const TUTORIAL_SCRIPTS = {
+    1:{
+      title:'第一单：出餐流程',
+      guests:[{name:'小黄'},{name:'阿蓝'}],
+      pots:1, alarms:0, coins:60,
+      intro:[
+        {key:'d1-start', title:'欢迎来到奶蛙的小店', text:'这 7 天奶蛙会手把手带你开店。每天只做几单，慢慢来，不会扣钱。'},
+        {key:'d1-flow', title:'出餐四步', text:'看左边订单卡 → 去「厨房」切黄桃、加糖熬糖水 → 回「工作台」装罐、调温度、加料、封盖 → 把订单拖到订单架，再点「交给客人」。'}
+      ],
+      serve:['d1-score', '评价会看罐型、黄桃、糖水比例、火候、温度、加料和出餐速度，每一项差一点都会扣分。']
+    },
+    2:{
+      title:'客人的性格',
+      guests:[{name:'豆豆', personality:'generous'},{name:'口水猫', personality:'strict'}],
+      pots:1, alarms:0,
+      batches:[{sugar:2, quality:'raw', types:['classic']},{sugar:2, quality:'burnt', types:['classic']}],
+      intro:[
+        {key:'d2-start', title:'大方的客人和苛刻的客人', text:'今天两位客人性格不同：豆豆「大方」，评分更宽松、小费更多；口水猫「苛刻」，要求高、扣分更狠。'},
+        {key:'d2-syrup', title:'这两锅糖水都不完美', text:'工作台的糖水选单里已经备好两锅糖：一锅偏生、一锅焦苦。先用它们试试——客人会怎么评价火候。'}
+      ],
+      serve:['d2-after', '看到评分下面的性格标签了吗？大方客人的小费会额外加成，苛刻客人同样的失误会扣更多分。']
+    },
+    3:{
+      title:'插队与斤斤计较',
+      guests:[{name:'夜莺师傅'},{name:'小黄', personality:'petty'}],
+      pots:1, alarms:0,
+      intro:[{key:'d3-start', title:'接单顺序也算分', text:'先接谁的订单，就先给谁做。让后来的客人先出餐，前面的客人会被「插队」，评价里会多一条扣分。'}],
+      serve:['d3-after', '「斤斤计较」的客人最讨厌被插队，被插队时扣分会翻倍。想了解所有性格，可以打开「图鉴 → 性格」查看。']
+    },
+    4:{
+      title:'复杂订单与金币商店',
+      guests:[{name:'豆豆', personality:'strict', order:{complex:true}},{name:'阿蓝'}],
+      pots:2, alarms:1, shop:true,
+      intro:[
+        {key:'d4-start', title:'复杂订单', text:'这位客人要的更多：罐型、加料、糖浆都更讲究。慢慢对照订单卡，一样一样来。'}
+      ],
+      serve:['d4-after', '复杂订单的分更高、小费也更多，但每一样都要对。']
+    },
+    5:{
+      title:'精英日与多锅熬糖',
+      guests:[{name:'夜莺师傅', tier:'elite'},{name:'口水猫'}],
+      pots:3, alarms:2, syrups:['honey'],
+      intro:[
+        {key:'d5-start', title:'精英客人来了', text:'精英客人要求更高、奖励也更高，订单通常更复杂。'},
+        {key:'d5-pots', title:'多锅一起熬', text:'厨房现在有 3 口熬糖锅、2 个闹钟。不同糖可以同时熬，闹钟会在火候过半时提醒你。'}
+      ],
+      serve:['d5-after', '精英客人的评分更严格，但金币和小费都更可观。']
+    },
+    6:{
+      title:'混合糖浆与比例',
+      guests:[{name:'豆豆', personality:'patient', order:{mix:true}},{name:'小黄'}],
+      pots:3, alarms:2, syrups:['honey'],
+      intro:[
+        {key:'d6-start', title:'两种糖一起熬', text:'这单要两种糖浆按比例混合。在厨房选两种糖后，用滑块调比例，再按「一起熬」或「分开熬」。'},
+        {key:'d6-mix', title:'搅拌与分层', text:'混好的糖水会分层，记得在工作台「搅拌一下」；两种糖分别熬的，倒糖时会按顺序记录。'}
+      ],
+      serve:['d6-after', '比例对上了才是满分：绿色区间里就是完美比例。']
+    },
+    7:{
+      title:'自由练习',
+      guests:[{name:'小黄'},{name:'阿蓝'},{name:'豆豆'}],
+      pots:2, alarms:1, coins:40,
+      intro:[{key:'d7-start', title:'最后一天，交给你了', text:'今天没有提示，按自己的节奏来。打完这一天，新手模式就通关啦。'}],
+      serve:['d7-after', '很棒！新手模式结束，去普通模式开一家真正的小店吧。']
+    }
+  };
+  function tutorialActive(){ return state.mode === 'tutorial'; }
+  function tutorialScript(){
+    if(!tutorialActive()) return null;
+    return TUTORIAL_SCRIPTS[state.day] || TUTORIAL_SCRIPTS[TUTORIAL_DAYS];
+  }
+  function guestByName(name){
+    const all = GUESTS.concat(ELITE_GUESTS, BOSS_GUESTS);
+    return all.find(g => g.name === name) || GUESTS[0];
+  }
+  function tutorialTip(id, title, text){
+    if(!tutorialActive()) return;
+    if(!state.tutorial) state.tutorial = { seen:{} };
+    if(!state.tutorial.seen) state.tutorial.seen = {};
+    if(!id || state.tutorial.seen[id]) return;
+    state.tutorial.seen[id] = true;
+    state.tutorialQueue = state.tutorialQueue || [];
+    state.tutorialQueue.push({ title: title || '新手教程', text: text || '' });
+    pumpTutorialTip();
+  }
+  function pumpTutorialTip(){
+    if(!els.tutorialOverlay) return;
+    if(els.tutorialOverlay.classList.contains('show')) return;
+    const next = (state.tutorialQueue || []).shift();
+    if(!next) return;
+    els.tutorialTitle.textContent = next.title;
+    els.tutorialText.textContent = next.text;
+    els.tutorialOverlay.classList.add('show');
+    els.tutorialOverlay.setAttribute('aria-hidden','false');
+  }
+  function closeTutorialTip(){
+    if(!els.tutorialOverlay) return;
+    els.tutorialOverlay.classList.remove('show');
+    els.tutorialOverlay.setAttribute('aria-hidden','true');
+    setTimeout(pumpTutorialTip, 260);
+  }
+  function applyTutorialDay(){
+    if(!tutorialActive()) return;
+    if(state.tutorialDayApplied === state.day) return;
+    state.tutorialDayApplied = state.day;
+    const sc = tutorialScript();
+    if(!sc) return;
+    state.upgrade.pots = sc.pots || 1;
+    state.upgrade.alarms = sc.alarms || 0;
+    state.upgrade.knives = [0,0,0];
+    state.tutorial = state.tutorial || { seen:{} };
+    state.tutorial.syrups = (sc.syrups || []).slice();
+    state.tutorial.toppings = [];
+    state.tutorial.jars = [];
+    state.batches = [];
+    (sc.batches || []).forEach((b, i) => {
+      state.batches.push({
+        id: ++batchSeq, sugar: b.sugar || 2, quality: b.quality || 'perfect',
+        types: b.types || ['classic'], mix: b.mix || 50, used: 0, ratios: null
+      });
+    });
+    state.selectedBatch = null;
+    state.coins = state.tutorialCoins == null ? (sc.coins || 0) : state.tutorialCoins;
+    if(sc.coins != null) state.tutorialCoins = state.coins;
+  }
+  function tutorialAfterServe(){
+    if(!tutorialActive()) return;
+    const sc = tutorialScript();
+    if(!sc || !sc.serve) return;
+    const [key, text] = sc.serve;
+    setTimeout(() => tutorialTip(key, '点评一下', text), 900);
+  }
+
   const MUSIC = {
     title:'music/title.mp3',
     desk:'music/desk.mp3',
@@ -433,11 +570,13 @@
   function coinText(){
     if(state.devMode) return '∞';
     if(state.mode === 'rogue' && state.rogue) return String(state.rogue.coins);
+    if(state.mode === 'tutorial') return String(state.tutorialCoins || 0);
     return String(activeProfile ? activeProfile.wallet : state.coins);
   }
   function canAfford(n){
     if(state.devMode) return true;
     if(state.mode === 'rogue' && state.rogue) return state.rogue.coins >= n;
+    if(state.mode === 'tutorial') return (state.tutorialCoins || 0) >= n;
     return !!(activeProfile && activeProfile.wallet >= n);
   }
 
@@ -752,11 +891,13 @@
   }
   function rogueOwlToday(){ return rogueActive() && rogueHas('sugarOwl') && Number(state.rogue.owlDay) === Number(state.day); }
   function availableSyrups(){
+    if(tutorialActive()) return ['classic'].concat(state.tutorial && state.tutorial.syrups || []);
     if(rogueActive()) return ['classic'].concat(SYRUP_IDS.filter(id => id !== 'classic' && (state.rogue.syrups.includes(id) || rogueOwlToday())));
     const owned = activeProfile && activeProfile.syrups ? activeProfile.syrups : {};
     return ['classic'].concat(['honey','maple','honeysuckle'].filter(id => owned[id]));
   }
   function unlockedToppings(){
+    if(tutorialActive()) return BASE_TOPPINGS.concat((state.tutorial && state.tutorial.toppings) || []);
     if(rogueActive()){
       const extra = rogueOwlToday() ? EXPANSION.topping.map(x => x.id) : state.rogue.toppings;
       return BASE_TOPPINGS.concat(extra);
@@ -765,6 +906,7 @@
     return BASE_TOPPINGS.concat(extra);
   }
   function unlockedJars(){
+    if(tutorialActive()) return ['classic'].concat((state.tutorial && state.tutorial.jars) || []);
     if(rogueActive()){
       const extra = rogueOwlToday() ? EXPANSION.jar.map(x => x.id) : state.rogue.jars;
       const jars = ['classic'].concat(extra);
@@ -809,6 +951,9 @@
       // 肉鸽进行中：金币与升级都跟着本局走，不能被账号存档覆盖
       state.coins = state.rogue.coins || 0;
       state.upgrade = state.rogue.upgrades || state.upgrade;
+    }else if(tutorialActive()){
+      // 新手模式：金币和厨房配置是教学脚本给的，不跟账号存档混
+      state.coins = Number(state.tutorialCoins) || 0;
     }else{
       state.coins = activeProfile.wallet || 0;
       if(activeProfile.upgrades) state.upgrade = activeProfile.upgrades;
@@ -1185,6 +1330,14 @@
       return;
     }
     if(!activeProfile) return;
+    if(tutorialActive()){
+      state.coins += n;
+      state.tutorialCoins = state.coins;
+      if(els.coins) els.coins.textContent = coinText();
+      if(els.homeCoins) els.homeCoins.textContent = coinText();
+      if(els.shopCoins) els.shopCoins.textContent = coinText();
+      return;
+    }
     activeProfile.wallet += n;
     state.coins = activeProfile.wallet;
     saveProfiles();
@@ -1199,6 +1352,13 @@
       if(state.rogue.coins < n) return false;
       state.rogue.coins -= n;
       state.coins = state.rogue.coins;
+      if(els.coins) els.coins.textContent = coinText();
+      return true;
+    }
+    if(tutorialActive()){
+      if((state.tutorialCoins || 0) < n) return false;
+      state.tutorialCoins -= n;
+      state.coins = state.tutorialCoins;
       if(els.coins) els.coins.textContent = coinText();
       return true;
     }
@@ -1880,7 +2040,7 @@
       'introOverlay','startBtn','introNote','reviewOverlay','reviewStars','reviewTitle','reviewScore','reviewQuote',
       'scoreGrid','reviewCoins','reviewTip','reviewQueue','perfectStamp','nextBtn','summaryOverlay','summaryTitle','summaryStars',
       'summaryCoins','summaryCoinsLabel','summaryPerfect','summaryAvg','summaryComment','summaryBest','summarySub','confetti',
-      'summaryRibbon','homeBtn','weekBanner','weekLabel','weekFill','weekValue','weekLeft','bgm',
+      'summaryRibbon','homeBtn','weekBanner','weekLabel','weekFill','weekValue','weekLeft','bgm','summaryStarsMax',
       'reviewSpecial','shopBtn','replayBtn','shopOverlay','shopCoins','shopEvent','shopGrid','shopStartBtn','shopBackBtn',
       'playerName','savePlayerBtn','homeEntryBtn','rankEntryBtn','summaryRankBtn','homeOverlay','homeCoins','homeOwner',
       'homeTabs','homeRoom','homeRoomTip','furnitureGrid','closetGrid','charSkinRow','skinShop','homeClose','homePlayBtn','homeRankBtn',
@@ -1906,7 +2066,8 @@
       'shrimpCabinetBtn','shrimpCabinetMeta','shrimpCabinetOverlay','shrimpCabinetClose','shrimpCabinetBody','shrimpCabinetSub',
       'startActions','continueBtn','continueMeta','rogueModeCard','rogueBadge','rogueNote',
       'playerMenuToggle','playerMenu',
-      'settingsPauseBtn','rogueOverlay','rogueTitle','rogueStayBtn','rogueHomeBtn','confirmTitle','confirmCopy','confirmIcon'];
+      'settingsPauseBtn','rogueOverlay','rogueTitle','rogueStayBtn','rogueHomeBtn','confirmTitle','confirmCopy','confirmIcon',
+      'tutorialOverlay','tutorialTitle','tutorialText','tutorialNext'];
     ids.forEach(id => els[id] = document.getElementById(id));
     els.panel = $('#panel');
     els.footer = $('.footer');
@@ -2274,6 +2435,8 @@
       }else if(state.mode === 'rogue'){
         const d = ((state.day - 1) % WEEK_DAYS) + 1;
         els.daySub.textContent = `肉鸽 W${state.week} · DAY ${d}/${WEEK_DAYS}${mark} · ${label}`;
+      }else if(state.mode === 'tutorial'){
+        els.daySub.textContent = `新手 DAY ${state.day}/${TUTORIAL_DAYS} · ${label}`;
       }else{
         els.daySub.textContent = `普通 · DAY ${state.day}/${NORMAL_DAYS}${mark} · ${label}`;
       }
@@ -3471,6 +3634,36 @@
     state.rackOrderId = null;
     state.orderSeq = 0;
     state.queueInfo = null;
+    if(tutorialActive()){
+      applyTutorialDay();
+      const sc = tutorialScript() || {};
+      const list = (sc.guests || [{name:'小黄'},{name:'阿蓝'}]).slice(0, GUEST_COUNT);
+      list.forEach((spec, i) => {
+        const base = guestByName(spec.name);
+        const guest = Object.assign({}, base, spec.tier ? {tier:spec.tier} : {}, spec.personality ? {personality:spec.personality} : {});
+        if(spec.tier === 'elite') guest.tier = 'elite';
+        const p = spec.personality ? PERSONALITIES[spec.personality] : (guest.tier !== 'normal' ? personalityFor(guest) : null);
+        state.todayGuests.push(guest.name);
+        markSeen(guest);
+        let patienceMs = personalityPatience(p, guest);
+        patienceMs = Math.round(patienceMs * 1.6);
+        const order = makeOrder(i, guest, p);
+        if(spec.order && spec.order.complex){
+          order.toppings = [{id:'mint', qty:2}, {id:'osmanthus', qty:1}];
+          order.jar = 'narrow';
+          order.temp = 'warm';
+        }
+        if(spec.order && spec.order.mix){
+          order.syrups = [{id:'classic', ratio:60}, {id:'honey', ratio:40}];
+          order.stirred = true;
+          order.boilStyle = 'separate';
+          order.toppings = [{id:'mint', qty:2}];
+          order.temp = 'ice';
+        }
+        state.dayGuests.push({index:i, guest, personality:p, patienceMs, order, accepted:false, served:false, queuePenalty:0, orderId:null});
+      });
+      return;
+    }
     const extra = rogueActive() ? Math.min(3, shrimpLevel('influencer')) : 0;
     const count = GUEST_COUNT + extra;
     const naishuDay = rogueActive() && rogueEventToday() && rogueEventToday().id === 'naishu';
@@ -3576,7 +3769,8 @@
       stage:state.stage, bowl:state.bowl, batches:state.batches,
       selectedBatch:state.selectedBatch, batchSeq,
       pots:state.pots.map(p => ({...p, startedAt:null})),
-      todayGuests:state.todayGuests, rogue:state.rogue
+      todayGuests:state.todayGuests, rogue:state.rogue,
+      tutorial:state.tutorial, tutorialCoins:state.tutorialCoins, coins:state.coins, upgrade:state.upgrade
     };
     return JSON.parse(JSON.stringify(raw));
   }
@@ -3622,6 +3816,12 @@
       : makePots();
     state.stock = Infinity;
     state.rogue = run.rogue ? JSON.parse(JSON.stringify(run.rogue)) : null;
+    if(run.mode === 'tutorial'){
+      state.tutorial = run.tutorial || { seen:{} };
+      state.tutorialQueue = [];
+      state.tutorialCoins = Number(run.tutorialCoins) || 0;
+      if(run.upgrade) state.upgrade = JSON.parse(JSON.stringify(run.upgrade));
+    }
     if(state.mode === 'rogue' && state.rogue){
       state.rogue.upgrades = state.rogue.upgrades || {pots:1, alarms:0, knife:'wood', knives:['wood']};
       state.rogue.upgrades.pots = clamp(Number(state.rogue.upgrades.pots) || 1, 1, 4);
@@ -3630,7 +3830,7 @@
       state.rogue.weekTarget = Number(state.rogue.weekTarget) || Number(state.weekTarget) || ROGUE_BASE_TARGET;
       state.rogue.nextTarget = Number(state.rogue.nextTarget) || rogueGrowthTarget(state.rogue.weekTarget);
     }
-    state.coins = state.mode === 'rogue' && state.rogue ? state.rogue.coins : (activeProfile ? activeProfile.wallet : 0);
+    state.coins = state.mode === 'rogue' && state.rogue ? state.rogue.coins : (state.mode === 'tutorial' ? (state.tutorialCoins || 0) : (activeProfile ? activeProfile.wallet : 0));
     if(state.mode === 'rogue' && state.rogue) state.upgrade = state.rogue.upgrades;
     state.phase = 'playing';
     state.stage = run.stage || 'desk';
@@ -3691,7 +3891,7 @@
   function updateStartButton(){
     if(!els.startBtn) return;
     const hasRun = !!(activeProfile && activeProfile.run);
-    const label = hasRun ? '新开一局' : state.introMode === 'normal' ? `开始 ${NORMAL_DAYS} 天营业` : state.introMode === 'rogue' ? '开始肉鸽营业' : '开始无尽营业';
+    const label = hasRun ? '新开一局' : state.introMode === 'normal' ? `开始 ${NORMAL_DAYS} 天营业` : state.introMode === 'tutorial' ? '开始 7 天新手教学' : state.introMode === 'rogue' ? '开始肉鸽营业' : '开始无尽营业';
     els.startBtn.innerHTML = `${label}${icon('arrow')}`;
   }
   function renderRogueMode(){
@@ -3739,6 +3939,10 @@
       state.selectedBatch = null;
       state.pouring = false;
       acceptGuest(0, {auto:true});
+      if(tutorialActive()){
+        const sc = tutorialScript() || {};
+        (sc.intro || []).forEach(t => tutorialTip(t.key, t.title, t.text));
+      }
       if(rogueActive()) setTimeout(showRogueEventPopup, 350);
       if(!state.orderTipShown){
         state.orderTipShown = true;
@@ -3811,9 +4015,10 @@
     const best = mode === 'normal' ? state.bestNormal : mode === 'endless' ? state.bestEndless : 0;
     const bestText = mode === 'normal'
       ? (best ? ` · 最佳周目 ${best} 金币` : '')
-      : mode === 'endless' ? (best ? ` · 最远第 ${best} 周` : '') : ' · 辣虾 / 随机事件 / 肉鸽夜市';
+      : mode === 'endless' ? (best ? ` · 最远第 ${best} 周` : '') : mode === 'rogue' ? ' · 辣虾 / 随机事件 / 肉鸽夜市' : '';
     els.introNote.textContent = (mode === 'normal'
       ? `普通模式 · ${NORMAL_DAYS} 天后结算总营业额`
+      : mode === 'tutorial' ? '新手模式 · 7 天教学 · 不会因为失误关门'
       : mode === 'rogue' ? '肉鸽模式 · 每周完成金币指标 · 每局重置'
       : '无尽模式 · 每周业绩递增 · 不达标就关门') + bestText;
     setMenuGroup(els.modeToggle, els.modePanel, false);
@@ -4057,7 +4262,8 @@
     ensureAudio();
     if(activeProfile) activeProfile.run = null;
     state.mode = MODES[mode] ? mode : 'normal';
-    if(state.mode === 'rogue') startRogueRun();
+    if(state.mode === 'tutorial'){ state.rogue = null; state.tutorial = { seen:{} }; state.tutorialCoins = null; }
+    else if(state.mode === 'rogue') startRogueRun();
     else state.rogue = null;
     state.day = 1;
     state.coins = state.mode === 'rogue' ? state.rogue.coins : (activeProfile ? activeProfile.wallet : 0);
@@ -4078,6 +4284,15 @@
     state.selectedBatch = null;
     state.pots = makePots();
     if(state.mode !== 'rogue' && activeProfile && activeProfile.upgrades) state.upgrade = activeProfile.upgrades;
+    if(state.mode === 'tutorial'){
+      state.tutorial = { seen:{} };
+      state.tutorialQueue = [];
+      state.tutorialCoins = 60;
+      state.coins = 60;
+      state.upgrade = { pots:1, alarms:0, knives:[0,0,0] };
+      state.tutorialDayApplied = 0;
+      applyTutorialDay();
+    }
     state.stock = Infinity;
     batchSeq = 0;
     lastOrderSig = '';
@@ -4869,6 +5084,7 @@
     updateTabBadges();
     renderOrderStack();
     cueMusic();
+    tutorialAfterServe();
   }
 
   function renderReview(result){
@@ -4966,6 +5182,7 @@
   }
 
   function summaryKindForDay(){
+    if(state.mode === 'tutorial' && state.day >= TUTORIAL_DAYS) return 'tutorialDone';
     if(state.mode === 'normal' && state.day >= NORMAL_DAYS) return 'runEnd';
     if(state.mode === 'rogue' && state.day % WEEK_DAYS === 0){
       return (state.devMode || state.weekEarned >= state.weekTarget) ? 'weekPass' : 'gameOver';
@@ -4994,7 +5211,18 @@
     let sub = '';
     let comment = '';
 
-    if(state.mode === 'rogue' && kind === 'weekPass'){
+    if(tutorialActive() && kind === 'tutorialDone'){
+      ribbon = '新手模式 · 通关';
+      title = '7 天教学完成！';
+      sub = `7 天一共赚到 <b>${state.runEarned}</b> 金币 · 余额 ${state.coins}`;
+      comment = `<b>恭喜通关新手模式！</b>你已经学会了出餐、性格、插队、复杂订单、精英日和混合糖浆。去普通模式开一家真正的小店吧。`;
+    }else if(tutorialActive()){
+      const sc = tutorialScript() || {};
+      ribbon = `新手第 ${state.day} / ${TUTORIAL_DAYS} 天`;
+      title = `第 ${state.day} 天 · ${sc.title || '打烊啦'}`;
+      sub = `今日收入 <b>${state.dayCoins}</b> 金币 · 累计 ${state.runEarned}`;
+      comment = sc.intro && sc.intro[0] ? sc.intro[0].text : '按自己的节奏来，明天继续。';
+    }else if(state.mode === 'rogue' && kind === 'weekPass'){
       ribbon = `肉鸽第 ${state.week} 周达标`;
       title = `第 ${state.week} 周 · 活下来了！`;
       sub = `本周金币 <b>${state.weekEarned}</b> / ${state.weekTarget} · 下周目标 ${state.rogue.nextTarget || rogueGrowthTarget(state.weekTarget)}`;
@@ -5039,32 +5267,47 @@
     els.summaryTitle.textContent = title;
     els.summarySub.innerHTML = sub;
     els.summaryStars.textContent = stars;
+    if(els.summaryStarsMax){
+      const maxStars = tutorialActive() && state.dayGuests ? state.dayGuests.length * 3 : GUEST_COUNT * 3;
+      els.summaryStarsMax.textContent = `/ ${Math.max(3, maxStars)}`;
+    }
     els.summaryCoins.textContent = kind === 'runEnd' ? state.runEarned : (kind === 'weekPass' || kind === 'gameOver') ? state.weekEarned : state.dayCoins;
     els.summaryCoinsLabel.textContent = kind === 'runEnd' ? '本轮营业额' : (kind === 'weekPass' || kind === 'gameOver') ? '本周收入' : '今日收入';
     els.summaryPerfect.textContent = perfect;
     els.summaryAvg.textContent = avg;
     els.summaryComment.innerHTML = comment;
-    els.summaryBest.textContent = state.mode === 'normal'
+    els.summaryBest.textContent = tutorialActive()
+      ? `7 天累计：${state.runEarned || 0} 金币 · 余额 ${state.coins || 0}`
+      : state.mode === 'normal'
       ? `最佳周目：${state.bestNormal || 0} 金币`
       : `最远纪录：第 ${state.bestEndless || 0} 周`;
-    els.shopBtn.hidden = isEnd || rogueEnd;
-    els.shopBtn.style.display = (isEnd || rogueEnd) ? 'none' : '';
+    const tutorialDone = kind === 'tutorialDone';
+    const shopLocked = tutorialActive() && state.day < 4;
+    els.shopBtn.hidden = isEnd || rogueEnd || shopLocked || tutorialDone;
+    els.shopBtn.style.display = (isEnd || rogueEnd || shopLocked || tutorialDone) ? 'none' : '';
     els.shopBtn.innerHTML = state.mode === 'rogue' ? `逛肉鸽夜市${icon('arrow')}` : `逛金币商店${icon('arrow')}`;
-    if(els.summaryPauseBtn) els.summaryPauseBtn.style.display = (!isEnd && !rogueEnd) ? '' : 'none';
+    if(els.summaryPauseBtn) els.summaryPauseBtn.style.display = (!isEnd && !rogueEnd && !tutorialDone) ? '' : 'none';
     if(els.summaryEarlyBtn) els.summaryEarlyBtn.style.display = (isEnd || rogueEnd) ? 'none' : '';
-    els.homeBtn.style.display = (isEnd || rogueEnd) ? '' : 'none';
+    els.homeBtn.style.display = (isEnd || rogueEnd || tutorialDone) ? '' : 'none';
     if(els.summaryRankBtn){
       els.summaryRankBtn.style.display = (kind === 'gameOver') ? '' : 'none';
       if(kind === 'gameOver') renderLeaderboard(state.mode === 'rogue' ? 'rogue' : 'endless');
     }
-    els.replayBtn.className = (isEnd || rogueEnd) ? 'primary-btn' : 'ghost-btn';
-    els.replayBtn.innerHTML = kind === 'runEnd' ? `再开一局普通模式${icon('arrow')}`
+    els.replayBtn.className = (isEnd || rogueEnd) ? 'primary-btn' : 'ghost-btn';    els.replayBtn.innerHTML = kind === 'tutorialDone' ? `重新体验新手模式${icon('arrow')}`
+      : kind === 'runEnd' ? `再开一局普通模式${icon('arrow')}`
       : rogueEnd ? `重新挑战肉鸽模式${icon('arrow')}`
       : kind === 'gameOver' ? `重新挑战无尽模式${icon('arrow')}`
       : kind === 'weekPass' ? `开始第 ${state.week + 1} 周${icon('arrow')}`
+      : tutorialActive() ? `开始第 ${state.day + 1} 天${icon('arrow')}`
       : `直接开始下一天`;
     els.summaryOverlay.classList.add('show');
     els.summaryOverlay.setAttribute('aria-hidden','false');
+    if(tutorialActive()){
+      state.tutorialQueue = [];
+      closeTutorialTip();
+    }
+    if(tutorialActive() && state.day === 4) setTimeout(() => tutorialTip('d4-shop', '金币商店开门了', '打烊结算时点「逛金币商店」，可以买加料、糖浆配方和厨房升级。今天先买一样试试。'), 700);
+    if(tutorialActive() && kind === 'tutorialDone'){ activeProfile && (activeProfile.tutorialDone = true); saveProfiles(); }
     applyCharSkin();
     playBellyLaugh();
     spawnConfetti(kind === 'gameOver' ? 8 : stars >= 7 ? 28 : 14);
@@ -5083,6 +5326,10 @@
 
   function startNextDay(){
     state.day += 1;
+    if(tutorialActive()){
+      state.tutorialQueue = [];
+      if(els.tutorialOverlay){ els.tutorialOverlay.classList.remove('show'); els.tutorialOverlay.setAttribute('aria-hidden','true'); }
+    }
     state.dayCoins = 0;
     state.dayStars = 0;
     state.reviews = [];
@@ -5337,6 +5584,12 @@
       if(state.stage === 'kitchen') renderKitchen();
       return;
     }
+    if(tutorialActive()){
+      renderShop();
+      updateHud();
+      if(state.stage === 'kitchen') renderKitchen();
+      return;
+    }
     syncProfile();
     saveProfiles();
     renderShop();
@@ -5498,6 +5751,14 @@
       renderShop(); updateHud();
       return;
     }
+    if(tutorialActive()){
+      if(state.tutorial.syrups.includes(id)) return;
+      if(!spendCoins(shopPrice(s.price))){ toast('金币不够'); return; }
+      state.tutorial.syrups.push(id);
+      sfx.coin(); toast(`${s.name}已解锁（新手模式本局有效）`);
+      renderShop(); updateHud();
+      return;
+    }
     if(!activeProfile || activeProfile.syrups[id]) return;
     if(!spendCoins(shopPrice(s.price))){ toast('金币不够'); return; }
     activeProfile.syrups[id] = true;
@@ -5519,6 +5780,14 @@
       renderShop();
       return;
     }
+    if(tutorialActive()){
+      const arr = kind === 'topping' ? state.tutorial.toppings : state.tutorial.jars;
+      if(!arr.includes(id)) arr.push(id);
+      sfx.coin();
+      toast(`${item.name} 已解锁（新手模式本局有效）`);
+      renderShop();
+      return;
+    }
     if(kind === 'topping') activeProfile.unlocks.toppings.push(id);
     else activeProfile.unlocks.jars.push(id);
     saveProfiles();
@@ -5528,6 +5797,7 @@
     renderPlayerBar();
   }
   function openShop(main=false){
+    if(tutorialActive() && state.day < 4){ toast('金币商店第 4 天才开门，先把今天的客人照顾好'); return; }
     sfx.tap();
     main = main === true;
     if(main && !activeProfile) return;
@@ -6139,6 +6409,8 @@
       if(action) action();
       closeConfirm();
     });
+    if(els.tutorialNext) els.tutorialNext.addEventListener('click', closeTutorialTip);
+    if(els.tutorialOverlay) els.tutorialOverlay.addEventListener('click', e => { if(e.target === els.tutorialOverlay) closeTutorialTip(); });
     if(els.homeOverlay) els.homeOverlay.addEventListener('click', e => { if(e.target === els.homeOverlay) closeHome(); });
     if(els.leaderboardOverlay) els.leaderboardOverlay.addEventListener('click', e => { if(e.target === els.leaderboardOverlay) closeLeaderboard(); });
     els.homeTabs.forEach(t => t.addEventListener('click', () => setHomeTab(t.dataset.homeTab)));
