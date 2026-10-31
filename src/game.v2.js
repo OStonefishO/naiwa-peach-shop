@@ -1133,6 +1133,37 @@
     if(els.dressCoins) els.dressCoins.textContent = `${coinText()} 金币`;
     return true;
   }
+  // 可选：接入全网排行榜。把 RANK_API 换成你自己部署的服务地址（见 tools/leaderboard-worker.js），留空则只显示本机排行。
+  const RANK_API = '';
+  const globalRanks = { endless:[], rogue:[] };
+  let globalRankOk = false;
+  function rankApiUrl(path){ return RANK_API.replace(/\/+$/,'') + path; }
+  function submitGlobalRank(mode, week, coins){
+    if(!RANK_API || !activeProfile) return;
+    if(mode !== 'endless' && mode !== 'rogue') return;
+    try{
+      fetch(rankApiUrl('/submit'), {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ name:activeProfile.name, mode, week:Math.max(0, week|0), coins:Math.max(0, coins|0) })
+      }).catch(() => {});
+    }catch(e){ /* 离线时忽略 */ }
+  }
+  function refreshGlobalRank(tab){
+    if(!RANK_API) return;
+    try{
+      fetch(rankApiUrl(`/top?mode=${tab === 'rogue' ? 'rogue' : 'endless'}`))
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if(!data) return;
+          globalRanks[tab] = Array.isArray(data.rows) ? data.rows.slice(0, 20) : [];
+          globalRankOk = true;
+          if(rankTab === tab) renderLeaderboard(tab);
+        })
+        .catch(() => {});
+    }catch(e){ /* 离线时忽略 */ }
+  }
+
   function awardProfile(kind){
     if(!activeProfile) return 0;
     const weekNow = Math.max(1, Number(state.week) || Math.ceil(state.day / WEEK_DAYS));
@@ -1145,7 +1176,9 @@
         activeProfile.bestRogue = Math.max(activeProfile.bestRogue || 0, weekNow);
         activeProfile.bestRogueCoins = Math.max(activeProfile.bestRogueCoins || 0, earned);
       }
-      syncProfile(); saveProfiles(); return 0;
+      syncProfile(); saveProfiles();
+      submitGlobalRank(state.mode, weekNow, earned);
+      return 0;
     }
     if(kind !== 'runEnd' && kind !== 'gameOver') return 0;
     if(state.metaAwarded) return 0;
@@ -1170,6 +1203,7 @@
     state.metaAwarded = true;
     syncProfile();
     saveProfiles();
+    submitGlobalRank(state.mode, weekNow, earned);
     return 0;
   }
   let rankTab = 'endless';
@@ -1183,20 +1217,33 @@
   function renderLeaderboard(tab = rankTab){
     rankTab = tab === 'rogue' ? 'rogue' : 'endless';
     if(els.leaderboardTitle) els.leaderboardTitle.textContent = '排行榜';
-    if(els.leaderboardFoot) els.leaderboardFoot.textContent = rankTab === 'rogue'
-      ? '肉鸽模式 · 每周金币指标递增，活得越久排名越高'
-      : '无尽模式 · 每周目标递增，活得越久排名越高';
+    if(!els.leaderboardList) return;
+    const remote = RANK_API ? (globalRanks[rankTab] || []) : [];
+    const weekKey = rankTab === 'rogue' ? 'bestRogue' : 'bestEndless';
+    const coinKey = rankTab === 'rogue' ? 'bestRogueCoins' : 'bestEndlessCoins';
+    if(els.leaderboardFoot){
+      els.leaderboardFoot.textContent = remote.length
+        ? `全网排行榜 · 共 ${remote.length} 位玩家 · 打开榜单时自动同步`
+        : (rankTab === 'rogue' ? '本机排行榜 · 每周金币指标递增，活得越久排名越高' : '本机排行榜 · 每周目标递增，活得越久排名越高');
+    }
     document.querySelectorAll('[data-rank-tab]').forEach(b => {
       b.classList.toggle('active', b.dataset.rankTab === rankTab);
     });
-    if(!els.leaderboardList) return;
+    if(remote.length){
+      const me = activeProfile ? activeProfile.name : '';
+      els.leaderboardList.innerHTML = remote.map((p,i) => `
+        <div class="leaderboard-row${p.name === me ? ' me' : ''}">
+          <div class="leaderboard-rank">${i + 1}</div>
+          <div class="leaderboard-name">${esc(p.name)}<small>${p.coins || 0} 金币</small></div>
+          <div class="leaderboard-score">第 ${p.week || 0} 周<small>${rankTab === 'rogue' ? '肉鸽最远' : '无尽最远'}</small></div>
+        </div>`).join('');
+      return;
+    }
     const rows = leaderboardProfiles(rankTab);
     if(!rows.length){
       els.leaderboardList.innerHTML = `<div class="leaderboard-empty">还没有${rankTab === 'rogue' ? '肉鸽' : '无尽'}模式记录。<br>去挑战一周，把名字留在榜上吧！</div>`;
       return;
     }
-    const weekKey = rankTab === 'rogue' ? 'bestRogue' : 'bestEndless';
-    const coinKey = rankTab === 'rogue' ? 'bestRogueCoins' : 'bestEndlessCoins';
     els.leaderboardList.innerHTML = rows.slice(0,10).map((p,i) => `
       <div class="leaderboard-row${activeProfile && p.name === activeProfile.name ? ' me' : ''}">
         <div class="leaderboard-rank">${i + 1}</div>
@@ -1206,6 +1253,7 @@
   }
   function openLeaderboard(tab = rankTab){
     renderLeaderboard(tab);
+    refreshGlobalRank(tab === 'rogue' ? 'rogue' : 'endless');
     els.leaderboardOverlay.classList.add('show');
     els.leaderboardOverlay.setAttribute('aria-hidden','false');
     sfx.tap();
@@ -5774,6 +5822,7 @@
         const btn = e.target.closest('[data-rank-tab]');
         if(!btn) return;
         renderLeaderboard(btn.dataset.rankTab);
+        refreshGlobalRank(btn.dataset.rankTab === 'rogue' ? 'rogue' : 'endless');
         sfx.tap();
       });
     }
@@ -5870,7 +5919,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles };
+      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl };
     }
   }
 
