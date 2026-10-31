@@ -1183,6 +1183,10 @@
   }
   let confirmAction = null;
   function openConfirm(opts={}){
+    if(els.confirmIcon){
+      if(opts.iconSvg) els.confirmIcon.innerHTML = icon(opts.iconSvg);
+      else els.confirmIcon.textContent = opts.icon || '🚪';
+    }
     if(els.confirmTitle) els.confirmTitle.textContent = opts.title || '要提前下班吗？';
     if(els.confirmCopy) els.confirmCopy.innerHTML = opts.copy || '';
     if(els.confirmOk) els.confirmOk.textContent = opts.okText || '确定';
@@ -1534,7 +1538,7 @@
       'reviewEarlyBtn','summaryEarlyBtn','shopEarlyBtn','settingsEarlyBtn','confirmOverlay','confirmCancel','confirmOk',
       'jarSwitchBtn','toppingChips','toppingQtyRow','toppingMinus','toppingQtyVal','toppingPlus',
       'shopTabs','shopWallet','shopExpandGrid','shopSyrupGrid','shopFurnGrid','itemShopEntryBtn','shopTitle','shopSub',
-      'syrupComposition','pourSeq','stirBtn','alarmTray','alarmTrayItems',
+      'syrupComposition','pourSeq','stirBtn','alarmTray','alarmTrayItems','discardBtn',
       'dressEntryBtn','dressOverlay','dressCoins','dressDoll','dressSlots',
       'dressClose','dressDoneBtn','frogWear','orderRod',
       'saveEntryBtn','saveOverlay','saveClose','saveExport','saveImport','copySaveBtn','downloadSaveBtn',
@@ -1552,7 +1556,7 @@
       'shrimpCabinetBtn','shrimpCabinetMeta','shrimpCabinetOverlay','shrimpCabinetClose','shrimpCabinetBody','shrimpCabinetSub',
       'startActions','continueBtn','continueMeta','rogueModeCard','rogueBadge','rogueNote',
       'playerMenuToggle','playerMenu',
-      'settingsPauseBtn','rogueOverlay','rogueTitle','rogueStayBtn','rogueHomeBtn','confirmTitle','confirmCopy'];
+      'settingsPauseBtn','rogueOverlay','rogueTitle','rogueStayBtn','rogueHomeBtn','confirmTitle','confirmCopy','confirmIcon'];
     ids.forEach(id => els[id] = document.getElementById(id));
     els.panel = $('#panel');
     els.footer = $('.footer');
@@ -4017,6 +4021,34 @@
     renderWork();
     renderHint();
   }
+  function askDiscardSyrup(){
+    const c = state.can;
+    if(!c || !(c.syrup > 0)){ toast('罐里还没有糖水'); return; }
+    if(c.sealed){ toast('已经封盖了，要重来请点下面的「重做」'); return; }
+    openConfirm({
+      iconSvg:'trash',
+      title:'倒掉罐里的糖水？',
+      copy:`罐里现在有 ${Math.round(c.syrup)}% 糖水，倒掉之后不会退回，需要重新熬糖、重新倒。`,
+      okText:'是',
+      cancelText:'否',
+      onOk:discardSyrup
+    });
+  }
+  function discardSyrup(){
+    const c = state.can;
+    if(!c || !(c.syrup > 0)){ toast('罐里还没有糖水'); return; }
+    if(c.sealed){ toast('已经封盖了，要重来请点下面的「重做」'); return; }
+    if(state.pouring) stopPour();
+    const had = Math.round(c.syrup);
+    c.components = {classic:0, honey:0, maple:0, honeysuckle:0};
+    c.syrup = 0;
+    c.pourLog = [];
+    state.selectedBatch = null;
+    renderCan();
+    renderWork();
+    renderHint();
+    toast(`倒掉了 ${had}% 糖水，要重新倒`);
+  }
   function tickPour(now){
     if(!state.pouring) return;
     const c = state.can;
@@ -4629,8 +4661,7 @@
     if(state.mode === 'rogue'){
       state.week = Math.ceil(state.day / WEEK_DAYS);
       state.rogue.shopStock = makeRogueShopStock();
-      if(state.rogue.items && state.rogue.items.sugarOwl){ delete state.rogue.items.sugarOwl; }
-      state.rogue.owlDay = null;
+      if(state.rogue.items && state.rogue.items.sugarOwl && Number(state.rogue.owlDay) < state.day){ delete state.rogue.items.sugarOwl; }
       if((state.day - 1) % WEEK_DAYS === 0){
         state.weekEarned = 0;
         const next = Number(state.rogue.nextTarget) || rogueGrowthTarget(state.rogue.weekTarget || ROGUE_BASE_TARGET);
@@ -4638,7 +4669,7 @@
         state.rogue.nextTarget = rogueGrowthTarget(next);
         state.rogue.week = state.week;
         state.rogue.weekTarget = state.weekTarget;
-        state.rogue.owlDay = null;
+        if(!(state.rogue.items && state.rogue.items.sugarOwl)) state.rogue.owlDay = null;
         state.rogue.events = rogueWeekEvents();
         state.rogue.shopStock = makeRogueShopStock();
         state.rogue.pendingShop = null;
@@ -4714,7 +4745,7 @@
   function syrupItems(){
     return ['honey','maple','honeysuckle'].map(id => {
       const s = SYRUPS[id];
-      const owned = rogueActive() ? state.rogue.syrups.includes(id) : !!(activeProfile && activeProfile.syrups[id]);
+      const owned = rogueActive() ? (state.rogue.syrups.includes(id) || rogueOwlToday()) : !!(activeProfile && activeProfile.syrups[id]);
       return {id, name:s.name, desc:s.desc, price:s.price, owned,
         icon:`<span style="display:block;width:26px;height:26px;border-radius:50%;background:${s.color};border:2px solid #C58B3A"></span>`,
         label: owned ? '已解锁' : `解锁 ${s.price}`};
@@ -4964,6 +4995,7 @@
   function openRogueShop(){
     if(!rogueActive()) return;
     if(!state.rogue.shopStock) state.rogue.shopStock = makeRogueShopStock();
+    state.rogueShopFrom = state.phase === 'playing' ? 'desk' : 'summary';
     state.phase = 'rogueShop';
     renderRogueShop();
     if(els.rogueShopOverlay){
@@ -4981,8 +5013,10 @@
       const maxed = owned >= item.max;
       const price = rogueShopPrice(item);
       const todayOnly = id === 'sugarOwl' && rogueOwlToday();
-      const label = todayOnly ? '今日生效' : maxed ? '已满' : `${price} 金币`;
-      return `<div class="rogue-shop-item${todayOnly ? ' active' : ''}"><div><b>${item.name}${owned ? ` ×${owned}` : ''}${todayOnly ? ' · 今日' : ''}</b><small>${item.desc}</small></div><button data-rogue-buy="${id}" ${(maxed && !todayOnly) || (!state.devMode && state.rogue.coins < price) || todayOnly ? 'disabled' : ''}>${label}</button></div>`;
+      const reserved = id === 'sugarOwl' && Number(state.rogue.owlDay) > Number(state.day);
+      const active = todayOnly || reserved;
+      const label = todayOnly ? '今日生效' : reserved ? '明天生效' : maxed ? '已满' : `${price} 金币`;
+      return `<div class="rogue-shop-item${active ? ' active' : ''}"><div><b>${item.name}${owned ? ` ×${owned}` : ''}${todayOnly ? ' · 今日' : reserved ? ' · 明天' : ''}</b><small>${item.desc}</small></div><button data-rogue-buy="${id}" ${(maxed && !active) || (!state.devMode && state.rogue.coins < price) || active ? 'disabled' : ''}>${label}</button></div>`;
     }).join('');
   }
   function buyRogueItem(id){
@@ -4994,9 +5028,11 @@
     state.rogue.items[id] = owned + 1;
     if(id === 'reroll') state.rogue.rerolls += 1;
     if(id === 'sugarOwl'){
-      state.rogue.owlDay = state.day;
+      const night = state.rogueShopFrom === 'summary';
+      const targetDay = night ? state.day + 1 : state.day;
+      state.rogue.owlDay = targetDay;
       state.rogue.items.sugarOwl = 1;
-      toast('糖枭生效：今天所有小料、糖浆、罐子都能用，打烊后消失');
+      toast(night ? '糖枭已下单：明天开业起，所有小料、糖浆、罐子都能用' : '糖枭生效：今天所有小料、糖浆、罐子都能用，打烊后消失');
       renderRogueShop();
       renderAll();
       sfx.coin();
@@ -5015,6 +5051,7 @@
     if(!s) return;
     if(rogueActive()){
       if(state.rogue.syrups.includes(id)) return;
+      if(rogueOwlToday()){ toast('糖枭今天已经解锁了所有糖浆'); return; }
       if(!spendCoins(shopPrice(s.price))){ toast('金币不够'); return; }
       state.rogue.syrups.push(id);
       sfx.coin(); toast(`${s.name}已解锁（本局有效）`);
@@ -5442,6 +5479,11 @@
     });
     if(els.rogueShopNext) els.rogueShopNext.addEventListener('click', () => {
       if(els.rogueShopOverlay){ els.rogueShopOverlay.classList.remove('show'); els.rogueShopOverlay.setAttribute('aria-hidden','true'); }
+      if(state.rogueShopFrom === 'desk'){
+        state.phase = 'playing';
+        renderAll();
+        return;
+      }
       state.phase = 'summary';
       if(els.summaryOverlay){ els.summaryOverlay.classList.add('show'); els.summaryOverlay.setAttribute('aria-hidden','false'); }
     });
@@ -5599,6 +5641,9 @@
       window.addEventListener('touchend', stopPour);
       window.addEventListener('touchcancel', stopPour);
     }
+    if(els.discardBtn){
+      els.discardBtn.addEventListener('click', e => { e.stopPropagation(); askDiscardSyrup(); });
+    }
   }
 
   function init(){
@@ -5635,7 +5680,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar };
+      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar };
     }
   }
 
