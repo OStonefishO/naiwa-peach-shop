@@ -644,10 +644,12 @@
     window.addEventListener('online', () => bgmWatch('online'));
     setInterval(() => {
       if(!state.sound || document.hidden || !bgmEl) return;
+      const wanted = musicKeyFor();
+      if(wanted !== bgmKey){ bgmWatch('sync'); return; }
       if(bgmEl.paused){
         bgmWatch('watchdog');
       }else if(bgmEl.ended){
-        playBgm(bgmKey || musicKeyFor());
+        playBgm(wanted);
       }
     }, 2000);
   }
@@ -3669,6 +3671,7 @@
     if(!activeProfile || !activeProfile.run){ toast('没有可继续的对局'); renderResumeUI(); return; }
     ensureAudio();
     if(!restoreRun(activeProfile.run)) toast('上一局数据不完整，已回到主菜单');
+    cueMusic();
   }
   function renderResumeUI(){
     if(!els.startActions || !els.continueBtn || !els.startBtn) return;
