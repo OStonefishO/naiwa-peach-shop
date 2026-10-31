@@ -240,8 +240,9 @@
       guests:[{name:'小黄'},{name:'阿蓝'}],
       pots:1, alarms:0, coins:60,
       intro:[
-        {key:'d1-start', title:'欢迎来到奶蛙的小店', text:'这 7 天奶蛙会手把手带你开店。每天只做几单，慢慢来，不会扣钱。'},
-        {key:'d1-flow', title:'出餐四步', text:'看左边订单卡 → 去「厨房」切黄桃、加糖熬糖水 → 回「工作台」装罐、调温度、加料、封盖 → 把订单拖到订单架，再点「交给客人」。'}
+        {key:'d1-start', title:'欢迎来到奶蛙的小店', text:'接下来 7 天，奶蛙会每天陪你做几单。<b>新手模式不会扣钱、也不会因为失误关门</b>，放心试。'},
+        {key:'d1-flow', title:'一罐黄桃罐头的四步', text:'① 看左边的<b>订单卡</b>，记住罐型、黄桃、糖水、温度、加料；② 去<b>「厨房」</b>切黄桃、加糖熬糖水；③ 回<b>「工作台」</b>装罐、倒糖水、搅拌、调温度、加料、封盖；④ 把订单卡拖到<b>「订单架」</b>，再点「交给客人」。'},
+        {key:'d1-tip', title:'不用背，跟着提示走', text:'页面顶部会写着「第 1 步、第 2 步」，跟着做就行。每做完一单，右边会给出评分明细，告诉你哪一项扣了分。'}
       ],
       serve:['d1-score', '评价会看罐型、黄桃、糖水比例、火候、温度、加料和出餐速度，每一项差一点都会扣分。']
     },
@@ -249,11 +250,14 @@
       title:'客人的性格',
       guests:[{name:'豆豆', personality:'generous'},{name:'口水猫', personality:'strict'}],
       prepPeaches:true,
+      stageTips:{
+        work:[{key:'d2-syrup', title:'这两锅糖水都不完美', text:'看「倒糖水」这一行：已经备好两锅糖，一锅<b>偏生</b>、一锅<b>焦苦</b>。故意用它们试试，看看客人怎么评价火候。'}]
+      },
       pots:1, alarms:0,
       batches:[{sugar:2, quality:'raw', types:['classic']},{sugar:2, quality:'burnt', types:['classic']}],
       intro:[
         {key:'d2-start', title:'大方的客人和苛刻的客人', text:'今天两位客人性格不同：豆豆「大方」，评分更宽松、小费更多；口水猫「苛刻」，要求高、扣分更狠。'},
-        {key:'d2-syrup', title:'这两锅糖水都不完美', text:'工作台的糖水选单里已经备好两锅糖：一锅偏生、一锅焦苦。先用它们试试——客人会怎么评价火候。'}
+        {key:'d2-peach2', title:'黄桃已经帮你切好了', text:'今天的黄桃<b>提前切好放在碗里</b>了，去工作台点「＋」直接装罐，不用再进厨房。'}
       ],
       serve:['d2-after', '看到评分下面的性格标签了吗？大方客人的小费会额外加成，苛刻客人同样的失误会扣更多分。']
     },
@@ -270,8 +274,14 @@
       toppings:['mint','osmanthus','goji'],
       jars:['narrow','wide'],
       pots:2, alarms:1, shop:true,
+      stageTips:{
+        work:[{key:'d4-jar', title:'先切换罐子', text:'订单写的是<b>窄口罐 / 广口罐</b>时，点「挑罐型」里那个<b>「经典罐 · 点此切换罐子」</b>，切到订单要的罐子。'},
+               {key:'d4-top', title:'加料也要对', text:'订单里的<b>薄荷 ×2、桂花 ×1</b> 都要自己点选：点一下加一份，点两下加两份。'}]
+      },
       intro:[
-        {key:'d4-start', title:'复杂订单', text:'这位客人要的更多：罐型、加料、糖浆都更讲究。慢慢对照订单卡，一样一样来。'}
+        {key:'d4-start', title:'复杂订单来了', text:'今天这位客人要的更多：<b>特定的罐型、指定的加料、还要分层</b>。材料已经全部发给你了，对照订单卡一样一样来。'},
+
+        {key:'d4-shop', title:'金币商店开门了', text:'之后每天打烊结算时，点<b>「逛金币商店」</b>可以买加料、糖浆、熬糖锅和闹钟，后面的订单会越来越挑。'}
       ],
       serve:['d4-after', '复杂订单的分更高、小费也更多，但每一样都要对。']
     },
@@ -279,9 +289,13 @@
       title:'精英日与多锅熬糖',
       guests:[{name:'夜莺师傅', tier:'elite'},{name:'口水猫'}],
       pots:3, alarms:2, syrups:['honey'],
+      stageTips:{
+        kitchen:[{key:'d5-pots', title:'3 口锅、2 个闹钟', text:'厨房现在有 <b>3 口熬糖锅、2 个闹钟</b>。不同糖可以同时熬；闹钟会在火候过半时响，提醒你别熬过头。'},
+                 {key:'d5-alarm', title:'闹钟怎么用', text:'熬糖时点锅右上角的<b>小铃铛</b>放闹钟，火候过半会响；再点一次可以收回来。'}]
+      },
       intro:[
-        {key:'d5-start', title:'精英客人来了', text:'精英客人要求更高、奖励也更高，订单通常更复杂。'},
-        {key:'d5-pots', title:'多锅一起熬', text:'厨房现在有 3 口熬糖锅、2 个闹钟。不同糖可以同时熬，闹钟会在火候过半时提醒你。'}
+        {key:'d5-start', title:'今天是精英日', text:'餐厅里戴<b>「精英」徽章</b>的就是精英客人：订单更复杂、<b>评分更严（容差更小）</b>，但金币和小费都更高。'},
+        {key:'d5-pots0', title:'今天是精英日', text:'戴<b>「精英」徽章</b>的客人评分更严、奖励更高。厨房也升级了：<b>3 口锅、2 个闹钟</b>，去试试同时熬两种糖。'}
       ],
       serve:['d5-after', '精英客人的评分更严格，但金币和小费都更可观。']
     },
@@ -289,9 +303,13 @@
       title:'混合糖浆与比例',
       guests:[{name:'豆豆', personality:'patient', order:{mix:true}},{name:'小黄'}],
       pots:3, alarms:2, syrups:['honey'],
+      stageTips:{
+        kitchen:[{key:'d6-boil', title:'一起熬 or 分开熬', text:'订单写<b>「一起熬」</b>就把两种糖放同一口锅；写<b>「分开熬」</b>就各熬一锅，倒糖时会按顺序记录在罐子上。'}],
+        work:[{key:'d6-mix', title:'记得搅拌', text:'订单写「<b>分层</b>」就不用搅；写「<b>已搅拌</b>」时要在这里点一次<b>「搅拌一下」</b>，否则这项会扣分。'}]
+      },
       intro:[
-        {key:'d6-start', title:'两种糖一起熬', text:'这单要两种糖浆按比例混合。在厨房选两种糖后，用滑块调比例，再按「一起熬」或「分开熬」。'},
-        {key:'d6-mix', title:'搅拌与分层', text:'混好的糖水会分层，记得在工作台「搅拌一下」；两种糖分别熬的，倒糖时会按顺序记录。'}
+        {key:'d6-start', title:'两种糖，按比例来', text:'订单写「<b>经典 60% + 蜂蜜 40%</b>」时：在厨房给锅选两种糖，用<b>比例滑块</b>（或左右 ＋/−）调到 60:40，再点「开火」熬。'},
+
       ],
       serve:['d6-after', '比例对上了才是满分：绿色区间里就是完美比例。']
     },
@@ -339,6 +357,7 @@
     if(GUIDE.onClick){ document.removeEventListener('click', GUIDE.onClick, true); GUIDE.onClick = null; }
   }
   function guideStart(steps){
+    if(true) return; // 箭头高亮改为按需的 tutorialPointerHint，见下
     if(!tutorialActive() || !steps || !steps.length) return;
     guideEnd();
     GUIDE.steps = steps.slice(); GUIDE.idx = 0;
@@ -465,6 +484,13 @@
     return null;
   }
 
+  function tutorialScriptStageTip(stage){
+    if(!tutorialActive()) return;
+    const sc = tutorialScript();
+    if(!sc || !sc.stageTips) return;
+    const list = sc.stageTips[stage] || [];
+    list.forEach(x => tutorialTip(x.key, x.title, x.text));
+  }
   function tutorialStageTip(stage){
     if(!tutorialActive() || state.day !== 1) return;
     const dayTips = TUTORIAL_STAGE_TIPS[state.day] || {};
@@ -511,8 +537,19 @@
     if(els.tutorialOverlay.classList.contains('show')) return;
     const next = (state.tutorialQueue || []).shift();
     if(!next) return;
+    if(!state.tutorial) state.tutorial = { seen:{} };
+    state.tutorial.shownTips = (state.tutorial.shownTips || 0) + 1;
+    const totalTips = state.tutorial.shownTips + (state.tutorialQueue || []).length;
+    if(els.tutorialStep){
+      els.tutorialStep.hidden = false;
+      els.tutorialStep.textContent = '新手第 ' + state.day + ' 天 · 第 ' + state.tutorial.shownTips + ' 条';
+    }
     els.tutorialTitle.textContent = next.title;
-    els.tutorialText.textContent = next.text;
+    els.tutorialText.innerHTML = next.text;
+    if(els.tutorialNext){
+      const left = (state.tutorialQueue || []).length;
+      els.tutorialNext.textContent = left > 0 ? '下一步（还有 ' + left + ' 条）' : '知道啦，开始做';
+    }
     els.tutorialOverlay.classList.add('show');
     els.tutorialOverlay.setAttribute('aria-hidden','false');
   }
@@ -520,24 +557,59 @@
     if(!els.tutorialOverlay) return;
     els.tutorialOverlay.classList.remove('show');
     els.tutorialOverlay.setAttribute('aria-hidden','true');
+    setTimeout(() => pumpTutorialTip(), 160);
+  }
+
+  // 轻量「箭头指一下」：只出现光圈 + 箭头 + 一句提示，不挡住其它操作
+  const POINTER_HINTS = {};
+  function tutorialPointerHint(key, sel, text, extra){
+    if(!tutorialActive()) return;
+    state.tutorial = state.tutorial || { seen:{} };
+    state.tutorial.pointers = state.tutorial.pointers || {};
+    if(els.tutorialOverlay && els.tutorialOverlay.classList.contains('show')){
+      if(!extra || !extra._retry){ setTimeout(() => tutorialPointerHint(key, sel, text, Object.assign({}, extra || {}, { _retry:1 })), 500); }
+      return;
+    }
+    if(!extra || !extra.force){
+      if(state.tutorial.pointers[key]) return;
+      state.tutorial.pointers[key] = 1;
+    }
+    const target = typeof sel === 'string' ? document.querySelector(sel) : sel;
+    if(!target) return;
+    target.scrollIntoView({ block:'center', inline:'nearest' });
     setTimeout(() => {
-      pumpTutorialTip();
-      if(GUIDE.steps.length && GUIDE.idx < GUIDE.steps.length && !GUIDE.layer){
-        guideStep();
-        return;
-      }
-      if(tutorialActive() && !(state.tutorialQueue && state.tutorialQueue.length)){
-        const guided = state.tutorial && state.tutorial.guidedDay;
-        if(guided !== state.day){
-          const steps = tutorialGuideForDay(state.day);
-          if(steps && steps.length){
-            state.tutorial = state.tutorial || { seen:{} };
-            state.tutorial.guidedDay = state.day;
-            setTimeout(() => guideStart(steps), 220);
-          }
-        }
-      }
+      const r = target.getBoundingClientRect();
+      const rw = Math.min(window.innerWidth - 8, r.width + 22);
+      const rh = Math.min(window.innerHeight - 8, r.height + 22);
+      const rx = Math.min(Math.max(4, r.left + r.width / 2 - rw / 2), window.innerWidth - rw - 4);
+      const ry = Math.min(Math.max(4, r.top + r.height / 2 - rh / 2), window.innerHeight - rh - 4);
+      const layer = document.createElement('div');
+      layer.className = 'guide-layer pointer-only';
+      layer.innerHTML = `<div class="guide-ring" style="left:${rx}px;top:${ry}px;width:${rw}px;height:${rh}px"></div>
+        <div class="guide-arrow" style="left:${rx + rw / 2 - 17}px;top:${ry + rh + 4}px"><svg viewBox="0 0 34 40"><path d="M17 38 C17 26 17 16 17 6" /><path d="M8 15 L17 5 L26 15" /></svg></div>
+        <div class="guide-bubble" style="left:${Math.min(Math.max(8, rx + rw / 2 - 116), window.innerWidth - 240)}px;top:${Math.min(ry + rh + 52, window.innerHeight - 90)}px">${text}</div>`;
+      document.body.appendChild(layer);
+      const kill = () => { layer.remove(); };
+      setTimeout(kill, extra && extra.ms ? extra.ms : 9000);
+      const onDoc = e => { if(target.contains(e.target)) kill(); };
+      document.addEventListener('pointerdown', onDoc, true);
+      document.addEventListener('click', onDoc, true);
+      const tick = setInterval(() => { if(!document.body.contains(layer)){ clearInterval(tick); document.removeEventListener('pointerdown', onDoc, true); document.removeEventListener('click', onDoc, true); } }, 800);
     }, 260);
+  }
+  function tutorialStagePointer(stage){
+    if(!tutorialActive()) return;
+    const day = state.day;
+    if(day === 3 && stage === 'restaurant'){
+      const accept = document.querySelector('#restaurantList [data-accept-guest], .rest-card [data-accept-guest]');
+      if(accept) tutorialPointerHint('d3-accept', accept, '点「接单」，让后来的客人先做——这就是插队', {});
+      else tutorialPointerHint('d3-tab', '#stageTabs [data-stage="restaurant"]', '去「餐厅」点「接单」，试试插队');
+    }
+    if(day === 3 && stage === 'desk') tutorialPointerHint('d3-back', '#stageTabs [data-stage="restaurant"]', '插队了，回「餐厅」把刚才那单接着做');
+    if(day === 4 && stage === 'work') tutorialPointerHint('d4-jar', '#jarSwitch', '点这里切换罐子，切到订单要的罐型');
+    if(day === 5 && stage === 'desk') tutorialPointerHint('d5-kitchen', '#stageTabs [data-stage="kitchen"]', '去「厨房」，用 3 口锅同时熬糖');
+    if(day === 6 && stage === 'desk') tutorialPointerHint('d6-kitchen', '#stageTabs [data-stage="kitchen"]', '去「厨房」，按订单比例调两种糖');
+    if(day === 6 && stage === 'work') tutorialPointerHint('d6-stir', '#stirBtn', '点「搅拌一下」，这单要「已搅拌」');
   }
   function applyTutorialDay(){
     if(!tutorialActive()) return;
@@ -2272,7 +2344,7 @@
       'startActions','continueBtn','continueMeta','rogueModeCard','rogueBadge','rogueNote',
       'playerMenuToggle','playerMenu',
       'settingsPauseBtn','rogueOverlay','rogueTitle','rogueStayBtn','rogueHomeBtn','confirmTitle','confirmCopy','confirmIcon',
-      'tutorialOverlay','tutorialTitle','tutorialText','tutorialNext'];
+      'tutorialOverlay','tutorialTitle','tutorialText','tutorialStep','tutorialNext'];
     ids.forEach(id => els[id] = document.getElementById(id));
     els.panel = $('#panel');
     els.footer = $('.footer');
@@ -2623,7 +2695,7 @@
     applySkins();
     if(!silent){ sfx.tap(); cueMusic(); }
     if(!restoringRun && state.phase === 'playing') saveRunToProfile();
-    if(tutorialActive() && !silent) tutorialStageTip(stage);
+    if(tutorialActive() && !silent){ tutorialStageTip(stage); tutorialScriptStageTip(stage); tutorialStagePointer(stage); }
   }
 
   function updateHud(){
