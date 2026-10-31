@@ -1365,11 +1365,18 @@
     if(!id || id === 'apron') return '';
     return `<div class="wear-top ${id}"></div>`;
   }
+  function charDollInner(skin){
+    if((skin || charSkinId()) === 'blob'){
+      return `<img class="char-img" src="${CHAR_SKIN_ASSETS.blob}" alt="" draggable="false">`;
+    }
+    return '<svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>';
+  }
   function dollHTML(){
     const head = activeProfile.equipped.head;
     const top = activeProfile.equipped.top;
-    return `<div class="room-doll${head !== 'chef' ? ' has-hat' : ''}${top !== 'apron' ? ' has-top' : ''}">
-      <svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>
+    const blob = charSkinId() === 'blob';
+    return `<div class="room-doll${blob ? ' is-blob' : ''}${head !== 'chef' ? ' has-hat' : ''}${top !== 'apron' ? ' has-top' : ''}">
+      ${charDollInner()}
       ${hatHTML(head)}
       ${topHTML(top)}
     </div>`;
@@ -1492,7 +1499,7 @@
       <div class="sp-scene">
         <div class="sp-window"></div>
         <div class="sp-ticket">ORDER<br><b>01 / 03</b></div>
-        <div class="sp-frog"><svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg></div>
+        <div class="sp-frog">${charDollInner()}</div>
         <div class="sp-counter"><span>奶蛙的店 · 黄桃罐头</span></div>
       </div>
       <div class="skin-preview-bar">
@@ -1609,11 +1616,28 @@
     if(!els.dressOverlay || !activeProfile) return;
     const head = activeProfile.equipped.head;
     const top = activeProfile.equipped.top;
+    const equippedSkin = charSkinId();
+    const previewSkin = state.dressSkin || equippedSkin;
+    const previewDef = CHAR_SKINS.find(s => s.id === previewSkin) || CHAR_SKINS[0];
     els.dressCoins.textContent = `${coinText()} 金币`;
+    els.dressDoll.classList.toggle('is-blob', previewSkin === 'blob');
     els.dressDoll.classList.toggle('has-hat', head !== 'chef');
     els.dressDoll.classList.toggle('has-top', top !== 'apron');
-    els.dressDoll.innerHTML = `<svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>
-      ${hatHTML(head)}${topHTML(top)}`;
+    els.dressDoll.innerHTML = `${charDollInner(previewSkin)}${hatHTML(head)}${topHTML(top)}`;
+    const skinGroup = `<div class="dress-section"><h4><span>全套皮肤</span><span>${previewSkin === equippedSkin ? '正在穿' : '预览中'}</span></h4>
+      <div class="dress-row skin-row">${CHAR_SKINS.map(s => {
+        const active = previewSkin === s.id;
+        const worn = equippedSkin === s.id;
+        const thumb = s.id === 'blob'
+          ? `<span class="di skin-thumb"><img src="${CHAR_SKIN_ASSETS.blob}" alt=""></span>`
+          : '<span class="di skin-thumb"><svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg></span>';
+        return `<button class="dress-item skin-item${active ? ' active' : ''}" type="button" data-dress-skin="${s.id}">
+          ${thumb}${s.id === 'blob' ? '捧腹奶蛙' : '经典奶蛙'}
+          <small>${worn ? '正在穿' : active ? '预览中' : '点击预览'}</small>
+        </button>`;
+      }).join('')}</div>
+      ${previewSkin !== equippedSkin ? `<button class="dress-apply" type="button" data-dress-skin-apply="${previewSkin}">穿上「${previewSkin === 'blob' ? '捧腹奶蛙' : '经典奶蛙'}」</button>` : ''}
+    </div>`;
     const group = (kind,title) => `<div class="dress-section"><h4><span>${title}</span><span>${kind === 'head' ? '帽子 / 眼镜' : '上衣'}</span></h4>
       <div class="dress-row">${CLOTHES[kind].map(item => {
         const owned = activeProfile.clothes[kind].includes(item.id);
@@ -1623,16 +1647,18 @@
           <small>${active ? '正在穿' : owned ? '点击换上' : item.price + ' 金币'}</small>
         </button>`;
       }).join('')}</div></div>`;
-    els.dressSlots.innerHTML = group('head','帽子 / 眼镜槽') + group('top','上衣槽');
+    els.dressSlots.innerHTML = skinGroup + group('head','帽子 / 眼镜槽') + group('top','上衣槽');
   }
   function openDress(){
     if(!activeProfile) return;
+    state.dressSkin = charSkinId();
     renderDress();
     els.dressOverlay.classList.add('show');
     els.dressOverlay.setAttribute('aria-hidden','false');
     sfx.tap();
   }
   function closeDress(){
+    state.dressSkin = null;
     els.dressOverlay.classList.remove('show');
     els.dressOverlay.setAttribute('aria-hidden','true');
   }
@@ -1661,6 +1687,16 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
+  function syncVersionUI(){
+    const m = (document.title || '').match(/正式版\s*([\d.]+)/);
+    if(!m) return;
+    const v = m[1];
+    if(els.introVersion) els.introVersion.innerHTML = `${v}<br>正式版`;
+    if(els.changelogBtn){
+      const tail = els.changelogBtn.textContent.split('·').slice(-1)[0].replace(/^\s*[\d.]+\s*/, '').trim();
+      els.changelogBtn.textContent = `📝 更新日志 · ${v}${tail ? ' ' + tail : ''}`;
+    }
+  }
   function renderCharImg(host, blob){
     if(!host) return;
     const useLaugh = blob && host.classList.contains('summary-frog');
@@ -1680,7 +1716,7 @@
   function applyCharSkin(){
     const blob = charSkinId() === 'blob';
     document.body.classList.toggle('char-blob', blob);
-    document.querySelectorAll('.frog, .room-doll, .dress-doll, .summary-frog, .hint-frog, .sp-frog')
+    document.querySelectorAll('.frog, .room-doll, .summary-frog, .hint-frog, .sp-frog')
       .forEach(host => renderCharImg(host, blob));
   }
   function ensureLaughAudio(){
@@ -1688,20 +1724,58 @@
       try{
         laughEl = new Audio(CHAR_SKIN_ASSETS.laughAudio);
         laughEl.preload = 'auto';
+        laughEl.addEventListener('ended', () => { resumeBgmIfNeeded(); });
       }catch(e){ laughEl = null; }
     }
     applyAudioVolumes();
     return laughEl;
   }
+  let laughUnlocked = false;
+  function unlockLaughAudio(){
+    if(laughUnlocked) return;
+    const el = ensureLaughAudio();
+    if(!el) return;
+    try{
+      el.muted = true;
+      const p = el.play();
+      const done = () => { try{ el.pause(); el.currentTime = 0; }catch(err){} el.muted = false; laughUnlocked = true; };
+      if(p && p.then) p.then(done).catch(() => { el.muted = false; });
+      else done();
+    }catch(e){}
+  }
+  function flashLaugh(){
+    document.querySelectorAll('.frog, .room-doll, .dress-doll, .summary-frog').forEach(host => {
+      host.classList.remove('laughing');
+      void host.offsetWidth;
+      host.classList.add('laughing');
+      setTimeout(() => host.classList.remove('laughing'), 900);
+    });
+  }
+  function resumeBgmIfNeeded(){
+    if(!musicWanted || !bgmEl || !bgmEl.paused) return;
+    const p = bgmEl.play();
+    if(p && p.catch) p.catch(() => {});
+  }
   function playBellyLaugh(){
     if(charSkinId() !== 'blob' || !state.sound) return;
     const el = ensureLaughAudio();
     if(!el) return;
-    try{
-      el.currentTime = 0;
-      const p = el.play();
-      if(p && p.catch) p.catch(() => {});
-    }catch(e){}
+    const go = attempt => {
+      try{
+        el.currentTime = 0;
+        const p = el.play();
+        if(p && p.then){
+          p.then(() => { flashLaugh(); }).catch(() => {
+            if(attempt < 3) setTimeout(() => go(attempt + 1), 100);
+            else flashLaugh();
+          });
+        }else flashLaugh();
+      }catch(e){
+        if(attempt < 3) setTimeout(() => go(attempt + 1), 100);
+        else flashLaugh();
+      }
+    };
+    go(0);
   }
   function handleCharSkin(id){
     if(!activeProfile) return;
@@ -1749,7 +1823,7 @@
       'jarSwitchBtn','toppingChips','toppingQtyRow','toppingMinus','toppingQtyVal','toppingPlus',
       'shopTabs','shopWallet','shopExpandGrid','shopSyrupGrid','shopFurnGrid','itemShopEntryBtn','shopTitle','shopSub',
       'syrupComposition','pourSeq','stirBtn','alarmTray','alarmTrayItems','discardBtn',
-      'dressEntryBtn','dressOverlay','dressCoins','dressDoll','dressSlots',
+      'dressEntryBtn','dressOverlay','dressCoins','dressDoll','dressSlots','introVersion',
       'dressClose','dressDoneBtn','frogWear','orderRod',
       'saveEntryBtn','saveOverlay','saveClose','saveExport','saveImport','copySaveBtn','downloadSaveBtn',
       'importSaveBtn','gistToken','gistSyncBtn','gistRestoreBtn','gistClearBtn','saveStatus',
@@ -5933,11 +6007,32 @@
     if(els.gistRestoreBtn) els.gistRestoreBtn.addEventListener('click', doGistRestore);
     if(els.gistClearBtn) els.gistClearBtn.addEventListener('click', doGistClear);
     if(els.homeEntryBtn) els.homeEntryBtn.addEventListener('click', () => openHome('room'));
+    document.addEventListener('pointerdown', unlockLaughAudio, { capture: true });
+    document.addEventListener('click', e => {
+      const host = e.target.closest('.frog, .room-doll, .dress-doll, .summary-frog');
+      if(!host) return;
+      if(host.classList.contains('is-blob') || charSkinId() === 'blob') playBellyLaugh();
+    }, true);
     if(els.dressEntryBtn) els.dressEntryBtn.addEventListener('click', openDress);
     if(els.dressClose) els.dressClose.addEventListener('click', closeDress);
     if(els.dressDoneBtn) els.dressDoneBtn.addEventListener('click', closeDress);
     if(els.dressOverlay) els.dressOverlay.addEventListener('click', e => { if(e.target === els.dressOverlay) closeDress(); });
     if(els.dressSlots) els.dressSlots.addEventListener('click', e => {
+      const skinBtn = e.target.closest('[data-dress-skin]');
+      if(skinBtn){
+        state.dressSkin = skinBtn.dataset.dressSkin;
+        sfx.tap();
+        renderDress();
+        playBellyLaugh();
+        return;
+      }
+      const applyBtn = e.target.closest('[data-dress-skin-apply]');
+      if(applyBtn){
+        handleCharSkin(applyBtn.dataset.dressSkinApply);
+        state.dressSkin = charSkinId();
+        renderDress();
+        return;
+      }
       const b = e.target.closest('[data-dress]');
       if(b) handleClothes(b.dataset.dress);
     });
@@ -6042,6 +6137,7 @@
     renderFrogWear();
     applySkins();
     applyCharSkin();
+    syncVersionUI();
     setIntroMode('normal');
     updateHud();
     renderResumeUI();
