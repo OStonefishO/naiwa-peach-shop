@@ -3660,8 +3660,7 @@
   }
   function bubbleLeft(rx, rw){
     const vw = window.innerWidth;
-    const wide = rx + rw / 2 > vw / 2;
-    const left = wide ? Math.max(8, rx - 248) : Math.min(vw - 248, rx + rw / 2 - 116);
+    const left = rx + rw / 2 - 116;
     return Math.min(Math.max(8, left), vw - 248);
   }
   function tutorialStagePointer(stage){
