@@ -812,7 +812,7 @@
     if(masterGain) masterGain.gain.value = state.sound ? settings.master / 100 * .7 : 0;
     if(!bgmEl) bgmEl = els.bgm;
     if(bgmEl) bgmEl.volume = state.sound ? settings.master / 100 * settings.music / 100 * .6 : 0;
-    if(alarmEl) alarmEl.volume = state.sound ? Math.min(.55, settings.master / 100 * settings.alarm / 100 * .38) : 0;
+    if(alarmEl) alarmEl.volume = state.sound ? Math.min(.34, settings.master / 100 * settings.alarm / 100 * .22) : 0;
     if(laughEl) laughEl.volume = state.sound ? Math.min(.9, settings.master / 100 * settings.laugh / 100 * .62) : 0;
   }
 
@@ -1024,7 +1024,7 @@
         alarmEl = new Audio('music/alarm.mp3');
         alarmEl.preload = 'auto';
       }
-      alarmEl.volume = state.sound ? Math.min(.55, settings.master / 100 * settings.alarm / 100 * .38) : 0;
+      alarmEl.volume = state.sound ? Math.min(.34, settings.master / 100 * settings.alarm / 100 * .22) : 0;
       alarmEl.currentTime = 0;
       const p = alarmEl.play();
       if(p && p.catch) p.catch(()=>{});
@@ -2312,7 +2312,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '新手教学完善';
+  const CHANGELOG_SUB = '订单票换行与闹钟音量';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
