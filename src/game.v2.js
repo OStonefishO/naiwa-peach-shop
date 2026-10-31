@@ -428,6 +428,14 @@
         { sel:'#orderTicket', text:'按住订单卡，拖到下面的「订单架」', advance:'pointerdown' }
       ];
     }
+    if(day === 5){
+      return [
+        { sel:'#stageTabs [data-stage="restaurant"]', text:'第 5 天是精英日，先去餐厅看看是谁来了' },
+        { sel:'.rest-card[data-elite="1"]', text:'精英客人：订单更复杂、评分更严，但金币和小费更高', advance:'pointerdown' },
+        { sel:'#stageTabs [data-stage="kitchen"]', text:'厨房有 3 口熬糖锅和 2 个闹钟，可以同时熬' },
+        { sel:'.pot-card', text:'不同糖可以同时熬：点锅里的糖型切换', advance:'pointerdown' }
+      ];
+    }
     if(day === 4){
       const jarName = (JARS[o.jar || 'classic'] || {}).name || '订单要的罐型';
       const steps = [];
@@ -537,6 +545,7 @@
     state.tutorialDayApplied = state.day;
     const sc = tutorialScript();
     if(!sc) return;
+    if(typeof guideEnd === 'function') guideEnd();
     state.upgrade.pots = sc.pots || 1;
     state.upgrade.alarms = sc.alarms || 0;
     state.upgrade.knives = [0,0,0];
@@ -3770,7 +3779,7 @@
         : active ? '<button class="rest-accept" disabled>正在做</button>'
         : dg.accepted ? `<button class="rest-accept" data-activate-order="${dg.orderId}">查看订单</button>`
         : `<button class="rest-accept" data-accept-guest="${dg.index}">接单</button>`;
-      return `<div class="rest-card ${cls}" data-rest-index="${dg.index}">
+      return `<div class="rest-card ${cls}" data-rest-index="${dg.index}"${dg.guest.tier && dg.guest.tier !== 'normal' ? ' data-elite="1"' : ''}>
         <div class="rest-avatar">${guestSVG(dg.guest, dg.index)}</div>
         <div class="rest-copy"><b>${dg.guest.name}${guestTag(dg.guest)}${ptag}</b><small>${st} · ${brief}</small><small>${p ? p.effect : '按普通耐心等待'}</small></div>
         ${btn}
@@ -3845,7 +3854,11 @@
       const sc = tutorialScript() || {};
       const list = (sc.guests || [{name:'小黄'},{name:'阿蓝'}]).slice(0, GUEST_COUNT);
       list.forEach((spec, i) => {
-        const base = guestByName(spec.name);
+        const eliteSpec = spec.tier === 'elite';
+        let base = guestByName(spec.name);
+        if(eliteSpec && base.tier !== 'elite'){
+          base = ELITE_GUESTS.find(g => g.name === spec.name) || ELITE_GUESTS[0];
+        }
         const guest = Object.assign({}, base, spec.tier ? {tier:spec.tier} : {}, spec.personality ? {personality:spec.personality} : {});
         if(spec.tier === 'elite') guest.tier = 'elite';
         const p = spec.personality ? PERSONALITIES[spec.personality] : (guest.tier !== 'normal' ? personalityFor(guest) : null);
