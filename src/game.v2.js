@@ -931,7 +931,8 @@
     if(els.sbUrl) els.sbUrl.value = cfg.url;
     if(els.sbKey) els.sbKey.value = cfg.key;
     if(els.sbPin) els.sbPin.value = '';
-    sbStatus(cfg.url && cfg.key ? '已配置 · 输入 PIN 后上传/读取' : '未配置 · 先填 Project URL 和 anon key', cfg.url && cfg.key ? 'ok' : '');
+    if(els.sbAdvanced) els.sbAdvanced.hidden = !state.devMode;
+    sbStatus(cfg.url && cfg.key ? '已配置 · 输入存档密码后上传/读取' : '未配置 · 先填 Project URL 和 anon key', cfg.url && cfg.key ? 'ok' : '');
     renderSaveStatus(gistToken() ? '已填写 Token · 点“同步到 GitHub”验证并上传' : '未连接 · 存档只在本机浏览器', gistToken() ? 'ok' : '');
     els.saveOverlay.classList.add('show');
     els.saveOverlay.setAttribute('aria-hidden','false');
@@ -1011,10 +1012,10 @@
     try{ data = await res.json(); }catch(e){}
     if(!res.ok){
       const msg = (data && (data.message || data.hint || data.details)) || ('Supabase ' + res.status);
-      if(/wrong pin|invalid pin/i.test(msg)) throw new Error('PIN 不正确');
+      if(/wrong pin|invalid pin/i.test(msg)) throw new Error('存档密码不正确');
       if(/not found|no save/i.test(msg)) throw new Error('云端没有找到这个店长的存档');
       if(/invalid name/i.test(msg)) throw new Error('店长名字不合法');
-      if(/pin too short/i.test(msg)) throw new Error('PIN 至少 4 位');
+      if(/pin too short/i.test(msg)) throw new Error('存档密码至少 4 位');
       if(res.status === 404) throw new Error('Supabase 函数不存在，请先运行 schema.sql');
       throw new Error(msg);
     }
@@ -1022,7 +1023,7 @@
   }
   function sbCheckPin(){
     const pin = (els.sbPin && els.sbPin.value || '').trim();
-    if(!/^\d{4,8}$/.test(pin)) throw new Error('同步密码请填 4–8 位数字');
+    if(!/^\d{4,8}$/.test(pin)) throw new Error('存档密码请填 4–8 位数字');
     return pin;
   }
   function sbSaveConfig(){
@@ -1669,7 +1670,7 @@
       'dressClose','dressDoneBtn','frogWear','orderRod',
       'saveEntryBtn','saveOverlay','saveClose','saveExport','saveImport','copySaveBtn','downloadSaveBtn',
       'importSaveBtn','gistToken','gistSyncBtn','gistRestoreBtn','gistClearBtn','saveStatus',
-      'sbUrl','sbKey','sbPin','sbSaveBtn','sbLoadBtn','sbStatus',
+      'sbUrl','sbKey','sbAdvanced','sbPin','sbSaveBtn','sbLoadBtn','sbStatus',
       'modeGroup','modeToggle','modeToggleName','modePanel','shopGroup','shopToggle','shopPanel',
       'settingsEntryBtn','settingsBtn','settingsOverlay','settingsClose','settingsDone',
       'setMaster','setMusic','setAlarm','setMasterVal','setMusicVal','setAlarmVal',
@@ -1739,6 +1740,7 @@
     if(els.devExitBtn) els.devExitBtn.hidden = !state.devMode;
     if(els.devEndDayBtn) els.devEndDayBtn.hidden = !state.devMode || (state.phase !== 'playing' && state.phase !== 'event');
     if(els.redeemInput) els.redeemInput.placeholder = state.devMode ? '已开启 · 可输入关闭码' : '输入兑换码';
+    if(els.sbAdvanced) els.sbAdvanced.hidden = !state.devMode;
   }
   function setDevMode(on){
     state.devMode = !!on;

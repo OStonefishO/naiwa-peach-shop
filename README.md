@@ -183,7 +183,7 @@ http://10.18.167.201:8099/wechat-qq/
 
 - **导出存档码 / 下载 JSON**：把当前所有店长档案导成一段 `NAIWA1:` 开头的文本或一个 JSON 文件；换设备时复制过去导入即可，不需要账号。
 - **导入存档码**：粘贴存档码，合并同名店长并切换过去。
-- **Supabase 云存档（推荐，已预配置）**：游戏已连接本项目的 Supabase（Project URL 与 anon public key 已内置），打开“存档”只需输入 **4–8 位 PIN**，点“上传到 Supabase”；换设备输入**同一店长名字 + 同一 PIN**，点“从 Supabase 读取”即可恢复。**PIN 是玩家自己设的同步密码**，不是统一验证码、也不绑设备：第一次上传时你填什么就是什么；别人不知道你的名字 + PIN 就取不到你的存档（PIN 只以 bcrypt 哈希存在数据库里）。`anon key` 本来就是公开前端密钥。若想换成自己的 Supabase，按 [supabase/README.md](supabase/README.md) 建项目并运行 [supabase/schema.sql](supabase/schema.sql)，再在游戏内覆盖 URL / key。
+- **Supabase 云存档（推荐，已预配置）**：游戏已连接本项目的 Supabase（Project URL 与 anon public key 已内置），打开“存档”默认只显示一个**存档密码输入框**并提示「输入你的存档密码，无法找回，请牢记！」，填 **4–8 位数字**后点“上传到 Supabase”；换设备输入**同一店长名字 + 同一存档密码**，点“从 Supabase 读取”即可恢复。Project URL 与 anon key 两行只在**开发者模式**下显示，普通玩家看不到、也不需要填。**存档密码是玩家自己设的同步密码**，不是统一验证码、也不绑设备：第一次上传时你填什么就是什么；别人不知道你的名字 + 密码就取不到你的存档（密码只以 bcrypt 哈希存在数据库里）。`anon key` 本来就是公开前端密钥。若想换成自己的 Supabase，在开发者模式下覆盖 URL / key，再按 [supabase/README.md](supabase/README.md) 建项目并运行 [supabase/schema.sql](supabase/schema.sql)。
 - **GitHub 云存档（可选）**：填入自己的 GitHub **classic token**（只勾选 `gist` 权限），游戏会把存档写进你的**私有 Gist**；换设备登录同一 GitHub 账号后点“从云端恢复”。Token 只保存在本机浏览器，不会写进存档或上传到游戏仓库。
 
 > 为什么不能直接把所有玩家数据写进游戏仓库？因为纯静态页面没有后端，用仓库 Token 写 GitHub 等于把仓库写权限交给每个玩家，任何人都能改游戏文件。Gist 方案需要玩家自己的 Token；Supabase 方案把权限放在数据库 RPC 里，是当前“名字 + PIN”跨设备存档的推荐方案。
