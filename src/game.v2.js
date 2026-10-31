@@ -486,13 +486,16 @@
       panel.id = 'taskPanel';
       panel.className = 'task-panel';
       els.game.appendChild(panel);
+      panel.addEventListener('click', () => panel.classList.toggle('open'));
     }
     const doneKey = 'taskDone' + day;
     const done = list.map(x => !!x.check());
     const allDone = done.every(Boolean);
-    panel.innerHTML = `<div class="task-head"><span>今日任务</span><em>${done.filter(Boolean).length}/${list.length}</em></div>
+    panel.innerHTML = `<div class="task-head"><span>今日任务 ${allDone ? '· 完成' : ''}</span><em>${done.filter(Boolean).length}/${list.length} ▾</em></div>
       <ul>${list.map((x, i) => `<li class="${done[i] ? 'done' : ''}"><i>${done[i] ? '✓' : ''}</i><span>${x.text}</span></li>`).join('')}</ul>`;
     panel.classList.toggle('all-done', allDone);
+    const note = document.querySelector('.desk-note');
+    if(note) note.style.display = 'none';
     if(allDone && !(state.tutorial && state.tutorial[doneKey])){
       state.tutorial = state.tutorial || { seen:{} };
       state.tutorial[doneKey] = 1;
