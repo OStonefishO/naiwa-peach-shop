@@ -391,7 +391,8 @@
   const NAISHU_GUEST = {name:'奶鼠',kind:'naishu',tier:'boss',badge:'BOSS',personality:'petty',patience:.8,coin:3,tolDelta:-1,happy:'嘿嘿，小费我就收下啦～'};
   function defaultProfile(name){
     return {
-      name:name || '奶蛙店长', wallet:200, bestNormal:0, bestEndless:0, totalRuns:0,
+      name:name || '奶蛙店长', wallet:200, bestNormal:0, bestEndless:0, bestEndlessCoins:0,
+      bestRogue:0, bestRogueCoins:0, totalRuns:0,
       ownedFurniture:[], placedFurniture:[], furniturePositions:{},
       clothes:{head:['chef'], top:['apron']},
       equipped:{head:'chef', top:'apron'},
@@ -611,6 +612,9 @@
     p.wallet = Number.isFinite(p.wallet) ? Math.max(0, p.wallet) : d.wallet;
     p.bestNormal = Number.isFinite(p.bestNormal) ? Math.max(0, p.bestNormal) : 0;
     p.bestEndless = Number.isFinite(p.bestEndless) ? Math.max(0, p.bestEndless) : 0;
+    p.bestEndlessCoins = Number.isFinite(p.bestEndlessCoins) ? Math.max(0, p.bestEndlessCoins) : 0;
+    p.bestRogue = Number.isFinite(p.bestRogue) ? Math.max(0, p.bestRogue) : 0;
+    p.bestRogueCoins = Number.isFinite(p.bestRogueCoins) ? Math.max(0, p.bestRogueCoins) : 0;
     p.totalRuns = Number.isFinite(p.totalRuns) ? p.totalRuns : 0;
     p.ownedFurniture = Array.isArray(p.ownedFurniture) ? p.ownedFurniture.filter(id => FURNITURE[id]) : [];
     p.placedFurniture = Array.isArray(p.placedFurniture) ? p.placedFurniture.filter(id => p.ownedFurniture.includes(id)).slice(0,4) : [];
@@ -1131,20 +1135,36 @@
   }
   function awardProfile(kind){
     if(!activeProfile) return 0;
+    const weekNow = Math.max(1, Number(state.week) || Math.ceil(state.day / WEEK_DAYS));
+    const earned = Math.max(0, Number(state.runEarned) || 0);
     if(kind === 'weekPass'){
-      if(state.week > activeProfile.bestEndless) activeProfile.bestEndless = state.week;
+      if(state.mode === 'endless'){
+        activeProfile.bestEndless = Math.max(activeProfile.bestEndless || 0, weekNow);
+        activeProfile.bestEndlessCoins = Math.max(activeProfile.bestEndlessCoins || 0, earned);
+      }else if(state.mode === 'rogue'){
+        activeProfile.bestRogue = Math.max(activeProfile.bestRogue || 0, weekNow);
+        activeProfile.bestRogueCoins = Math.max(activeProfile.bestRogueCoins || 0, earned);
+      }
       syncProfile(); saveProfiles(); return 0;
     }
     if(kind !== 'runEnd' && kind !== 'gameOver') return 0;
     if(state.metaAwarded) return 0;
-    if(kind === 'runEnd'){
-      activeProfile.bestNormal = Math.max(activeProfile.bestNormal, state.runEarned);
-    }else{
-      activeProfile.bestEndless = Math.max(activeProfile.bestEndless, state.week);
+    if(state.mode === 'normal' && kind === 'runEnd'){
+      activeProfile.bestNormal = Math.max(activeProfile.bestNormal || 0, earned);
     }
-    activeProfile.totalRuns += 1;
+    if(state.mode === 'endless'){
+      activeProfile.bestEndless = Math.max(activeProfile.bestEndless || 0, weekNow);
+      activeProfile.bestEndlessCoins = Math.max(activeProfile.bestEndlessCoins || 0, earned);
+      activeProfile.totalRuns = (activeProfile.totalRuns || 0) + 1;
+    }else if(state.mode === 'rogue' && kind === 'gameOver'){
+      activeProfile.bestRogue = Math.max(activeProfile.bestRogue || 0, weekNow);
+      activeProfile.bestRogueCoins = Math.max(activeProfile.bestRogueCoins || 0, earned);
+      activeProfile.totalRuns = (activeProfile.totalRuns || 0) + 1;
+    }else{
+      activeProfile.totalRuns = (activeProfile.totalRuns || 0) + 1;
+    }
     activeProfile.lastRun = {
-      mode:state.mode, day:state.day, week:state.week, earned:state.runEarned,
+      mode:state.mode, day:state.day, week:weekNow, earned,
       kind, date:new Date().toISOString().slice(0,10)
     };
     state.metaAwarded = true;
@@ -1152,27 +1172,40 @@
     saveProfiles();
     return 0;
   }
-  function leaderboardProfiles(){
+  let rankTab = 'endless';
+  function leaderboardProfiles(tab = rankTab){
+    const key = tab === 'rogue' ? 'bestRogue' : 'bestEndless';
+    const coinKey = tab === 'rogue' ? 'bestRogueCoins' : 'bestEndlessCoins';
     return Object.values(profiles)
-      .filter(p => (p.bestEndless || 0) > 0 || (p.totalRuns || 0) > 0)
-      .sort((a,b) => (b.bestEndless - a.bestEndless) || (b.bestNormal - a.bestNormal) || a.name.localeCompare(b.name));
+      .filter(p => (p[key] || 0) > 0 || (p[coinKey] || 0) > 0)
+      .sort((a,b) => (b[key] || 0) - (a[key] || 0) || (b[coinKey] || 0) - (a[coinKey] || 0) || a.name.localeCompare(b.name));
   }
-  function renderLeaderboard(){
+  function renderLeaderboard(tab = rankTab){
+    rankTab = tab === 'rogue' ? 'rogue' : 'endless';
+    if(els.leaderboardTitle) els.leaderboardTitle.textContent = '排行榜';
+    if(els.leaderboardFoot) els.leaderboardFoot.textContent = rankTab === 'rogue'
+      ? '肉鸽模式 · 每周金币指标递增，活得越久排名越高'
+      : '无尽模式 · 每周目标递增，活得越久排名越高';
+    document.querySelectorAll('[data-rank-tab]').forEach(b => {
+      b.classList.toggle('active', b.dataset.rankTab === rankTab);
+    });
     if(!els.leaderboardList) return;
-    const rows = leaderboardProfiles();
+    const rows = leaderboardProfiles(rankTab);
     if(!rows.length){
-      els.leaderboardList.innerHTML = '<div class="leaderboard-empty">还没有无尽模式记录。<br>去挑战一周，把名字留在榜上吧！</div>';
+      els.leaderboardList.innerHTML = `<div class="leaderboard-empty">还没有${rankTab === 'rogue' ? '肉鸽' : '无尽'}模式记录。<br>去挑战一周，把名字留在榜上吧！</div>`;
       return;
     }
+    const weekKey = rankTab === 'rogue' ? 'bestRogue' : 'bestEndless';
+    const coinKey = rankTab === 'rogue' ? 'bestRogueCoins' : 'bestEndlessCoins';
     els.leaderboardList.innerHTML = rows.slice(0,10).map((p,i) => `
       <div class="leaderboard-row${activeProfile && p.name === activeProfile.name ? ' me' : ''}">
         <div class="leaderboard-rank">${i + 1}</div>
-        <div class="leaderboard-name">${esc(p.name)}<small>${p.totalRuns || 0} 局 · 最佳周目 ${p.bestNormal || 0} 金币</small></div>
-        <div class="leaderboard-score">第 ${p.bestEndless || 0} 周<small>无尽最远</small></div>
+        <div class="leaderboard-name">${esc(p.name)}<small>${p.totalRuns || 0} 局 · ${rankTab === 'rogue' ? '肉鸽' : '无尽'}累计 ${p[coinKey] || 0} 金币</small></div>
+        <div class="leaderboard-score">第 ${p[weekKey] || 0} 周<small>${rankTab === 'rogue' ? '肉鸽最远' : '无尽最远'}</small></div>
       </div>`).join('');
   }
-  function openLeaderboard(){
-    renderLeaderboard();
+  function openLeaderboard(tab = rankTab){
+    renderLeaderboard(tab);
     els.leaderboardOverlay.classList.add('show');
     els.leaderboardOverlay.setAttribute('aria-hidden','false');
     sfx.tap();
@@ -1534,7 +1567,7 @@
       'reviewSpecial','shopBtn','replayBtn','shopOverlay','shopCoins','shopEvent','shopGrid','shopStartBtn','shopBackBtn',
       'playerName','savePlayerBtn','homeEntryBtn','rankEntryBtn','summaryRankBtn','homeOverlay','homeCoins','homeOwner',
       'homeTabs','homeRoom','homeRoomTip','furnitureGrid','closetGrid','skinShop','homeClose','homePlayBtn','homeRankBtn',
-      'leaderboardOverlay','leaderboardList','leaderboardClose',
+      'leaderboardOverlay','leaderboardList','leaderboardClose','leaderboardTitle','leaderboardFoot','rankTabs',
       'reviewEarlyBtn','summaryEarlyBtn','shopEarlyBtn','settingsEarlyBtn','confirmOverlay','confirmCancel','confirmOk',
       'jarSwitchBtn','toppingChips','toppingQtyRow','toppingMinus','toppingQtyVal','toppingPlus',
       'shopTabs','shopWallet','shopExpandGrid','shopSyrupGrid','shopFurnGrid','itemShopEntryBtn','shopTitle','shopSub',
@@ -4381,7 +4414,8 @@
     if(tipBase > 0){
       tipLines.push({sec:'基础小费'});
       if(flatTip) tipLines.push({k:'订单基础小费', v:`+${flatTip}`});
-      if(tipInfo.tip) tipLines.push({k:'复杂订单小费', v:`+${tipInfo.tip}`});
+      if(tipInfo.tip) tipLines.push({k:'额外小费（加算）', v:`+${tipInfo.tip}`});
+      tipLines.push({k:'小计（基础 + 加算）', v:`+${tipBase}`, sub:true});
     }
     if(rogueActive() && !timedOut){
       if(goldJarUsed){
@@ -4445,7 +4479,7 @@
       details.push({ok:queueDelta > 0, label:'排队', text: queueDelta > 0 ? `提前服务 +${queueDelta}` : `被插队 ${queueDelta}`});
     }
     details.push({ok:speedScore===6, label:'出餐速度', text: timedOut ? '超时了…' : speedScore===6 ? '手速超快' : speedScore===4 ? '稍微有点慢' : '客人等急了'});
-    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipBase:tipInfo.tip, tipLines, tipNotes:tipInfo.notes, details, timedOut, guest:state.guest};
+    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipBase, tipInfoTip:tipInfo.tip, tipLines, tipNotes:tipInfo.notes, details, timedOut, guest:state.guest};
   }
 
   function commentFor(result){
@@ -4524,7 +4558,7 @@
         els.reviewTip.innerHTML = `<div class="tip-head"><span>小费加成明细 · 奶蛙的小费</span><b>+${tip}</b></div>${
           lines.length ? `<div class="tip-lines">${lines.map(l => l.sec
             ? `<div class="tip-sec">${l.sec}</div>`
-            : `<div class="tip-line${l.total ? ' total' : ''}"><span>${l.k}</span><em>${l.v}</em></div>`).join('')}</div>` : ''}`;
+            : `<div class="tip-line${l.total ? ' total' : l.sub ? ' sub' : ''}"><span>${l.k}</span><em>${l.v}</em></div>`).join('')}</div>` : ''}`;
       }
     }
     if(els.reviewQueue){
@@ -4607,7 +4641,7 @@
     const perfect = state.reviews.filter(r => r.perfect).length;
     const avg = total ? Math.round(state.reviews.reduce((s,r) => s + r.score, 0) / total) : 0;
     const isEnd = kind === 'runEnd' || (kind === 'gameOver' && state.mode !== 'rogue');
-    if(state.mode !== 'rogue') awardProfile(kind);
+    awardProfile(kind);
     const rogueEnd = state.mode === 'rogue' && kind === 'gameOver';
     if((isEnd || rogueEnd) && activeProfile){ activeProfile.run = null; saveProfiles(); }
     let ribbon = '今日营业结束';
@@ -4675,8 +4709,8 @@
     if(els.summaryEarlyBtn) els.summaryEarlyBtn.style.display = (isEnd || rogueEnd) ? 'none' : '';
     els.homeBtn.style.display = (isEnd || rogueEnd) ? '' : 'none';
     if(els.summaryRankBtn){
-      els.summaryRankBtn.style.display = (kind === 'gameOver' && state.mode !== 'rogue') ? '' : 'none';
-      if(kind === 'gameOver') renderLeaderboard();
+      els.summaryRankBtn.style.display = (kind === 'gameOver') ? '' : 'none';
+      if(kind === 'gameOver') renderLeaderboard(state.mode === 'rogue' ? 'rogue' : 'endless');
     }
     els.replayBtn.className = (isEnd || rogueEnd) ? 'primary-btn' : 'ghost-btn';
     els.replayBtn.innerHTML = kind === 'runEnd' ? `再开一局普通模式${icon('arrow')}`
@@ -5691,12 +5725,20 @@
       const b = e.target.closest('[data-dress]');
       if(b) handleClothes(b.dataset.dress);
     });
-    if(els.rankEntryBtn) els.rankEntryBtn.addEventListener('click', openLeaderboard);
+    if(els.rankEntryBtn) els.rankEntryBtn.addEventListener('click', () => openLeaderboard());
     if(els.summaryRankBtn){
       els.summaryRankBtn.addEventListener('click', () => {
         els.summaryOverlay.classList.remove('show');
         els.summaryOverlay.setAttribute('aria-hidden','true');
         openLeaderboard();
+      });
+    }
+    if(els.rankTabs){
+      els.rankTabs.addEventListener('click', e => {
+        const btn = e.target.closest('[data-rank-tab]');
+        if(!btn) return;
+        renderLeaderboard(btn.dataset.rankTab);
+        sfx.tap();
       });
     }
     if(els.homeClose) els.homeClose.addEventListener('click', closeHome);
@@ -5792,7 +5834,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay };
+      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles };
     }
   }
 

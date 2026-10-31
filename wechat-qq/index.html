@@ -13,7 +13,7 @@
 <meta property="og:title" content="奶蛙黄桃罐头店 · 点开即玩">
 <meta property="og:description" content="接单、装罐、封盖、出餐，做一罐甜甜的黄桃罐头。微信/QQ 内直接打开。">
 <meta property="og:type" content="website">
-<title>奶蛙黄桃罐头店 · 正式版 2.3</title>
+<title>奶蛙黄桃罐头店 · 正式版 2.4</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23FFD23F'/%3E%3Ccircle cx='50' cy='58' r='27' fill='%23FFC42E'/%3E%3Ccircle cx='39' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='61' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='50' cy='72' r='4' fill='%23FFF3CE'/%3E%3C/svg%3E">
 <style>
   :root{
@@ -775,6 +775,8 @@
   .review-tip .tip-sec:first-child{margin-top:0}
   .review-tip .tip-line.total{padding-top:3px;margin-top:1px;border-top:1px dashed #EFD9AE;font-size:7.6px;color:#7A5A28}
   .review-tip .tip-line.total em{font-size:8.4px;color:#A9620C}
+  .review-tip .tip-line.sub{color:#9A6A22}
+  .review-tip .tip-line.sub em{color:#A9620C}
   .review-tip[hidden]{display:none}
   .review-queue{
     display:flex;align-items:center;justify-content:space-between;gap:6px;margin:0 0 8px;padding:5px 9px;
@@ -1407,6 +1409,10 @@
   .leaderboard-score{font-size:10px;font-weight:900;color:#7A4E18;white-space:nowrap}
   .leaderboard-score small{display:block;font-size:6px;color:#A58459;font-weight:700}
   .leaderboard-foot{font-size:7px;font-weight:700;color:#A58459;line-height:1.5}
+  .rank-tabs{display:flex;gap:6px;justify-content:center;margin:2px 0 8px}
+  .rank-tab{flex:1 1 0;min-width:0;height:28px;border:1.5px solid #E4CFAD;border-radius:99px;background:#FFFDF6;
+    font-family:inherit;font-size:8px;font-weight:900;color:#8A6432;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+  .rank-tab.active{background:#F5C64B;border-color:#D9A32F;color:#5A3C10;box-shadow:0 2px 0 rgba(150,105,30,.25)}
 
   /* 店铺主题皮肤（只换场景氛围，不换控件可读性） */
   .game[data-theme="halloween"] .scene{
@@ -2514,7 +2520,7 @@
         </div>
       </div>
       <div class="intro-links four">
-        <button class="ghost-btn" id="rankEntryBtn" type="button">无尽排行榜</button>
+        <button class="ghost-btn" id="rankEntryBtn" type="button">排行榜</button>
         <button class="ghost-btn" id="saveEntryBtn" type="button">存档</button>
         <button class="ghost-btn" id="codexEntryBtn" type="button">图鉴</button>
         <button class="ghost-btn" id="settingsEntryBtn" type="button">设置</button>
@@ -2574,7 +2580,7 @@
       <div class="summary-actions">
         <button class="primary-btn" id="shopBtn" type="button">逛金币商店<svg class="icon"><use href="#i-arrow"></use></svg></button>
         <button class="ghost-btn" id="replayBtn" type="button">直接开始下一天</button>
-        <button class="ghost-btn" id="summaryRankBtn" type="button" style="display:none">查看无尽排行榜</button>
+        <button class="ghost-btn" id="summaryRankBtn" type="button" style="display:none">查看排行榜</button>
         <button class="ghost-btn" id="summaryPauseBtn" type="button" style="height:32px;display:none">暂时打烊（保存进度）</button>
         <button class="ghost-btn" id="summaryEarlyBtn" type="button" style="height:32px">提前下班</button>
         <button class="ghost-btn" id="homeBtn" type="button" style="display:none;height:34px">回到标题</button>
@@ -2649,7 +2655,7 @@
       </div>
       <div class="home-actions">
         <button class="primary-btn" id="homePlayBtn" type="button">开始营业<svg class="icon"><use href="#i-arrow"></use></svg></button>
-        <button class="ghost-btn" id="homeRankBtn" type="button">无尽排行榜</button>
+        <button class="ghost-btn" id="homeRankBtn" type="button">排行榜</button>
       </div>
     </div>
   </div>
@@ -2669,15 +2675,19 @@
     </div>
   </div>
 
-  <!-- 无尽排行榜 -->
+  <!-- 排行榜 -->
   <div class="overlay leaderboard-overlay" id="leaderboardOverlay" aria-hidden="true">
     <div class="leaderboard-card" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
       <button class="home-close" id="leaderboardClose" type="button" aria-label="关闭">×</button>
-      <div class="home-eyebrow">NAIWA ENDLESS RANK</div>
-      <h2 class="leaderboard-title" id="leaderboardTitle">无尽模式排行榜</h2>
+      <div class="home-eyebrow">NAIWA RANK</div>
+      <h2 class="leaderboard-title" id="leaderboardTitle">排行榜</h2>
       <p class="leaderboard-sub">本机排行榜 · 用名字区分存档</p>
+      <div class="rank-tabs" id="rankTabs">
+        <button class="rank-tab active" type="button" data-rank-tab="endless">无尽排行榜</button>
+        <button class="rank-tab" type="button" data-rank-tab="rogue">肉鸽排行榜</button>
+      </div>
       <div class="leaderboard-list" id="leaderboardList"></div>
-      <div class="leaderboard-foot">每周目标递增，活得越久排名越高</div>
+      <div class="leaderboard-foot" id="leaderboardFoot">每周目标递增，活得越久排名越高</div>
     </div>
   </div>
 
@@ -2776,7 +2786,7 @@
         <button id="devExitBtn" class="redeem-exit" type="button" hidden>退出开发者模式</button>
       </div>
       <button class="settings-codex" id="codexFromSettings" type="button">📖 打开奶蛙图鉴</button>
-      <button class="settings-changelog" id="changelogBtn" type="button">📝 更新日志 · 2.3 事件日修复</button>
+      <button class="settings-changelog" id="changelogBtn" type="button">📝 更新日志 · 2.4 排行榜与小费分段</button>
       <button class="settings-pause" id="settingsPauseBtn" type="button" hidden>暂时打烊（保存进度）</button>
       <button class="settings-early" id="settingsEarlyBtn" type="button" hidden>提前下班</button>
       <button class="settings-done" id="settingsDone" type="button">完成</button>
@@ -3220,7 +3230,8 @@
   const NAISHU_GUEST = {name:'奶鼠',kind:'naishu',tier:'boss',badge:'BOSS',personality:'petty',patience:.8,coin:3,tolDelta:-1,happy:'嘿嘿，小费我就收下啦～'};
   function defaultProfile(name){
     return {
-      name:name || '奶蛙店长', wallet:200, bestNormal:0, bestEndless:0, totalRuns:0,
+      name:name || '奶蛙店长', wallet:200, bestNormal:0, bestEndless:0, bestEndlessCoins:0,
+      bestRogue:0, bestRogueCoins:0, totalRuns:0,
       ownedFurniture:[], placedFurniture:[], furniturePositions:{},
       clothes:{head:['chef'], top:['apron']},
       equipped:{head:'chef', top:'apron'},
@@ -3440,6 +3451,9 @@
     p.wallet = Number.isFinite(p.wallet) ? Math.max(0, p.wallet) : d.wallet;
     p.bestNormal = Number.isFinite(p.bestNormal) ? Math.max(0, p.bestNormal) : 0;
     p.bestEndless = Number.isFinite(p.bestEndless) ? Math.max(0, p.bestEndless) : 0;
+    p.bestEndlessCoins = Number.isFinite(p.bestEndlessCoins) ? Math.max(0, p.bestEndlessCoins) : 0;
+    p.bestRogue = Number.isFinite(p.bestRogue) ? Math.max(0, p.bestRogue) : 0;
+    p.bestRogueCoins = Number.isFinite(p.bestRogueCoins) ? Math.max(0, p.bestRogueCoins) : 0;
     p.totalRuns = Number.isFinite(p.totalRuns) ? p.totalRuns : 0;
     p.ownedFurniture = Array.isArray(p.ownedFurniture) ? p.ownedFurniture.filter(id => FURNITURE[id]) : [];
     p.placedFurniture = Array.isArray(p.placedFurniture) ? p.placedFurniture.filter(id => p.ownedFurniture.includes(id)).slice(0,4) : [];
@@ -3960,20 +3974,36 @@
   }
   function awardProfile(kind){
     if(!activeProfile) return 0;
+    const weekNow = Math.max(1, Number(state.week) || Math.ceil(state.day / WEEK_DAYS));
+    const earned = Math.max(0, Number(state.runEarned) || 0);
     if(kind === 'weekPass'){
-      if(state.week > activeProfile.bestEndless) activeProfile.bestEndless = state.week;
+      if(state.mode === 'endless'){
+        activeProfile.bestEndless = Math.max(activeProfile.bestEndless || 0, weekNow);
+        activeProfile.bestEndlessCoins = Math.max(activeProfile.bestEndlessCoins || 0, earned);
+      }else if(state.mode === 'rogue'){
+        activeProfile.bestRogue = Math.max(activeProfile.bestRogue || 0, weekNow);
+        activeProfile.bestRogueCoins = Math.max(activeProfile.bestRogueCoins || 0, earned);
+      }
       syncProfile(); saveProfiles(); return 0;
     }
     if(kind !== 'runEnd' && kind !== 'gameOver') return 0;
     if(state.metaAwarded) return 0;
-    if(kind === 'runEnd'){
-      activeProfile.bestNormal = Math.max(activeProfile.bestNormal, state.runEarned);
-    }else{
-      activeProfile.bestEndless = Math.max(activeProfile.bestEndless, state.week);
+    if(state.mode === 'normal' && kind === 'runEnd'){
+      activeProfile.bestNormal = Math.max(activeProfile.bestNormal || 0, earned);
     }
-    activeProfile.totalRuns += 1;
+    if(state.mode === 'endless'){
+      activeProfile.bestEndless = Math.max(activeProfile.bestEndless || 0, weekNow);
+      activeProfile.bestEndlessCoins = Math.max(activeProfile.bestEndlessCoins || 0, earned);
+      activeProfile.totalRuns = (activeProfile.totalRuns || 0) + 1;
+    }else if(state.mode === 'rogue' && kind === 'gameOver'){
+      activeProfile.bestRogue = Math.max(activeProfile.bestRogue || 0, weekNow);
+      activeProfile.bestRogueCoins = Math.max(activeProfile.bestRogueCoins || 0, earned);
+      activeProfile.totalRuns = (activeProfile.totalRuns || 0) + 1;
+    }else{
+      activeProfile.totalRuns = (activeProfile.totalRuns || 0) + 1;
+    }
     activeProfile.lastRun = {
-      mode:state.mode, day:state.day, week:state.week, earned:state.runEarned,
+      mode:state.mode, day:state.day, week:weekNow, earned,
       kind, date:new Date().toISOString().slice(0,10)
     };
     state.metaAwarded = true;
@@ -3981,27 +4011,40 @@
     saveProfiles();
     return 0;
   }
-  function leaderboardProfiles(){
+  let rankTab = 'endless';
+  function leaderboardProfiles(tab = rankTab){
+    const key = tab === 'rogue' ? 'bestRogue' : 'bestEndless';
+    const coinKey = tab === 'rogue' ? 'bestRogueCoins' : 'bestEndlessCoins';
     return Object.values(profiles)
-      .filter(p => (p.bestEndless || 0) > 0 || (p.totalRuns || 0) > 0)
-      .sort((a,b) => (b.bestEndless - a.bestEndless) || (b.bestNormal - a.bestNormal) || a.name.localeCompare(b.name));
+      .filter(p => (p[key] || 0) > 0 || (p[coinKey] || 0) > 0)
+      .sort((a,b) => (b[key] || 0) - (a[key] || 0) || (b[coinKey] || 0) - (a[coinKey] || 0) || a.name.localeCompare(b.name));
   }
-  function renderLeaderboard(){
+  function renderLeaderboard(tab = rankTab){
+    rankTab = tab === 'rogue' ? 'rogue' : 'endless';
+    if(els.leaderboardTitle) els.leaderboardTitle.textContent = '排行榜';
+    if(els.leaderboardFoot) els.leaderboardFoot.textContent = rankTab === 'rogue'
+      ? '肉鸽模式 · 每周金币指标递增，活得越久排名越高'
+      : '无尽模式 · 每周目标递增，活得越久排名越高';
+    document.querySelectorAll('[data-rank-tab]').forEach(b => {
+      b.classList.toggle('active', b.dataset.rankTab === rankTab);
+    });
     if(!els.leaderboardList) return;
-    const rows = leaderboardProfiles();
+    const rows = leaderboardProfiles(rankTab);
     if(!rows.length){
-      els.leaderboardList.innerHTML = '<div class="leaderboard-empty">还没有无尽模式记录。<br>去挑战一周，把名字留在榜上吧！</div>';
+      els.leaderboardList.innerHTML = `<div class="leaderboard-empty">还没有${rankTab === 'rogue' ? '肉鸽' : '无尽'}模式记录。<br>去挑战一周，把名字留在榜上吧！</div>`;
       return;
     }
+    const weekKey = rankTab === 'rogue' ? 'bestRogue' : 'bestEndless';
+    const coinKey = rankTab === 'rogue' ? 'bestRogueCoins' : 'bestEndlessCoins';
     els.leaderboardList.innerHTML = rows.slice(0,10).map((p,i) => `
       <div class="leaderboard-row${activeProfile && p.name === activeProfile.name ? ' me' : ''}">
         <div class="leaderboard-rank">${i + 1}</div>
-        <div class="leaderboard-name">${esc(p.name)}<small>${p.totalRuns || 0} 局 · 最佳周目 ${p.bestNormal || 0} 金币</small></div>
-        <div class="leaderboard-score">第 ${p.bestEndless || 0} 周<small>无尽最远</small></div>
+        <div class="leaderboard-name">${esc(p.name)}<small>${p.totalRuns || 0} 局 · ${rankTab === 'rogue' ? '肉鸽' : '无尽'}累计 ${p[coinKey] || 0} 金币</small></div>
+        <div class="leaderboard-score">第 ${p[weekKey] || 0} 周<small>${rankTab === 'rogue' ? '肉鸽最远' : '无尽最远'}</small></div>
       </div>`).join('');
   }
-  function openLeaderboard(){
-    renderLeaderboard();
+  function openLeaderboard(tab = rankTab){
+    renderLeaderboard(tab);
     els.leaderboardOverlay.classList.add('show');
     els.leaderboardOverlay.setAttribute('aria-hidden','false');
     sfx.tap();
@@ -4363,7 +4406,7 @@
       'reviewSpecial','shopBtn','replayBtn','shopOverlay','shopCoins','shopEvent','shopGrid','shopStartBtn','shopBackBtn',
       'playerName','savePlayerBtn','homeEntryBtn','rankEntryBtn','summaryRankBtn','homeOverlay','homeCoins','homeOwner',
       'homeTabs','homeRoom','homeRoomTip','furnitureGrid','closetGrid','skinShop','homeClose','homePlayBtn','homeRankBtn',
-      'leaderboardOverlay','leaderboardList','leaderboardClose',
+      'leaderboardOverlay','leaderboardList','leaderboardClose','leaderboardTitle','leaderboardFoot','rankTabs',
       'reviewEarlyBtn','summaryEarlyBtn','shopEarlyBtn','settingsEarlyBtn','confirmOverlay','confirmCancel','confirmOk',
       'jarSwitchBtn','toppingChips','toppingQtyRow','toppingMinus','toppingQtyVal','toppingPlus',
       'shopTabs','shopWallet','shopExpandGrid','shopSyrupGrid','shopFurnGrid','itemShopEntryBtn','shopTitle','shopSub',
@@ -7210,7 +7253,8 @@
     if(tipBase > 0){
       tipLines.push({sec:'基础小费'});
       if(flatTip) tipLines.push({k:'订单基础小费', v:`+${flatTip}`});
-      if(tipInfo.tip) tipLines.push({k:'复杂订单小费', v:`+${tipInfo.tip}`});
+      if(tipInfo.tip) tipLines.push({k:'额外小费（加算）', v:`+${tipInfo.tip}`});
+      tipLines.push({k:'小计（基础 + 加算）', v:`+${tipBase}`, sub:true});
     }
     if(rogueActive() && !timedOut){
       if(goldJarUsed){
@@ -7274,7 +7318,7 @@
       details.push({ok:queueDelta > 0, label:'排队', text: queueDelta > 0 ? `提前服务 +${queueDelta}` : `被插队 ${queueDelta}`});
     }
     details.push({ok:speedScore===6, label:'出餐速度', text: timedOut ? '超时了…' : speedScore===6 ? '手速超快' : speedScore===4 ? '稍微有点慢' : '客人等急了'});
-    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipBase:tipInfo.tip, tipLines, tipNotes:tipInfo.notes, details, timedOut, guest:state.guest};
+    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipBase, tipInfoTip:tipInfo.tip, tipLines, tipNotes:tipInfo.notes, details, timedOut, guest:state.guest};
   }
 
   function commentFor(result){
@@ -7353,7 +7397,7 @@
         els.reviewTip.innerHTML = `<div class="tip-head"><span>小费加成明细 · 奶蛙的小费</span><b>+${tip}</b></div>${
           lines.length ? `<div class="tip-lines">${lines.map(l => l.sec
             ? `<div class="tip-sec">${l.sec}</div>`
-            : `<div class="tip-line${l.total ? ' total' : ''}"><span>${l.k}</span><em>${l.v}</em></div>`).join('')}</div>` : ''}`;
+            : `<div class="tip-line${l.total ? ' total' : l.sub ? ' sub' : ''}"><span>${l.k}</span><em>${l.v}</em></div>`).join('')}</div>` : ''}`;
       }
     }
     if(els.reviewQueue){
@@ -7436,7 +7480,7 @@
     const perfect = state.reviews.filter(r => r.perfect).length;
     const avg = total ? Math.round(state.reviews.reduce((s,r) => s + r.score, 0) / total) : 0;
     const isEnd = kind === 'runEnd' || (kind === 'gameOver' && state.mode !== 'rogue');
-    if(state.mode !== 'rogue') awardProfile(kind);
+    awardProfile(kind);
     const rogueEnd = state.mode === 'rogue' && kind === 'gameOver';
     if((isEnd || rogueEnd) && activeProfile){ activeProfile.run = null; saveProfiles(); }
     let ribbon = '今日营业结束';
@@ -7504,8 +7548,8 @@
     if(els.summaryEarlyBtn) els.summaryEarlyBtn.style.display = (isEnd || rogueEnd) ? 'none' : '';
     els.homeBtn.style.display = (isEnd || rogueEnd) ? '' : 'none';
     if(els.summaryRankBtn){
-      els.summaryRankBtn.style.display = (kind === 'gameOver' && state.mode !== 'rogue') ? '' : 'none';
-      if(kind === 'gameOver') renderLeaderboard();
+      els.summaryRankBtn.style.display = (kind === 'gameOver') ? '' : 'none';
+      if(kind === 'gameOver') renderLeaderboard(state.mode === 'rogue' ? 'rogue' : 'endless');
     }
     els.replayBtn.className = (isEnd || rogueEnd) ? 'primary-btn' : 'ghost-btn';
     els.replayBtn.innerHTML = kind === 'runEnd' ? `再开一局普通模式${icon('arrow')}`
@@ -8520,12 +8564,20 @@
       const b = e.target.closest('[data-dress]');
       if(b) handleClothes(b.dataset.dress);
     });
-    if(els.rankEntryBtn) els.rankEntryBtn.addEventListener('click', openLeaderboard);
+    if(els.rankEntryBtn) els.rankEntryBtn.addEventListener('click', () => openLeaderboard());
     if(els.summaryRankBtn){
       els.summaryRankBtn.addEventListener('click', () => {
         els.summaryOverlay.classList.remove('show');
         els.summaryOverlay.setAttribute('aria-hidden','true');
         openLeaderboard();
+      });
+    }
+    if(els.rankTabs){
+      els.rankTabs.addEventListener('click', e => {
+        const btn = e.target.closest('[data-rank-tab]');
+        if(!btn) return;
+        renderLeaderboard(btn.dataset.rankTab);
+        sfx.tap();
       });
     }
     if(els.homeClose) els.homeClose.addEventListener('click', closeHome);
@@ -8679,7 +8731,7 @@
       <button class="codex-close" id="changelogClose" type="button">✕</button>
       <div class="rogue-kicker">CHANGELOG</div>
       <h2>更新日志</h2>
-      <div class="changelog-body">
+      <div class="changelog-body"><div class="changelog-item"><b>2.4 · 排行榜与小费分段</b><span>排行榜新增「肉鸽排行榜」页签，无尽/肉鸽各自记录最远周数与累计金币（失败的当周也会记入）；小费结算改成「基础小费 + 额外加算 → 小计 → 乘算 → 合计」四段。</span></div>
         <div class="changelog-item"><b>2.3 · 事件日修复</b><span>修掉「刚开局就提示本周事件已过」：事件日现在会在整周里分散安排（两天以上时必有一天落在后半周），服务台信息框也会显示「本周还有 N 个事件日（第 X、Y 天）」，只有所有事件日都过完才写「本周事件日已结束」。</span></div><div class="changelog-item"><b>2.2 · 小费结算改版</b><span>肉鸽小费改成**跟着本周金币目标一起长**：周倍率 = 本周目标 ÷ 400（第 1 周 ×1，第 4 周约 ×9.9），目标涨多少小费就涨多少，不会再出现「第四周还只有几十块」。评价页拆成三段：<b>基础小费</b>（订单基础小费 + 复杂订单小费）→ <b>乘算加成</b>（第 N 周成长、来财、淘金热、实验虾、客人倍率）→ <b>结算</b>（小费合计）；肉鸽每单还会给 4 金币的订单基础小费。</span></div><div class="changelog-item"><b>2.1 · 废糖处理</b><span>熬废的糖（焦苦、偏生）不用再占着位置：把上面那一排糖水批次 <b>按住拖到垃圾桶</b> 就能直接扔掉；已经用掉的那锅会自动从列表消失，糖水条只剩还能用的，横向滑动也更省事。罐里倒多的糖水仍然可以点「倒糖水」旁的垃圾桶清空。</span></div><div class="changelog-item"><b>2.0 · 肉鸽难度上调</b><span>每周金币目标的成长从 +40%～+100% 提到 <b>+80%～+160%</b>：第 1 周 400，第 2 周变成 720～1040，之后继续按上一周目标乘，越往后压力越大。随机事件日改成每周至少 1 天、至多 3 天：基础随机 1～2 天，辣虾「血色十字架」和夜市「事件日历」各 +1 天，但总数封顶 3 天。</span></div>
         <div class="changelog-item"><b>1.9 · 倒糖按钮与糖枭修复</b><span>「倒糖水」标题旁多了一个垃圾桶按钮：点一下会问「倒掉罐里的糖水？」，选「是」就把罐里的糖水全部倒掉重新倒（熬好的糖不退回）。糖枭也修好了：买下当天，工作台的小料、厨房的糖浆、罐子立刻全部可用，金币商店的糖浆页会显示「已解锁」；打烊后在夜市买会顺延到第二天生效；从夜市点「返回」不再跳到结算页。</span></div>
         <div class="changelog-item"><b>1.8 · 罐型区分与大金罐</b><span>窄口罐、广口罐和经典罐的罐口宽度、罐身轮廓分开了：窄口有肩膀、口更小，广口外撇、口更大，一眼能认出来。肉鸽辣虾「大金罐」会把台上的罐头变成金色（金色瓶身 + GOLD 标签），并且用它时订单的「罐型」「罐子」都自动算通过，小费再 +20%。</span></div>
