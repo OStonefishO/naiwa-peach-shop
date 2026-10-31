@@ -376,7 +376,7 @@
     {id:'cashback',name:'好评返现福利',price:50,max:3,desc:'客人至少得到 80 分（消耗）'},
     {id:'goldPot',name:'黄金锅',price:250,max:4,desc:'一次熬糖产出 2 份'},
     {id:'personality',name:'性格改造器',price:100,max:2,desc:'把客人性格改成随机（消耗）'},
-    {id:'sugarOwl',name:'糖枭',price:300,max:1,desc:'本局所有材料、罐子、糖浆解锁'},
+    {id:'sugarOwl',name:'糖枭',price:300,max:1,desc:'仅今天：所有小料、糖浆、罐子解锁（打烊后消耗）'},
     {id:'eventCalendar',name:'事件日历',price:180,max:1,desc:'每周随机事件日 +1 天（基础至多 2 天，最多 4 天）'}
   ];
   const ROGUE_EVENTS = [
@@ -1545,7 +1545,7 @@
       'setMaster','setMusic','setAlarm','setMasterVal','setMusicVal','setAlarmVal',
       'redeemInput','redeemBtn','redeemStatus','devExitBtn',
       'reviewPersonality','codexEntryBtn','codexOverlay','codexClose','codexTabs','codexBody','codexFromSettings','batchStrip','batchScrollWrap','batchScroll',
-      'rogueShopOverlay','rogueShopCoins','rogueShopList','rogueShopNext','shrimpOverlay','shrimpTitle','shrimpSub','shrimpChoices','shrimpSkip','shrimpReroll',
+      'rogueShopOverlay','rogueShopCoins','rogueShopList','rogueShopNext','shrimpOverlay','shrimpTitle','shrimpSub','shrimpChoices','shrimpSkip','shrimpReroll','shrimpDetail','shrimpConfirm',
       'eventOverlay','eventIcon','eventTitle','eventDesc','eventContinue','changelogOverlay','changelogClose','changelogDone','changelogBtn',
       'rogueHudPanel','rogueDayTag','rogueEventLine','rogueItemsBar','buffBagBtn','buffCount','rogueShopBtn','rogueCoinShopBtn',
       'rogueMarketCoin','rogueMarketBag','buffBagOverlay','buffBagClose','buffBagBody','summaryPauseBtn','devEndDayBtn',
@@ -3510,7 +3510,7 @@
       if((state.rogue.items.reroll || 0) > 0) chips.push(`<span class="rogue-item-chip">再来一份 ×${state.rogue.items.reroll}</span>`);
       if((state.rogue.items.goldPot || 0) > 0) chips.push(`<span class="rogue-item-chip passive">黄金锅 ×${state.rogue.items.goldPot}</span>`);
       if((state.rogue.items.doubao || 0) > 0) chips.push(`<span class="rogue-item-chip passive">豆包 ×${state.rogue.items.doubao}</span>`);
-      if((state.rogue.items.sugarOwl || 0) > 0) chips.push(`<span class="rogue-item-chip passive">糖枭</span>`);
+      if(rogueOwlToday()) chips.push(`<span class="rogue-item-chip passive">糖枭 · 今日生效</span>`);
       els.rogueItemsBar.innerHTML = chips.join('') || '<span class="rogue-item-chip passive">暂无可用增幅道具</span>';
     }
     renderShrimpCabinet();
@@ -4278,12 +4278,38 @@
     const stars = score >= 90 ? 3 : score >= 70 ? 2 : score >= 45 ? 1 : 0;
     const tipInfo = orderTip(o);
     let tip = timedOut ? 0 : tipInfo.tip;
-    if(rogueActive()){
-      tip = Math.round(tip * rogueTipMultiplier());
-      if(rogueEventToday() && rogueEventToday().id === 'goldRush') tip *= 3;
-      if(shrimpLevel('lab') && (o.syrups || []).length > 1) tip += Math.round(tip * .3 * shrimpLevel('lab'));
+    const tipLines = [];
+    if(!timedOut && tipInfo.tip > 0){
+      tipLines.push({k:'复杂订单小费', v:`+${tipInfo.tip}`});
+    }
+    if(rogueActive() && !timedOut){
+      let tipMul = 1;
+      const weekF = rogueTipWeekFactor();
+      if(weekF > 1.001){
+        tipLines.push({k:`第${state.week}周小费加成`, v:`×${weekF.toFixed(2)}`});
+        tipMul *= weekF;
+      }
+      const fortuneLv = shrimpLevel('fortune');
+      if(fortuneLv){
+        tipLines.push({k:`来财 Lv.${fortuneLv}`, v:`+${fortuneLv * 7}%`});
+        tipMul *= 1 + .07 * fortuneLv;
+      }
+      const todayEvent = rogueEventToday();
+      if(todayEvent && todayEvent.id === 'goldRush'){
+        tipLines.push({k:`${todayEvent.name}事件`, v:'×3'});
+        tipMul *= 3;
+      }
+      const labLv = shrimpLevel('lab');
+      if(labLv && (o.syrups || []).length > 1){
+        tipLines.push({k:`实验虾 Lv.${labLv} · 双糖浆`, v:`+${labLv * 30}%`});
+        tipMul *= 1 + .3 * labLv;
+      }
+      tip = Math.round(tip * tipMul);
     }
     const coinMul = (state.guest && state.guest.coin) || 1;
+    if(tip > 0 && coinMul !== 1){
+      tipLines.push({k:`${state.guest.name} 的小费倍率`, v:`×${coinMul}`});
+    }
     const baseCoins = timedOut ? 0 : 8 + Math.round(score * .12) + (perfect ? 5 : 0);
     const tipCoins = Math.round(tip * coinMul);
     let coins = Math.round(baseCoins * coinMul) + tipCoins;
@@ -4307,7 +4333,7 @@
       details.push({ok:queueDelta > 0, label:'排队', text: queueDelta > 0 ? `提前服务 +${queueDelta}` : `被插队 ${queueDelta}`});
     }
     details.push({ok:speedScore===6, label:'出餐速度', text: timedOut ? '超时了…' : speedScore===6 ? '手速超快' : speedScore===4 ? '稍微有点慢' : '客人等急了'});
-    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipNotes:tipInfo.notes, details, timedOut, guest:state.guest};
+    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipBase:tipInfo.tip, tipLines, tipNotes:tipInfo.notes, details, timedOut, guest:state.guest};
   }
 
   function commentFor(result){
@@ -4382,9 +4408,9 @@
       const tip = Number(result.tip) || 0;
       els.reviewTip.hidden = !tip;
       if(tip){
-        const note = (result.tipNotes || []).slice(0, 4).join('、');
-        const weekTag = rogueActive() && state.week > 1 ? ` · 第${state.week}周 ×${rogueTipWeekFactor().toFixed(2)}` : '';
-        els.reviewTip.innerHTML = `<span>复杂订单小费${note ? ` · ${note}` : ''}${weekTag}</span><b>+${tip}</b>`;
+        const lines = result.tipLines || [];
+        els.reviewTip.innerHTML = `<div class="tip-head"><span>小费加成明细 · 奶蛙的小费</span><b>+${tip}</b></div>${
+          lines.length ? `<div class="tip-lines">${lines.map(l => `<div class="tip-line"><span>${l.k}</span><em>${l.v}</em></div>`).join('')}</div>` : ''}`;
       }
     }
     if(els.reviewQueue){
@@ -4580,6 +4606,8 @@
     if(state.mode === 'rogue'){
       state.week = Math.ceil(state.day / WEEK_DAYS);
       state.rogue.shopStock = makeRogueShopStock();
+      if(state.rogue.items && state.rogue.items.sugarOwl){ delete state.rogue.items.sugarOwl; }
+      state.rogue.owlDay = null;
       if((state.day - 1) % WEEK_DAYS === 0){
         state.weekEarned = 0;
         const next = Number(state.rogue.nextTarget) || rogueGrowthTarget(state.rogue.weekTarget || ROGUE_BASE_TARGET);
@@ -4838,16 +4866,37 @@
     }
     return out;
   }
+  let pickSelectedId = null;
+  function renderShrimpDetail(id){
+    if(!els.shrimpDetail) return;
+    const s = SHRIMPS.find(x => x.id === id);
+    if(!s){
+      els.shrimpDetail.className = 'pick-detail empty';
+      els.shrimpDetail.textContent = '今天没有可选的辣虾，可以直接跳过。';
+      return;
+    }
+    const r = ROGUE_RARITY[s.rarity];
+    const lvl = shrimpLevel(s.id);
+    els.shrimpDetail.className = 'pick-detail';
+    els.shrimpDetail.innerHTML = `<div class="pd-icon">🦐</div>
+      <span class="pd-rarity" style="background:${r.color}">${r.name}</span>
+      <b class="pd-name">${s.name}</b>
+      <p class="pd-desc">${s.desc}</p>
+      <div class="pd-stack">${lvl ? `已拥有 Lv.${lvl} · ` : ''}上限 ${s.max} 级</div>`;
+  }
   function renderShrimpChoice(){
     const p = state.rogue && state.rogue.pendingShrimp;
     if(!p || !els.shrimpChoices) return;
     const kind = p.kind === 'boss' ? 'BOSS' : '精英';
     if(els.shrimpTitle) els.shrimpTitle.textContent = `${kind}日 · 辣虾三选一`;
-    if(els.shrimpSub) els.shrimpSub.textContent = p.choices.length ? '挑一只辣虾带走，也可以跳过。' : '今天没有可选的辣虾，可以跳过。';
+    if(els.shrimpSub) els.shrimpSub.textContent = p.choices.length ? '点小框看介绍，选好再点「确定选择」。' : '今天没有可选的辣虾，可以跳过。';
+    if(!p.choices.some(s => s.id === pickSelectedId)) pickSelectedId = p.choices.length ? p.choices[0].id : null;
     els.shrimpChoices.innerHTML = p.choices.map(s => {
       const r = ROGUE_RARITY[s.rarity];
-      return `<button class="shrimp-item" data-shrimp="${s.id}" style="--rc:${r.color}"><span class="rarity" style="background:${r.color}">${r.name}</span><b>${s.name}</b><small>${s.desc}</small></button>`;
+      return `<button class="pick-opt${s.id === pickSelectedId ? ' sel' : ''}" data-shrimp="${s.id}" type="button"><span class="po-rarity" style="background:${r.color}">${r.name}</span><b>${s.name}</b></button>`;
     }).join('');
+    renderShrimpDetail(pickSelectedId);
+    if(els.shrimpConfirm) els.shrimpConfirm.disabled = !pickSelectedId;
     if(els.shrimpReroll){
       els.shrimpReroll.disabled = !(state.rogue && state.rogue.rerolls > 0);
       els.shrimpReroll.textContent = `再来一份（${(state.rogue && state.rogue.rerolls) || 0}）`;
@@ -4856,6 +4905,7 @@
   function showShrimpChoice(kind){
     if(!state.rogue) return showSummary();
     state.rogue.pendingShrimp = {kind, choices:rollShrimpChoices()};
+    pickSelectedId = state.rogue.pendingShrimp.choices.length ? state.rogue.pendingShrimp.choices[0].id : null;
     state.phase = 'shrimp';
     renderShrimpChoice();
     if(els.shrimpOverlay){
@@ -4907,7 +4957,9 @@
       const owned = state.rogue.items[id] || 0;
       const maxed = owned >= item.max;
       const price = rogueShopPrice(item);
-      return `<div class="rogue-shop-item"><div><b>${item.name}${owned ? ` ×${owned}` : ''}</b><small>${item.desc}</small></div><button data-rogue-buy="${id}" ${maxed || (!state.devMode && state.rogue.coins < price) ? 'disabled' : ''}>${maxed ? '已满' : `${price} 金币`}</button></div>`;
+      const todayOnly = id === 'sugarOwl' && rogueOwlToday();
+      const label = todayOnly ? '今日生效' : maxed ? '已满' : `${price} 金币`;
+      return `<div class="rogue-shop-item${todayOnly ? ' active' : ''}"><div><b>${item.name}${owned ? ` ×${owned}` : ''}${todayOnly ? ' · 今日' : ''}</b><small>${item.desc}</small></div><button data-rogue-buy="${id}" ${(maxed && !todayOnly) || (!state.devMode && state.rogue.coins < price) || todayOnly ? 'disabled' : ''}>${label}</button></div>`;
     }).join('');
   }
   function buyRogueItem(id){
@@ -4920,7 +4972,12 @@
     if(id === 'reroll') state.rogue.rerolls += 1;
     if(id === 'sugarOwl'){
       state.rogue.owlDay = state.day;
-      toast('糖枭生效：今天所有材料、罐子、糖浆都能用（明天失效）');
+      state.rogue.items.sugarOwl = 1;
+      toast('糖枭生效：今天所有小料、糖浆、罐子都能用，打烊后消失');
+      renderRogueShop();
+      renderAll();
+      sfx.coin();
+      return;
     }
     if(id === 'eventCalendar'){
       const added = addExtraRogueEventDay();
@@ -5380,7 +5437,16 @@
     if(els.shrimpReroll) els.shrimpReroll.addEventListener('click', () => rerollShrimp());
     if(els.shrimpChoices) els.shrimpChoices.addEventListener('click', e => {
       const b = e.target.closest('[data-shrimp]');
-      if(b) finishShrimp(b.dataset.shrimp);
+      if(!b) return;
+      pickSelectedId = b.dataset.shrimp;
+      els.shrimpChoices.querySelectorAll('.pick-opt').forEach(el => el.classList.toggle('sel', el.dataset.shrimp === pickSelectedId));
+      renderShrimpDetail(pickSelectedId);
+      if(els.shrimpConfirm) els.shrimpConfirm.disabled = false;
+      sfx.tap();
+    });
+    if(els.shrimpConfirm) els.shrimpConfirm.addEventListener('click', () => {
+      if(!pickSelectedId) return toast('先挑一只辣虾');
+      finishShrimp(pickSelectedId);
     });
     if(els.rogueItemsBar) els.rogueItemsBar.addEventListener('click', e => {
       const b = e.target.closest('[data-use-item]');
