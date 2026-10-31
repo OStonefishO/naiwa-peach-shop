@@ -13,7 +13,7 @@
 <meta property="og:title" content="奶蛙黄桃罐头店 · 点开即玩">
 <meta property="og:description" content="接单、装罐、封盖、出餐，做一罐甜甜的黄桃罐头。微信/QQ 内直接打开。">
 <meta property="og:type" content="website">
-<title>奶蛙黄桃罐头店 · 正式版 2.2</title>
+<title>奶蛙黄桃罐头店 · 正式版 2.3</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23FFD23F'/%3E%3Ccircle cx='50' cy='58' r='27' fill='%23FFC42E'/%3E%3Ccircle cx='39' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='61' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='50' cy='72' r='4' fill='%23FFF3CE'/%3E%3C/svg%3E">
 <style>
   :root{
@@ -2445,7 +2445,7 @@
     <div class="intro-card">
       <div class="intro-hero">
         <span class="intro-tag">SUMMER PEACH · 2026</span>
-        <span class="intro-badge">2.2<br>正式版</span>
+        <span class="intro-badge">2.3<br>正式版</span>
         <span class="intro-badge update-badge">肉鸽更新！</span>
         <svg viewBox="0 0 312 210" aria-hidden="true">
           <use href="#frog-chef" x="8" y="15" width="180" height="206"></use>
@@ -2776,7 +2776,7 @@
         <button id="devExitBtn" class="redeem-exit" type="button" hidden>退出开发者模式</button>
       </div>
       <button class="settings-codex" id="codexFromSettings" type="button">📖 打开奶蛙图鉴</button>
-      <button class="settings-changelog" id="changelogBtn" type="button">📝 更新日志 · 2.2 小费结算</button>
+      <button class="settings-changelog" id="changelogBtn" type="button">📝 更新日志 · 2.3 事件日修复</button>
       <button class="settings-pause" id="settingsPauseBtn" type="button" hidden>暂时打烊（保存进度）</button>
       <button class="settings-early" id="settingsEarlyBtn" type="button" hidden>提前下班</button>
       <button class="settings-done" id="settingsDone" type="button">完成</button>
@@ -6317,7 +6317,16 @@
     // 基础：每周 1~2 天随机事件；道具/辣虾各 +1 天，最多 3 天
     const bonus = (shrimpLevel('bloodCross') ? 1 : 0) + ((state.rogue && state.rogue.items && state.rogue.items.eventCalendar) ? 1 : 0);
     const count = Math.min(3, 1 + Math.floor(Math.random() * 2) + bonus);
-    const days = [1,2,3,4,5,6,7].sort(() => Math.random() - .5).slice(0, count);
+    // 事件日分散在整周：2 天时必有一天在后半周，避免「周初两天就全部过完」
+    const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+    const days = [];
+    if(count === 1){
+      days.push(pick([1,2,3,4,5,6,7]));
+    }else{
+      days.push(pick([1,2,3]));
+      days.push(pick([5,6,7]));
+      if(count >= 3) days.push(pick([3,4]));
+    }
     const luckyBoost = shrimpLevel('luckyHorseshoe') ? .25 : 0;
     days.forEach(day => {
       const lucky = Math.random() < .5 + luckyBoost;
@@ -6326,6 +6335,12 @@
       if(ev) out[day] = ev.id;
     });
     return out;
+  }
+  function rogueWeekDayNow(){ return ((state.day - 1) % WEEK_DAYS) + 1; }
+  function rogueEventDaysAhead(){
+    if(!rogueActive() || !state.rogue.events) return [];
+    const now = rogueWeekDayNow();
+    return Object.keys(state.rogue.events).map(Number).filter(d => d > now).sort((a,b) => a - b);
   }
   function addExtraRogueEventDay(){
     if(!rogueActive()) return false;
@@ -6357,7 +6372,14 @@
     const tag = mod === 0 ? 'BOSS日' : mod === 5 ? '精英日' : '普通日';
     els.rogueDayTag.textContent = tag;
     els.rogueDayTag.className = `rogue-day-tag ${mod === 0 ? 'boss' : mod === 5 ? 'elite' : ''}`;
-    els.rogueEventLine.textContent = ev ? `今日事件：${ev.name} · ${ev.desc}` : '今日事件：无（本周随机事件日已过）';
+    if(ev){
+      els.rogueEventLine.textContent = `今日事件：${ev.name} · ${ev.desc}`;
+    }else{
+      const ahead = rogueEventDaysAhead();
+      els.rogueEventLine.textContent = ahead.length
+        ? `今日事件：无 · 本周还有 ${ahead.length} 个事件日（第 ${ahead.join('、')} 天）`
+        : '今日事件：无（本周事件日已结束）';
+    }
     const itemCount = Object.values(state.rogue.items || {}).reduce((s,n) => s + n, 0);
     if(els.buffCount) els.buffCount.textContent = (state.rogue.shrimp || []).length + itemCount;
     if(els.rogueItemsBar){
@@ -8658,7 +8680,7 @@
       <div class="rogue-kicker">CHANGELOG</div>
       <h2>更新日志</h2>
       <div class="changelog-body">
-        <div class="changelog-item"><b>2.2 · 小费结算改版</b><span>肉鸽小费改成**跟着本周金币目标一起长**：周倍率 = 本周目标 ÷ 400（第 1 周 ×1，第 4 周约 ×9.9），目标涨多少小费就涨多少，不会再出现「第四周还只有几十块」。评价页拆成三段：<b>基础小费</b>（订单基础小费 + 复杂订单小费）→ <b>乘算加成</b>（第 N 周成长、来财、淘金热、实验虾、客人倍率）→ <b>结算</b>（小费合计）；肉鸽每单还会给 4 金币的订单基础小费。</span></div><div class="changelog-item"><b>2.1 · 废糖处理</b><span>熬废的糖（焦苦、偏生）不用再占着位置：把上面那一排糖水批次 <b>按住拖到垃圾桶</b> 就能直接扔掉；已经用掉的那锅会自动从列表消失，糖水条只剩还能用的，横向滑动也更省事。罐里倒多的糖水仍然可以点「倒糖水」旁的垃圾桶清空。</span></div><div class="changelog-item"><b>2.0 · 肉鸽难度上调</b><span>每周金币目标的成长从 +40%～+100% 提到 <b>+80%～+160%</b>：第 1 周 400，第 2 周变成 720～1040，之后继续按上一周目标乘，越往后压力越大。随机事件日改成每周至少 1 天、至多 3 天：基础随机 1～2 天，辣虾「血色十字架」和夜市「事件日历」各 +1 天，但总数封顶 3 天。</span></div>
+        <div class="changelog-item"><b>2.3 · 事件日修复</b><span>修掉「刚开局就提示本周事件已过」：事件日现在会在整周里分散安排（两天以上时必有一天落在后半周），服务台信息框也会显示「本周还有 N 个事件日（第 X、Y 天）」，只有所有事件日都过完才写「本周事件日已结束」。</span></div><div class="changelog-item"><b>2.2 · 小费结算改版</b><span>肉鸽小费改成**跟着本周金币目标一起长**：周倍率 = 本周目标 ÷ 400（第 1 周 ×1，第 4 周约 ×9.9），目标涨多少小费就涨多少，不会再出现「第四周还只有几十块」。评价页拆成三段：<b>基础小费</b>（订单基础小费 + 复杂订单小费）→ <b>乘算加成</b>（第 N 周成长、来财、淘金热、实验虾、客人倍率）→ <b>结算</b>（小费合计）；肉鸽每单还会给 4 金币的订单基础小费。</span></div><div class="changelog-item"><b>2.1 · 废糖处理</b><span>熬废的糖（焦苦、偏生）不用再占着位置：把上面那一排糖水批次 <b>按住拖到垃圾桶</b> 就能直接扔掉；已经用掉的那锅会自动从列表消失，糖水条只剩还能用的，横向滑动也更省事。罐里倒多的糖水仍然可以点「倒糖水」旁的垃圾桶清空。</span></div><div class="changelog-item"><b>2.0 · 肉鸽难度上调</b><span>每周金币目标的成长从 +40%～+100% 提到 <b>+80%～+160%</b>：第 1 周 400，第 2 周变成 720～1040，之后继续按上一周目标乘，越往后压力越大。随机事件日改成每周至少 1 天、至多 3 天：基础随机 1～2 天，辣虾「血色十字架」和夜市「事件日历」各 +1 天，但总数封顶 3 天。</span></div>
         <div class="changelog-item"><b>1.9 · 倒糖按钮与糖枭修复</b><span>「倒糖水」标题旁多了一个垃圾桶按钮：点一下会问「倒掉罐里的糖水？」，选「是」就把罐里的糖水全部倒掉重新倒（熬好的糖不退回）。糖枭也修好了：买下当天，工作台的小料、厨房的糖浆、罐子立刻全部可用，金币商店的糖浆页会显示「已解锁」；打烊后在夜市买会顺延到第二天生效；从夜市点「返回」不再跳到结算页。</span></div>
         <div class="changelog-item"><b>1.8 · 罐型区分与大金罐</b><span>窄口罐、广口罐和经典罐的罐口宽度、罐身轮廓分开了：窄口有肩膀、口更小，广口外撇、口更大，一眼能认出来。肉鸽辣虾「大金罐」会把台上的罐头变成金色（金色瓶身 + GOLD 标签），并且用它时订单的「罐型」「罐子」都自动算通过，小费再 +20%。</span></div>
         <div class="changelog-item"><b>1.7 · 辣虾选择重做</b><span>精英日 / BOSS 日的「辣虾三选一」换成了明细布局：右边三个小框只显示稀有度和名字，点一下左边大框就显示这只辣虾的图标、介绍和当前等级；「再来一份」「跳过」放在小框下方，选好后点底部「确定选择」正式带走。</span></div>

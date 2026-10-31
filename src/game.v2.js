@@ -3488,7 +3488,16 @@
     // 基础：每周 1~2 天随机事件；道具/辣虾各 +1 天，最多 3 天
     const bonus = (shrimpLevel('bloodCross') ? 1 : 0) + ((state.rogue && state.rogue.items && state.rogue.items.eventCalendar) ? 1 : 0);
     const count = Math.min(3, 1 + Math.floor(Math.random() * 2) + bonus);
-    const days = [1,2,3,4,5,6,7].sort(() => Math.random() - .5).slice(0, count);
+    // 事件日分散在整周：2 天时必有一天在后半周，避免「周初两天就全部过完」
+    const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+    const days = [];
+    if(count === 1){
+      days.push(pick([1,2,3,4,5,6,7]));
+    }else{
+      days.push(pick([1,2,3]));
+      days.push(pick([5,6,7]));
+      if(count >= 3) days.push(pick([3,4]));
+    }
     const luckyBoost = shrimpLevel('luckyHorseshoe') ? .25 : 0;
     days.forEach(day => {
       const lucky = Math.random() < .5 + luckyBoost;
@@ -3497,6 +3506,12 @@
       if(ev) out[day] = ev.id;
     });
     return out;
+  }
+  function rogueWeekDayNow(){ return ((state.day - 1) % WEEK_DAYS) + 1; }
+  function rogueEventDaysAhead(){
+    if(!rogueActive() || !state.rogue.events) return [];
+    const now = rogueWeekDayNow();
+    return Object.keys(state.rogue.events).map(Number).filter(d => d > now).sort((a,b) => a - b);
   }
   function addExtraRogueEventDay(){
     if(!rogueActive()) return false;
@@ -3528,7 +3543,14 @@
     const tag = mod === 0 ? 'BOSS日' : mod === 5 ? '精英日' : '普通日';
     els.rogueDayTag.textContent = tag;
     els.rogueDayTag.className = `rogue-day-tag ${mod === 0 ? 'boss' : mod === 5 ? 'elite' : ''}`;
-    els.rogueEventLine.textContent = ev ? `今日事件：${ev.name} · ${ev.desc}` : '今日事件：无（本周随机事件日已过）';
+    if(ev){
+      els.rogueEventLine.textContent = `今日事件：${ev.name} · ${ev.desc}`;
+    }else{
+      const ahead = rogueEventDaysAhead();
+      els.rogueEventLine.textContent = ahead.length
+        ? `今日事件：无 · 本周还有 ${ahead.length} 个事件日（第 ${ahead.join('、')} 天）`
+        : '今日事件：无（本周事件日已结束）';
+    }
     const itemCount = Object.values(state.rogue.items || {}).reduce((s,n) => s + n, 0);
     if(els.buffCount) els.buffCount.textContent = (state.rogue.shrimp || []).length + itemCount;
     if(els.rogueItemsBar){
@@ -5770,7 +5792,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch };
+      window.__naiwa = { state, beginRun, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay };
     }
   }
 
