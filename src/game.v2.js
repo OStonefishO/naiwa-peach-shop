@@ -3666,13 +3666,14 @@
   }
   function rogueMaxScore(){ return 100 + 10 * shrimpLevel('overScore') + 100 * shrimpLevel('plusScore'); }
   function rogueTipMultiplier(){
-    let m = 1 + .07 * shrimpLevel('fortune');
-    // 小费基础增长比 0.6 倍/周：第 n 周 = 1.6^(n-1)
-    m *= Math.pow(1.6, Math.max(0, (state.week || 1) - 1));
-    if(rogueHas('doubao')) m *= 1;
-    return m;
+    return rogueTipWeekFactor() * (1 + .07 * shrimpLevel('fortune'));
   }
-  function rogueTipWeekFactor(){ return Math.pow(1.6, Math.max(0, (state.week || 1) - 1)); }
+  // 小费随本周金币目标同步成长：第 1 周 ×1，之后按 target/400 放大
+  function rogueTipWeekFactor(){
+    const base = ROGUE_BASE_TARGET;
+    const target = Number(state.weekTarget) || base;
+    return clamp(target / base, 1, 80);
+  }
   function rogueCoinMultiplier(){
     let m = 1;
     if(shrimpLevel('challenger')) m *= 1.33;
@@ -4350,45 +4351,57 @@
     const perfect = !timedOut && score >= maxScore;
     const stars = score >= 90 ? 3 : score >= 70 ? 2 : score >= 45 ? 1 : 0;
     const tipInfo = orderTip(o);
-    let tip = timedOut ? 0 : tipInfo.tip;
+    const flatTip = rogueActive() && !timedOut ? 4 : 0;
+    const tipBase = timedOut ? 0 : tipInfo.tip + flatTip;
     const tipLines = [];
-    if(!timedOut && tipInfo.tip > 0){
-      tipLines.push({k:'复杂订单小费', v:`+${tipInfo.tip}`});
+    let tipMul = 1;
+    const mulLines = [];
+    if(tipBase > 0){
+      tipLines.push({sec:'基础小费'});
+      if(flatTip) tipLines.push({k:'订单基础小费', v:`+${flatTip}`});
+      if(tipInfo.tip) tipLines.push({k:'复杂订单小费', v:`+${tipInfo.tip}`});
     }
     if(rogueActive() && !timedOut){
-      let tipMul = 1;
       if(goldJarUsed){
-        tipLines.push({k:'大金罐', v:'+20%'});
+        mulLines.push({k:'大金罐', v:'+20%'});
         tipMul *= 1.2;
       }
       const weekF = rogueTipWeekFactor();
       if(weekF > 1.001){
-        tipLines.push({k:`第${state.week}周小费加成`, v:`×${weekF.toFixed(2)}`});
+        mulLines.push({k:`第${state.week}周小费成长`, v:`×${weekF.toFixed(2)}`});
         tipMul *= weekF;
       }
       const fortuneLv = shrimpLevel('fortune');
       if(fortuneLv){
-        tipLines.push({k:`来财 Lv.${fortuneLv}`, v:`+${fortuneLv * 7}%`});
+        mulLines.push({k:`来财 Lv.${fortuneLv}`, v:`+${fortuneLv * 7}%`});
         tipMul *= 1 + .07 * fortuneLv;
       }
       const todayEvent = rogueEventToday();
       if(todayEvent && todayEvent.id === 'goldRush'){
-        tipLines.push({k:`${todayEvent.name}事件`, v:'×3'});
+        mulLines.push({k:`${todayEvent.name}事件`, v:'×3'});
         tipMul *= 3;
       }
       const labLv = shrimpLevel('lab');
       if(labLv && (o.syrups || []).length > 1){
-        tipLines.push({k:`实验虾 Lv.${labLv} · 双糖浆`, v:`+${labLv * 30}%`});
+        mulLines.push({k:`实验虾 Lv.${labLv} · 双糖浆`, v:`+${labLv * 30}%`});
         tipMul *= 1 + .3 * labLv;
       }
-      tip = Math.round(tip * tipMul);
     }
     const coinMul = (state.guest && state.guest.coin) || 1;
-    if(tip > 0 && coinMul !== 1){
-      tipLines.push({k:`${state.guest.name} 的小费倍率`, v:`×${coinMul}`});
+    if(tipBase > 0 && coinMul !== 1){
+      mulLines.push({k:`${state.guest.name} 的小费倍率`, v:`×${coinMul}`});
+      tipMul *= coinMul;
     }
     const baseCoins = timedOut ? 0 : 8 + Math.round(score * .12) + (perfect ? 5 : 0);
-    const tipCoins = Math.round(tip * coinMul);
+    const tipCoins = Math.round(tipBase * tipMul);
+    if(mulLines.length){
+      tipLines.push({sec:'乘算加成'});
+      mulLines.forEach(l => tipLines.push(l));
+    }
+    if(tipCoins > 0){
+      tipLines.push({sec:'结算'});
+      tipLines.push({k:'小费合计', v:`+${tipCoins}`, total:true});
+    }
     let coins = Math.round(baseCoins * coinMul) + tipCoins;
     if(rogueActive()){
       coins = Math.round(coins * rogueCoinMultiplier());
@@ -4487,7 +4500,9 @@
       if(tip){
         const lines = result.tipLines || [];
         els.reviewTip.innerHTML = `<div class="tip-head"><span>小费加成明细 · 奶蛙的小费</span><b>+${tip}</b></div>${
-          lines.length ? `<div class="tip-lines">${lines.map(l => `<div class="tip-line"><span>${l.k}</span><em>${l.v}</em></div>`).join('')}</div>` : ''}`;
+          lines.length ? `<div class="tip-lines">${lines.map(l => l.sec
+            ? `<div class="tip-sec">${l.sec}</div>`
+            : `<div class="tip-line${l.total ? ' total' : ''}"><span>${l.k}</span><em>${l.v}</em></div>`).join('')}</div>` : ''}`;
       }
     }
     if(els.reviewQueue){
