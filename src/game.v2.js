@@ -2312,7 +2312,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '订单票换行与闹钟音量';
+  const CHANGELOG_SUB = '结算页精简';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -5740,7 +5740,7 @@
     els.shopBtn.style.display = (isEnd || rogueEnd || shopLocked || tutorialDone) ? 'none' : '';
     els.shopBtn.innerHTML = state.mode === 'rogue' ? `逛肉鸽夜市${icon('arrow')}` : `逛金币商店${icon('arrow')}`;
     if(els.summaryPauseBtn) els.summaryPauseBtn.style.display = (!isEnd && !rogueEnd && !tutorialDone) ? '' : 'none';
-    if(els.summaryEarlyBtn) els.summaryEarlyBtn.style.display = (isEnd || rogueEnd) ? 'none' : '';
+    if(els.summaryEarlyBtn) els.summaryEarlyBtn.style.display = (isEnd || rogueEnd || tutorialDone || kind === 'gameOver') ? 'none' : '';
     els.homeBtn.style.display = (isEnd || rogueEnd || tutorialDone) ? '' : 'none';
     if(els.summaryRankBtn){
       els.summaryRankBtn.style.display = (kind === 'gameOver') ? '' : 'none';
