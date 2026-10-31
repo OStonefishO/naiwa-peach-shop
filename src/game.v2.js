@@ -259,7 +259,7 @@
     3:{
       title:'插队与斤斤计较',
       guests:[{name:'夜莺师傅'},{name:'小黄', personality:'petty'}],
-      pots:1, alarms:0,
+      pots:1, alarms:0, autoAccept:0,
       intro:[{key:'d3-start', title:'接单顺序也算分', text:'先接谁的订单，就先给谁做。让后来的客人先出餐，前面的客人会被「插队」，评价里会多一条扣分。'}],
       serve:['d3-after', '「斤斤计较」的客人最讨厌被插队，被插队时扣分会翻倍。想了解所有性格，可以打开「图鉴 → 性格」查看。']
     },
@@ -305,6 +305,10 @@
       kitchen:{ title:'厨房：切黄桃 + 熬糖水', text:'先在「切黄桃」按订单点 切大块 / 切小块；再熬糖：选糖型 → 点「糖+」加一勺 → 点「开火」，等火候条进绿色区间再点「收糖」。偏生或焦苦都会扣分。' },
       work:{ title:'工作台：按部就班装罐', text:'① 挑罐型 ② 放黄桃（大块/小块要对）③ 按住「倒糖水」倒到绿色目标量 ④ 选温度 ⑤ 选加料 ⑥ 封盖。每步都对着左边的订单卡来。' },
       desk:{ title:'出餐：先拖订单，再交给客人', text:'按住左边那张订单卡，拖到下面的「订单架」松手；然后把罐头封好，点下面的大按钮「交给客人」。' }
+    },
+    3:{
+      restaurant:{ title:'试试插队：先做后来的客人', text:'夜莺师傅已经接单正在做了。现在点小黄那行的「接单」，让后来的客人先做——这就是插队，会被记一笔扣分；斤斤计较的客人扣分还会翻倍。' },
+      desk:{ title:'插队之后记得回去收尾', text:'先把小黄这单做完交给他，再回餐厅把夜莺师傅的订单点开继续做。' }
     },
     2:{
       kitchen:{ title:'先用这两锅不完美的糖', text:'今天不用重新熬：工作台的糖水选单里已经有「偏生」和「焦苦」两锅，先拿去倒，看看客人怎么评价火候。' },
@@ -3710,6 +3714,9 @@
         }
         state.dayGuests.push({index:i, guest, personality:p, patienceMs, order, accepted:false, served:false, queuePenalty:0, orderId:null});
       });
+      if(sc.autoAccept != null){
+        setTimeout(() => { if(tutorialActive() && state.phase === 'playing') acceptGuest(sc.autoAccept, {auto:true}); }, 260);
+      }
       return;
     }
     const extra = rogueActive() ? Math.min(3, shrimpLevel('influencer')) : 0;
@@ -3802,6 +3809,13 @@
     }
     activateOrder(id, {quiet:!!opts.auto});
     saveRunToProfile();
+    if(tutorialActive() && !opts.auto && state.day === 3){
+      const older = state.orders.filter(o => !o.served && o.id !== id);
+      if(older.length && state.tutorial && !state.tutorial.seen['d3-jumped']){
+        state.tutorial.seen['d3-jumped'] = true;
+        setTimeout(() => tutorialForceTip('这就是插队', '你让后来的客人先做了：被跳过的客人评价里会多一条「被插队」扣分；斤斤计较的客人扣分翻倍。现在先把小黄这单做完，再回去补夜莺师傅的订单。'), 420);
+      }
+    }
   }
 
   let restoringRun = false;
