@@ -924,7 +924,7 @@
     {id:'influencer',name:'网红门店',rarity:'rare',desc:'每天多 1 名客人（每级），上限 3 级',max:3,key:'guests'},
     {id:'alarmPtsd',name:'闹钟PSTD',rarity:'rare',desc:'闹钟响时 33% 自动捞出完美糖，上限 1 级',max:1,key:'alarmAuto'},
     {id:'luckyHorseshoe',name:'金马掌',rarity:'legend',desc:'幸运事件概率 +25%，上限 1 级',max:1,key:'luck'},
-    {id:'goldJar',name:'大金罐',rarity:'legend',desc:'可换金罐：罐型和罐子都算通过，小费 +20%',max:1,key:'goldJar'},
+    {id:'goldJar',name:'大金罐',rarity:'legend',desc:'多出金罐：订单点名要大金罐时，罐型与罐子都能对上，小费 +20%（不再通用其他罐子）',max:1,key:'goldJar'},
     {id:'slowClock',name:'缓慢时钟',rarity:'legend',desc:'所有客人耐心 +1 分钟',max:1,key:'patience'},
     {id:'platinumCard',name:'白金会员卡',rarity:'legend',desc:'所有商店 -50%，上限 1 级；不与会员卡叠加',max:1,key:'discount50'},
     {id:'bigPot',name:'大糖锅',rarity:'curse',desc:'一次熬糖产 3 份；33% 概率全是过/生糖',max:1,key:'triple'},
@@ -2379,7 +2379,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '夜市永久道具下架';
+  const CHANGELOG_SUB = '大金罐削弱';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -5623,12 +5623,14 @@
   function scoreOrder(timedOut){
     const c = state.can, o = state.order;
     const goldJarUsed = (c.jar || 'classic') === 'gold';
+    const goldOrder = (o.jar || 'classic') === 'gold';
+    const goldMatches = goldJarUsed && goldOrder;
     const counts = countPieces(c.pieces);
     const total = c.pieces.length;
     const need = peachTotal(o.peaches);
-    const sizeOk = goldJarUsed || c.size === o.size;
+    const sizeOk = c.size === o.size;
     const jarChoice = unlockedJars().length > 1;
-    const jarOk = goldJarUsed || !jarChoice || (c.jar || 'classic') === (o.jar || 'classic');
+    const jarOk = !jarChoice || (c.jar || 'classic') === (o.jar || 'classic');
     const countDiff = Math.abs(total - need);
     const sizeDiff = Math.abs(counts.large - o.peaches.large) + Math.abs(counts.small - o.peaches.small);
     const sizeScore = sizeOk ? 6 : 0;
@@ -5759,7 +5761,7 @@
         mulLines.push({k:'死亡之糖', v:'×5'});
         tipMul *= 5;
       }
-      if(goldJarUsed){
+      if(goldMatches){
         mulLines.push({k:'大金罐', v:'+20%'});
         tipMul *= 1.2;
       }
@@ -5809,8 +5811,8 @@
       if(shrimpLevel('redEye') && (state.guest.tier === 'elite' || state.guest.tier === 'boss')) coins *= 5;
     }
     const details = [];
-    details.push({ok:sizeScore===6, label:'罐型', text: goldJarUsed ? '大金罐 · 通用 ✓' : sizeOk ? `${SIZES[c.size].name} ✓` : `要${SIZES[o.size].name}${c.size ? ` · 用了${SIZES[c.size].name}` : ''}`});
-    if(jarChoice) details.push({ok:jarOk, label:'罐子', text: goldJarUsed ? '大金罐 · 通用 ✓' : jarOk ? `${JARS[c.jar || 'classic'].name} ✓` : `要${JARS[o.jar || 'classic'].name}`});
+    details.push({ok:sizeScore===6, label:'罐型', text: goldMatches ? '大金罐 ✓' : sizeOk ? `${SIZES[c.size].name} ✓` : `要${SIZES[o.size].name}${c.size ? ` · 用了${SIZES[c.size].name}` : ''}`});
+    if(jarChoice) details.push({ok:jarOk, label:'罐子', text: goldMatches ? '大金罐 ✓' : jarOk ? `${JARS[c.jar || 'classic'].name} ✓` : `要${JARS[o.jar || 'classic'].name}`});
     details.push({ok:peachScore===12, label:'黄桃', text: `${counts.large}大${counts.small}小 · 共${total}块${peachScore===12 ? ' ✓' : ` / 要${peachText(o.peaches)}`}`});
     details.push({ok:kindScore>=7.5, label:'糖浆种类', text: c.syrup > 0 ? `${gotIds.map(id => SYRUPS[id].name).join('+') || '空'}${kindScore>=7.5 ? ' ✓' : ` / 要${wantIds.map(id => SYRUPS[id].name).join('+')}${wantIds.length > 1 ? (o.boilStyle === 'together' ? '·一起熬' : '·分开熬') : ''}`}` : '还没倒糖浆'});
     const ratioText = wantSyrups.map(s => `${SYRUPS[s.id].name} ${Math.round(c.components[s.id] || 0)}/${Math.round(target * s.ratio / 100)}%`).join(' · ');
