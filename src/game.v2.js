@@ -2385,7 +2385,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '死亡之糖结算';
+  const CHANGELOG_SUB = '客人名牌排版';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -2974,7 +2974,7 @@
 
   function renderGuest(){
     if(!state.guest){ els.guestWrap.innerHTML = ''; return; }
-    els.guestWrap.innerHTML = `<div class="guest-name">${state.guest.name}${guestTag(state.guest)}${personalityTag(livePersonality(state.guest))}${liveExtraTag(state.guest)}</div>${guestSVG(state.guest, state.guestIndex)}`;
+    els.guestWrap.innerHTML = `<div class="guest-name"><span class="gn-name">${state.guest.name}${guestTag(state.guest)}</span><span class="gn-tags">${personalityTag(livePersonality(state.guest))}${liveExtraTag(state.guest)}</span></div>${guestSVG(state.guest, state.guestIndex)}`;
     els.guestWrap.classList.remove('guest-enter');
     void els.guestWrap.offsetWidth;
     els.guestWrap.classList.add('guest-enter');
