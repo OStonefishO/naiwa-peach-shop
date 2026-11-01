@@ -174,6 +174,12 @@
       delta:[-30000,-10000],
       desc:'最讨厌被插队，食材稍微不对就会记在心里。',
       effect:'被插队扣分翻倍 · 糖水容错略严'
+    },
+    depression:{
+      id:'depression', name:'重度抑郁症', icon:'🖤', color:'#4C4A63',
+      delta:[20000,60000],
+      desc:'嘴上说随便，其实心里只认死亡之糖。用别的糖，他一口都不会碰。',
+      effect:'只要死亡之糖 · 做对了糖浆分翻倍'
     }
   };
   const PERSONALITY_IDS = ['patient','generous','strict','impatient','irritable','petty'];
@@ -2379,7 +2385,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '大金罐削弱';
+  const CHANGELOG_SUB = '抑郁症客人与奶鼠事件';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -2805,7 +2811,7 @@
       }
       const tolBase = SUGAR[sugar].tol + (guest && guest.tolDelta || 0) + (p && p.id === 'strict' ? -1 : p && p.id === 'petty' ? -1 : p && p.id === 'generous' ? 1 : 0);
       const tol = Math.max(3, tolBase);
-      const poolS = availableSyrups();
+      const poolS = availableSyrups().filter(id => id !== 'death');
       const twoSyrupChance = complex ? .82 : simple ? .24 : .58;
       const sCount = poolS.length > 1 && Math.random() < twoSyrupChance ? 2 : 1;
       const picked = poolS.slice().sort(() => Math.random() - .5).slice(0, sCount);
@@ -4186,13 +4192,34 @@
     const naishuDay = rogueActive() && rogueEventToday() && rogueEventToday().id === 'naishu';
     for(let i=0;i<count;i++){
       let guest = pickGuest(i);
-      if(naishuDay && i === count - 1) guest = {...NAISHU_GUEST};
       state.todayGuests.push(guest.name);
       const p = personalityFor(guest);
       markSeen(guest);
       const patienceMs = personalityPatience(p, guest);
       const order = makeOrder(i, guest, p);
       state.dayGuests.push({index:i, guest, personality:p, patienceMs, order, accepted:false, served:false, queuePenalty:0, orderId:null});
+    }
+    if(naishuDay){
+      // 奶鼠来袭：作为「额外客人」插在队尾，不替换任何原有客人
+      const guest = {...NAISHU_GUEST};
+      state.todayGuests.push(guest.name);
+      const p = personalityFor(guest);
+      markSeen(guest);
+      const idx = state.dayGuests.length;
+      state.dayGuests.push({index:idx, guest, personality:p, patienceMs:personalityPatience(p, guest), order:makeOrder(idx, guest, p), accepted:false, served:false, queuePenalty:0, orderId:null});
+      toast('奶鼠来袭！多了一位不速之客，优先招待它，否则它会偷小费');
+    }
+    if(rogueActive() && availableSyrups().includes('death')){
+      // 拿到死亡之糖后，会有客人（重度抑郁症）隐性只想喝死亡之糖
+      state.dayGuests.forEach(dg => {
+        if(dg.guest && dg.guest.kind === 'naishu') return;
+        if(dg.guest && (dg.guest.tier === 'boss' || dg.guest.tier === 'elite')) return;
+        if(Math.random() >= .35) return;
+        dg.personality = PERSONALITIES.depression;
+        dg.patienceMs = personalityPatience(dg.personality, dg.guest);
+        if(!dg.order.syrups || !dg.order.syrups.length) dg.order.syrups = [{id:'classic', ratio:100}];
+        dg.order.deathRequirement = true;
+      });
     }
     if(rogueActive() && (state.rogue.items.personality || 0) > 0 && state.dayGuests[0]){
       state.rogue.items.personality -= 1;
@@ -4809,9 +4836,10 @@
     return b;
   }
   function devEventAllowed(id){
+    if(!state.devMode) return true;
     const b = activeProfile && activeProfile.devBag;
-    if(!b || !b.events) return true;
-    return b.events[id] !== false;
+    if(!b || !b.events) return false;
+    return b.events[id] === true;
   }
   function applyDevBag(){
     if(!rogueActive()) return;
@@ -4873,7 +4901,7 @@
     const b = devBag(true);
     if(devBagTab === 'events'){
       body.innerHTML = ROGUE_EVENTS.map(e => {
-        const on = b.events[e.id] !== false;
+        const on = b.events[e.id] === true;
         return `<div class="dev-row"><div class="nm"><b>${e.name} · ${e.type === 'good' ? '好运' : '霉运'}</b><small>${e.desc}</small></div>
           <button type="button" class="dev-switch ${on ? 'on' : ''}" data-dev-switch="${e.id}" aria-label="开关 ${e.name}"></button></div>`;
       }).join('');
@@ -4935,7 +4963,7 @@
     if(sw){
       const id = sw.dataset.devSwitch;
       const b = devBag(true);
-      const on = b.events[id] === false;
+      const on = b.events[id] !== true;
       b.events[id] = on;
       saveProfiles();
       if(rogueActive()){
@@ -4946,6 +4974,10 @@
           state.rogue.pendingEventShow = true;
         }else if(state.rogue.events[rogueWeekDayNow()] === id){
           delete state.rogue.events[rogueWeekDayNow()];
+        }
+        if(on && id === 'naishu' && state.phase === 'playing'){
+          setupDayGuests();
+          renderAll();
         }
       }
       renderDevBag();
@@ -5549,8 +5581,15 @@
       state.selectedBatch = null;
       saveActiveOrder();
       renderAll();
-      toast('偷订单的贼！这份订单被偷走了，再做一份吧');
       setStage('work');
+      openConfirm({
+        icon: '🕵️',
+        title: '订单被偷了！',
+        copy: '「偷订单的贼」趁你转身的时候把这份罐头顺走了。<br>这一单要重做一份，客人还在等。',
+        okText: '重做一份',
+        cancelText: '',
+        onOk: () => { setStage('work'); toast('重新做一份吧'); }
+      });
       return;
     }
     serveOrder();
@@ -5652,22 +5691,35 @@
       : o.boilStyle === 'together'
         ? batchTypes.some(t => t.length > 1)
         : batchTypes.every(t => t.length === 1);
-    const kindScore = Math.max(0, 5 * matched.length / wantIds.length - extra * 3) + (styleOk ? 3 : 0);
+    const kindScoreRaw = Math.max(0, 5 * matched.length / wantIds.length - extra * 3) + (styleOk ? 3 : 0);
 
     const target = SUGAR[o.sugar].target, tol = (o.tol || SUGAR[o.sugar].tol) + (rogueActive() ? 1.5 * shrimpLevel('caliper') : 0);
+    const deathWant = rogueActive() && !!o.deathRequirement;
+    const gotDeath = (c.components && (c.components.death || 0) > .5);
+    const deathSyrupOk = deathWant && gotDeath;
     let maxRatioDiff = 0;
-    wantSyrups.forEach(s => {
-      const want = target * s.ratio / 100;
-      maxRatioDiff = Math.max(maxRatioDiff, Math.abs((c.components[s.id] || 0) - want));
-    });
-    const ratioScore = maxRatioDiff <= tol ? 14 : Math.max(0, 14 - (maxRatioDiff - tol) * 1.15);
-
+    if(deathWant){
+      maxRatioDiff = Math.abs((c.components.death || 0) - target);
+    }else{
+      wantSyrups.forEach(s => {
+        const want = target * s.ratio / 100;
+        maxRatioDiff = Math.max(maxRatioDiff, Math.abs((c.components[s.id] || 0) - want));
+      });
+    }
+    const ratioScoreRaw = maxRatioDiff <= tol ? 14 : Math.max(0, 14 - (maxRatioDiff - tol) * 1.15);
     const qualityPts = usedBatches.map(b => b.quality === 'perfect' ? 15 : b.quality === 'thin' ? 7 : 0);
     const batch = usedBatches[0] || null;
-    const boilScore = qualityPts.length ? qualityPts.reduce((a,b) => a+b, 0) / qualityPts.length : 0;
+    const boilScoreRaw = qualityPts.length ? qualityPts.reduce((a,b) => a+b, 0) / qualityPts.length : 0;
 
     const pourDiff = Math.abs(c.syrup - target);
-    const pourScore = c.syrup <= 0 ? 0 : pourDiff <= tol ? 13 : Math.max(0, 13 - (pourDiff - tol) * 1);
+    const pourScoreRaw = c.syrup <= 0 ? 0 : pourDiff <= tol ? 13 : Math.max(0, 13 - (pourDiff - tol) * 1);
+
+    // 重度抑郁症客人：只用死亡之糖才算数，用别的糖糖浆项直接作废；用对了糖浆相关分数翻倍
+    const syrupFactor = deathWant && !gotDeath ? 0 : deathSyrupOk ? 2 : 1;
+    const kindScore = kindScoreRaw * syrupFactor;
+    const ratioScore = ratioScoreRaw * syrupFactor;
+    const boilScore = boilScoreRaw * syrupFactor;
+    const pourScore = pourScoreRaw * syrupFactor;
 
     const stirScore = wantIds.length > 1 ? (!!c.stirred === !!o.stirred ? 3 : 0) : 3;
 
@@ -5715,14 +5767,6 @@
       score += 4 * shrimpLevel('goodReview');
       const ev = rogueEventToday();
       if(ev && ev.id === 'picky' && Math.random() < .5) score = Math.min(score, 45);
-      if(ev && ev.id === 'naishu' && state.guest && state.guest.kind === 'naishu'){
-        if(Math.random() < .5){
-          const steal = Math.min(state.rogue.coins, 10 * (state.reviews || []).filter(r => !r.timedOut).length);
-          state.rogue.coins -= steal;
-          state.coins = state.rogue.coins;
-          toast(`奶鼠偷走了 ${steal} 肉鸽金币`);
-        }
-      }
       if(state.rogue.cashbackReady){
         state.rogue.cashbackReady = false;
         score = Math.max(80, score);
@@ -5790,6 +5834,14 @@
         mulLines.push({k:`实验虾 Lv.${labLv} · 双糖浆`, v:`+${labLv * 30}%`});
         tipMul *= 1 + .3 * labLv;
       }
+      // 奶鼠：不是第一个被服务的客人时，会按 30%~100% 偷走这一单的小费
+      const naishuSteal = (state.guest && state.guest.kind === 'naishu' && (state.reviews || []).length > 0)
+        ? (.3 + Math.random() * .7) : 0;
+      if(naishuSteal > 0){
+        const pct = Math.round(naishuSteal * 100);
+        mulLines.push({k:`奶鼠偷小费（${pct}%）`, v:`-${pct}%`});
+        tipMul *= (1 - naishuSteal);
+      }
     }
     const coinMul = (state.guest && state.guest.coin) || 1;
     if(tipBase > 0 && coinMul !== 1){
@@ -5814,8 +5866,10 @@
     details.push({ok:sizeScore===6, label:'罐型', text: goldMatches ? '大金罐 ✓' : sizeOk ? `${SIZES[c.size].name} ✓` : `要${SIZES[o.size].name}${c.size ? ` · 用了${SIZES[c.size].name}` : ''}`});
     if(jarChoice) details.push({ok:jarOk, label:'罐子', text: goldMatches ? '大金罐 ✓' : jarOk ? `${JARS[c.jar || 'classic'].name} ✓` : `要${JARS[o.jar || 'classic'].name}`});
     details.push({ok:peachScore===12, label:'黄桃', text: `${counts.large}大${counts.small}小 · 共${total}块${peachScore===12 ? ' ✓' : ` / 要${peachText(o.peaches)}`}`});
-    details.push({ok:kindScore>=7.5, label:'糖浆种类', text: c.syrup > 0 ? `${gotIds.map(id => SYRUPS[id].name).join('+') || '空'}${kindScore>=7.5 ? ' ✓' : ` / 要${wantIds.map(id => SYRUPS[id].name).join('+')}${wantIds.length > 1 ? (o.boilStyle === 'together' ? '·一起熬' : '·分开熬') : ''}`}` : '还没倒糖浆'});
-    const ratioText = wantSyrups.map(s => `${SYRUPS[s.id].name} ${Math.round(c.components[s.id] || 0)}/${Math.round(target * s.ratio / 100)}%`).join(' · ');
+    details.push({ok:kindScore>=7.5, label:'糖浆种类', text: deathWant ? (gotDeath ? '死亡之糖 ✓' : '客人不满足你的选择') : (c.syrup > 0 ? `${gotIds.map(id => SYRUPS[id].name).join('+') || '空'}${kindScore>=7.5 ? ' ✓' : ` / 要${wantIds.map(id => SYRUPS[id].name).join('+')}${wantIds.length > 1 ? (o.boilStyle === 'together' ? '·一起熬' : '·分开熬') : ''}`}` : '还没倒糖浆')});
+    const ratioText = deathWant
+      ? `死亡之糖 ${Math.round(c.components.death || 0)}/${Math.round(target)}%`
+      : wantSyrups.map(s => `${SYRUPS[s.id].name} ${Math.round(c.components[s.id] || 0)}/${Math.round(target * s.ratio / 100)}%`).join(' · ');
     details.push({ok:ratioScore>=13, label:'糖浆比例', text: ratioText});
     details.push({ok:boilScore>=14, label:'熬糖火候', text: usedBatches.length ? usedBatches.map(b => `${(b.types||['classic']).map(id=>SYRUPS[id].name).join('+')}：${b.quality === 'perfect' ? '完美' : b.quality === 'thin' ? '偏生' : '焦苦'}`).join(' / ') : '没有可用糖水'});
     details.push({ok:pourScore>=12, label:'倒糖量', text: `总 ${Math.round(c.syrup)}% / 目标 ${Math.round(target)}%`});
