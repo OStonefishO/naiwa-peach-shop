@@ -2385,7 +2385,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '事件开关修正';
+  const CHANGELOG_SUB = '死亡之糖结算';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -6008,24 +6008,8 @@
     cueMusic();
     tutorialAfterServe();
     if(result.death){
-      const tipRows = (result.tipLines || []).filter(l => l.k && !String(l.k).includes('小费合计'))
-        .map(l => `<div><span>${l.k}</span><i>${l.v}</i></div>`).join('');
-      const deathBonusRow = result.deathSyrupBonus > 0
-        ? `<div><span>死亡之糖糖浆加成</span><i>+${result.deathSyrupPct}%（评分 +${result.deathSyrupBonus}）</i></div>`
-        : '';
-      openConfirm({
-        iconSvg:'skull',
-        title:'客人被死亡之糖吞噬了',
-        copy: result.depEater
-          ? (result.scaredOthers
-            ? '这位「重度抑郁症」客人心愿已了，小费 ×5；后排客人被吓得四散逃跑。'
-            : '这位「重度抑郁症」客人安静地倒下了，小费 ×5；其他客人见怪不怪，没有跑。')
-          : '这一单的客人当场倒下，小费 ×5；排队等着的客人全都被吓跑了。',
-        tipHtml:`<div class="confirm-tip-head"><span>本单小费</span><b>+${result.coins}</b></div><div class="confirm-tip-lines">${tipRows}${deathBonusRow}</div>`,
-        okText:'去结算',
-        cancelText:'',
-        onOk:() => { state.phase = 'reviewing'; showSummary(); }
-      });
+      state.phase = 'reviewing';
+      renderReview(result);
       return;
     }
   }
@@ -6033,7 +6017,8 @@
   function renderReview(result){
     const starsHtml = [0,1,2].map(i => `<svg class="icon star ${i < result.stars ? 'on' : ''}" style="transition-delay:${i*.08}s"><use href="#i-star"></use></svg>`).join('');
     els.reviewStars.innerHTML = starsHtml;
-    els.reviewTitle.textContent = result.timedOut ? '客人等不及了…' : result.perfect ? '完美出餐！' : result.stars === 3 ? '客人超满意！' : result.stars === 2 ? '还不错哦～' : result.stars === 1 ? '勉强过关…' : '客人有点失望…';
+    els.reviewTitle.textContent = result.death ? '客人被死亡之糖吞噬了'
+      : result.timedOut ? '客人等不及了…' : result.perfect ? '完美出餐！' : result.stars === 3 ? '客人超满意！' : result.stars === 2 ? '还不错哦～' : result.stars === 1 ? '勉强过关…' : '客人有点失望…';
     els.reviewScore.textContent = result.score;
     if(els.reviewSpecial){
       const g = result.guest;
@@ -6052,7 +6037,13 @@
         els.reviewPersonality.innerHTML = `<span class="personality-tag" style="--pc:${p.color}">${p.icon} ${p.name}</span>${result.extraDepression ? personalityTag(PERSONALITIES.depression) : ''}<small>${personalityWaitText(p)}${delta}</small>`;
       }
     }
-    els.reviewQuote.innerHTML = `<b>${result.guest.name}：</b>${result.comment}`;
+    els.reviewQuote.innerHTML = result.death
+      ? (result.depEater
+        ? (result.scaredOthers
+          ? `<b>${result.guest.name}：</b>……终于尝到死亡之糖了。我也该走了。后排的客人被吓得四散逃跑，今天大概是没法继续营业了。`
+          : `<b>${result.guest.name}：</b>……终于尝到死亡之糖了。我也该走了。奇怪，其他客人居然见怪不怪，没有跑。`)
+        : `<b>${result.guest.name}：</b>这罐子里……是死亡之糖？！客人当场倒下，排队等着的客人全都被吓跑了。`)
+      : `<b>${result.guest.name}：</b>${result.comment}`;
     els.reviewCoins.textContent = result.coins;
     if(els.reviewTip){
       const tip = Number(result.tip) || 0;
@@ -6079,7 +6070,9 @@
       </div>`).join('');
     const allServed = (state.dayGuests || []).every(d => d.served);
     const hasAcceptedNext = (state.orders || []).some(o => !o.served);
-    els.nextBtn.innerHTML = allServed ? `查看今日结算${icon('arrow')}` : hasAcceptedNext ? `下一单${icon('arrow')}` : `去餐厅接单${icon('arrow')}`;
+    const deathNext = !!result.death && !!result.scaredOthers;
+    els.nextBtn.innerHTML = deathNext ? `提前进入下一天${icon('arrow')}` : allServed ? `查看今日结算${icon('arrow')}` : hasAcceptedNext ? `下一单${icon('arrow')}` : `去餐厅接单${icon('arrow')}`;
+    if(deathNext) els.nextBtn.dataset.death = '1'; else delete els.nextBtn.dataset.death;
     els.reviewOverlay.classList.add('show');
     els.reviewOverlay.setAttribute('aria-hidden','false');
     setTimeout(() => {
@@ -6096,6 +6089,11 @@
     els.reviewOverlay.classList.remove('show');
     els.reviewOverlay.setAttribute('aria-hidden','true');
     sfx.tap();
+    if(els.nextBtn.dataset.death === '1'){
+      delete els.nextBtn.dataset.death;
+      setTimeout(() => startNextDay(), 240);
+      return;
+    }
     if((state.dayGuests || []).every(d => d.served)){
       if(rogueActive() && (state.day % WEEK_DAYS === 5 || state.day % WEEK_DAYS === 0)){
         const kind = state.day % WEEK_DAYS === 0 ? 'boss' : 'elite';
