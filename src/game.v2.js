@@ -2390,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '一锅多份糖浆';
+  const CHANGELOG_SUB = '高级自定义客人';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -5138,6 +5138,7 @@
     weeklyOn: true,
     weeklyTarget: 800,
     missionsOn: true,
+    fixedGuests: [],
     missions: [{ type: 'coins', target: 800 }],
     weights: { size:100, jar:100, peach:100, kind:100, ratio:100, boil:100, pour:100, stir:100, temp:100, topping:100, speed:100 },
     enabled: { size:true, jar:true, peach:true, kind:true, ratio:true, boil:true, pour:true, stir:true, temp:true, topping:true, speed:true }
@@ -5154,6 +5155,13 @@
   const CM_WEIGHT_KEYS = ['size','jar','peach','kind','ratio','boil','pour','stir','temp','topping','speed'];
   const CM_WEIGHT_LABEL = { size:'罐型', jar:'罐子', peach:'黄桃', kind:'糖浆种类', ratio:'糖浆比例', boil:'熬糖火候', pour:'倒糖量', stir:'搅拌', temp:'温度', topping:'加料', speed:'出餐速度' };
 
+  const CM_MISSION_TEMPLATES = [
+    { key: 'syrup', name: '糖浆大师', missions: [{ type: 'mixed', target: 3 }, { type: 'honey', target: 3 }, { type: 'honeysuckle', target: 2 }] },
+    { key: 'topping', name: '小料狂人', missions: [{ type: 'richTopping', target: 3 }, { type: 'mint', target: 3 }, { type: 'goji', target: 2 }] },
+    { key: 'perfect', name: '完美主义', missions: [{ type: 'perfect', target: 5 }, { type: 'served', target: 8 }] },
+    { key: 'mixed', name: '混搭大师', missions: [{ type: 'mixed', target: 5 }, { type: 'richTopping', target: 3 }] },
+    { key: 'steady', name: '稳健经营', missions: [{ type: 'coins', target: 1200 }, { type: 'served', target: 10 }] }
+  ];
   const CM_MISSION_SHORT = { coins:'赚金币', served:'出餐单数', perfect:'完美出餐', mixed:'混合糖浆', richTopping:'三料以上', wideJar:'广口罐', narrowJar:'窄口罐', honey:'蜂蜜', honeysuckle:'金银花', maple:'枫糖浆', mint:'薄荷', osmanthus:'桂花', goji:'枸杞', rock:'冰糖' };
   function cloneJSON(o){ return JSON.parse(JSON.stringify(o)); }
   function cmPathGet(obj, path){ return path.split('.').reduce((o,k) => (o == null ? o : o[k]), obj); }
@@ -5177,6 +5185,13 @@
     out.syrupMax = Math.round(clampNum(raw.syrupMax != null ? raw.syrupMax : out.syrupMax, 1, 6));
     out.weeklyOn = raw.weeklyOn !== false;
     out.missionsOn = raw.missionsOn !== false;
+    if(Array.isArray(raw.fixedGuests)){
+      out.fixedGuests = raw.fixedGuests.filter(g => g && g.day).slice(0, 12).map(g => ({
+        day: Math.round(clampNum(g.day, 1, NORMAL_DAYS)),
+        tier: ['normal','elite','boss'].includes(g.tier) ? g.tier : 'normal',
+        personality: CM_PERSONAS.includes(g.personality) ? g.personality : ''
+      }));
+    }
     out.weeklyTarget = Math.round(clampNum(raw.weeklyTarget != null ? raw.weeklyTarget : out.weeklyTarget, 0, 999999));
     if(Array.isArray(raw.missions)){
       out.missions = raw.missions.filter(x => x && CM_MISSION_TYPES.includes(x.type))
@@ -5298,6 +5313,17 @@
         cmNumRow('BOSS 客人权重', '', 'typeWeights.boss', 0, 100, 10) +
         '<div class="cm-row" style="align-items:flex-start"><label>性格池<small>点一下开关，空池=没有性格</small></label></div>' +
         '<div class="cm-tags">' + personas + '</div>' +
+        '<div class="cm-row" style="align-items:flex-start"><label>高级客人<small>指定第几天来什么客人；没有指定的天按权重随机</small></label></div>' +
+        ((m.fixedGuests || []).map((g, i) =>
+          '<div class="cm-row"><label>第 ' + g.day + ' 天 · ' + (g.tier === 'boss' ? 'BOSS' : g.tier === 'elite' ? '精英' : '普通') + ' · ' + (g.personality ? (PERSONALITIES[g.personality] ? PERSONALITIES[g.personality].name : g.personality) : '无性格') + '</label>' +
+          '<div class="cm-num">' +
+          '<button type="button" data-cm-guest="day-" data-idx="' + i + '">−</button>' +
+          '<button type="button" data-cm-guest="day+" data-idx="' + i + '">＋</button>' +
+          '<button type="button" data-cm-guest="tier" data-idx="' + i + '">换类型</button>' +
+          '<button type="button" data-cm-guest="persona" data-idx="' + i + '">换性格</button>' +
+          '<button type="button" data-cm-guest="del" data-idx="' + i + '">×</button>' +
+          '</div></div>').join('')) +
+        '<div class="cm-tags"><button type="button" class="cm-tag" data-cm-guest="add">＋指定客人</button></div>' +
       '</div>' +
       '<div class="cm-sec"><h4>店铺</h4>' +
         cmNumRow('熬糖锅数量', '1~20 口', 'pots', 1, 20) +
@@ -5325,6 +5351,7 @@
           '<b>' + x.target + '</b>' +
           '<button type="button" data-cm-mission="inc" data-idx="' + i + '">＋</button>' +
           '<button type="button" data-cm-mission="del" data-idx="' + i + '" aria-label="删除任务">×</button></div></div>').join('') +
+          '<div class="cm-tags">' + CM_MISSION_TEMPLATES.map(tp => '<button type="button" class="cm-tag" data-cm-template="' + tp.key + '">模板：' + tp.name + '</button>').join('') + '</div>' +
           '<div class="cm-tags">' + CM_MISSION_TYPES.map(t => '<button type="button" class="cm-tag" data-cm-mission="add" data-type="' + t + '">＋' + (CM_MISSION_SHORT[t] || t) + '</button>').join('') + '</div>' : '') +
         '<div class="cm-note">关掉的评分项不计分；权重越大越吃这一项（100% 为默认）。</div>' +
         weights +
@@ -5378,6 +5405,38 @@
       cmDraft.missions = list;
       cmDraft = normalizeCustomMap(cmDraft);
       renderCustomEditor();
+      return;
+    }
+    const gBtn = e.target.closest('[data-cm-guest]');
+    if(gBtn){
+      syncDraftFromInputs();
+      if(!Array.isArray(cmDraft.fixedGuests)) cmDraft.fixedGuests = [];
+      const act = gBtn.dataset.cmGuest;
+      const i = Number(gBtn.dataset.idx);
+      const list = cmDraft.fixedGuests;
+      if(act === 'add'){
+        if(list.length >= 12){ toast('最多 12 个指定客人'); return; }
+        list.push({ day: state.day || 1, tier: 'elite', personality: 'strict' });
+      }else if(list[i]){
+        if(act === 'del') list.splice(i, 1);
+        else if(act === 'day+') list[i].day = Math.min(28, list[i].day + 1);
+        else if(act === 'day-') list[i].day = Math.max(1, list[i].day - 1);
+        else if(act === 'tier') list[i].tier = list[i].tier === 'normal' ? 'elite' : list[i].tier === 'elite' ? 'boss' : 'normal';
+        else if(act === 'persona'){ const order = [''].concat(CM_PERSONAS); list[i].personality = order[(order.indexOf(list[i].personality) + 1) % order.length]; }
+      }
+      cmDraft = normalizeCustomMap(cmDraft);
+      renderCustomEditor();
+      return;
+    }
+    const tplBtn = e.target.closest('[data-cm-template]');
+    if(tplBtn){
+      const tpl = CM_MISSION_TEMPLATES.find(x => x.key === tplBtn.dataset.cmTemplate);
+      if(tpl){
+        cmDraft.missions = tpl.missions.map(x => ({ type: x.type, target: x.target }));
+        cmDraft = normalizeCustomMap(cmDraft);
+        renderCustomEditor();
+        toast('已套用模板：' + tpl.name);
+      }
       return;
     }
     const stepBtn = e.target.closest('[data-cm-step]');
@@ -5466,21 +5525,25 @@
     state.orderSeq = 0;
     state.queueInfo = null;
     const totalW = Math.max(1, (map.typeWeights.normal || 0) + (map.typeWeights.elite || 0) + (map.typeWeights.boss || 0));
-    const count = map.guestsPerDay;
+    const fixed = (map.fixedGuests || []).filter(g => g.day === state.day);
+    const count = Math.max(map.guestsPerDay, fixed.length);
     for(let i=0;i<count;i++){
       let r = Math.random() * totalW;
       let tier = 'normal';
       if((r -= map.typeWeights.normal || 0) < 0) tier = 'normal';
       else if((r -= map.typeWeights.elite || 0) < 0) tier = 'elite';
       else tier = 'boss';
+      let forcedPersona = '';
+      if(fixed[i]){ tier = fixed[i].tier; forcedPersona = fixed[i].personality || ''; }
       let guest;
       if(tier === 'elite') guest = cloneJSON(ELITE_GUESTS[randInt(0, ELITE_GUESTS.length-1)]);
       else if(tier === 'boss') guest = cloneJSON(BOSS_GUESTS[randInt(0, BOSS_GUESTS.length-1)]);
       else guest = cloneJSON(GUESTS[randInt(0, GUESTS.length-1)]);
       guest.tier = tier;
       const pool = map.personalities || [];
-      const p = pool.length && Math.random() < .8 ? PERSONALITIES[pool[randInt(0, pool.length-1)]] : null;
+      const p = forcedPersona ? PERSONALITIES[forcedPersona] : (pool.length && Math.random() < .8 ? PERSONALITIES[pool[randInt(0, pool.length-1)]] : null);
       guest.personality = p ? p.id : null;
+      if(fixed[i]) guest.name = '特邀客';
       state.todayGuests.push(guest.name);
       markSeen(guest);
       const patienceMs = Math.max(3000, (map.patienceSec || 90) * 1000);
@@ -5569,6 +5632,7 @@
     state.week = 1;
     state.weekEarned = 0;
     state.customStats = { coins: 0, wideJar: 0, honey: 0, mint: 0, perfect: 0, served: 0 };
+    state.customWeekRewarded = 0;
     state.weekTarget = state.mode === 'rogue' ? ROGUE_BASE_TARGET : state.mode === 'custom' ? (state.customMap.weeklyOn === false ? 0 : state.customMap.weeklyTarget) : weekTargetFor(1);
     state.summaryKind = 'day';
     state.metaAwarded = false;
@@ -6727,6 +6791,23 @@
     }
 
 
+    if(state.mode === 'custom' && (state.day % WEEK_DAYS) === 0){
+      const list = customTasks();
+      if(list.length){
+        const doneCnt = list.filter(t => t.check()).length;
+        const allDone = doneCnt === list.length;
+        const reward = allDone ? list.length * 250 : 0;
+        if(allDone && state.customWeekRewarded !== state.week){
+          state.customWeekRewarded = state.week;
+          addWallet(reward);
+        }
+        sub += ` · 周任务 <b>${doneCnt}/${list.length}</b>`;
+        comment += allDone
+          ? `<br><b>本周任务全部完成！</b>额外奖励 +${reward} 金币，已进钱包。`
+          : `<br>本周任务还差 ${list.length - doneCnt} 条，下周一自动刷新。`;
+        els.summaryCoins.textContent = state.dayCoins;
+      }
+    }
     els.summaryRibbon.textContent = ribbon;
     els.summaryTitle.textContent = title;
     els.summarySub.innerHTML = sub;
@@ -6742,6 +6823,8 @@
     els.summaryComment.innerHTML = comment;
     els.summaryBest.textContent = tutorialActive()
       ? `7 天累计：${state.runEarned || 0} 金币 · 余额 ${state.coins || 0}`
+      : state.mode === 'custom'
+      ? `自定义地图：${(customMap() || {}).name || '未命名'}${(customMap() || {}).author ? ' · ' + customMap().author : ''}`
       : state.mode === 'normal'
       ? `最佳周目：${state.bestNormal || 0} 金币`
       : `最远纪录：第 ${state.bestEndless || 0} 周`;
