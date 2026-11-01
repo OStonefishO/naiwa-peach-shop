@@ -2390,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '周任务独立开关';
+  const CHANGELOG_SUB = '一锅多份糖浆';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -3993,17 +3993,16 @@
       const alarm = `<button class="pot-bell ${p.alarm ? 'on' : ''}" type="button" data-pot-bell="${i}" title="${p.alarm ? '点击收回闹钟' : '点击放上闹钟（也可以从闹钟栏拖过来）'}">${p.alarm ? '🔔' : '＋'}</button>`;
       let mixRow = '';
       if(p.types.length > 1){
-        const a = p.types[0], b = p.types[1];
-        const va = clamp(Number(p.mixA) || 0, 0, 100);
-        const vb = clamp(Number(p.mixB) || 0, 0, 100);
-        const nameA = SYRUPS[a].name.replace('糖浆',''), nameB = SYRUPS[b].name.replace('糖浆','');
-        const row = (idx, name, color, val) => `<div class="pot-mix2" data-pot-mix2-row="${i}" data-mix2-idx="${idx}" style="--p:${val}%;--c:${color}">
+        const vals = potMixList(p);
+        mixRow = '<div class="pot-mix2-wrap">' + p.types.map((sid, idx) => {
+          const name = SYRUPS[sid].name.replace('糖浆',''), color = SYRUPS[sid].color, val = vals[idx];
+          return `<div class="pot-mix2" data-pot-mix2-row="${i}" data-mix2-idx="${idx}" style="--p:${val}%;--c:${color}">
             <span class="pm2-name"><i class="mix-dot" style="background:${color}"></i>${name}<b data-mix2-val="${idx}">${val}%</b></span>
             <button class="mix-step" type="button" data-mix2-step="-5" data-pot="${i}" data-idx="${idx}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="减少 5%">−</button>
             <input type="range" min="0" max="100" step="5" value="${val}" data-pot-mix2="${i}" data-idx="${idx}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="${name}比例">
             <button class="mix-step" type="button" data-mix2-step="5" data-pot="${i}" data-idx="${idx}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="增加 5%">＋</button>
           </div>`;
-        mixRow = `<div class="pot-mix2-wrap">${row(0, nameA, SYRUPS[a].color, va)}${row(1, nameB, SYRUPS[b].color, vb)}</div>`;
+        }).join('') + '</div>';
       }
       html += `<div class="pot-card" data-status="${p.status}" data-pot-drop="${i}">
         <div class="pot-head"><b>熬糖锅 ${i+1}</b><span class="pot-sugar">${alarm}</span></div>
@@ -4014,7 +4013,6 @@
         <div class="pot-actions">${actions}</div>
       </div>`;
     }
-    els.potGrid.classList.toggle('many', totalSlots >= 6);
     els.potGrid.innerHTML = html;
   }
   function updatePotVisuals(){
@@ -5764,46 +5762,59 @@
     renderHint();
   }
 
+  function potMaxTypes(){
+    if(state.mode === 'custom'){ const m = customMap(); return Math.round(clampNum(m && m.syrupMax != null ? m.syrupMax : 2, 1, 6)); }
+    return 2;
+  }
+  function potMixList(p){
+    if(!Array.isArray(p.mixVals)) p.mixVals = [];
+    while(p.mixVals.length < p.types.length) p.mixVals.push(50);
+    if(p.mixVals.length > p.types.length) p.mixVals = p.mixVals.slice(0, p.types.length);
+    return p.mixVals.map(v => clamp(Number(v) || 0, 0, 100));
+  }
   function cyclePotType(potId, type){
     const p = state.pots[potId];
     if(!p || p.status !== 'idle') return;
     if(p.types.includes(type)){
       if(p.types.length === 1){ toast('至少保留一种糖浆'); return; }
+      const i = p.types.indexOf(type);
       p.types = p.types.filter(t => t !== type);
+      if(Array.isArray(p.mixVals)) p.mixVals.splice(i, 1);
     }else{
-      if(p.types.length >= 2){ toast('一口锅最多两种糖浆'); return; }
+      const max = potMaxTypes();
+      if(p.types.length >= max){ toast('一口锅最多 ' + max + ' 种糖浆'); return; }
       p.types.push(type);
+      if(!Array.isArray(p.mixVals)) p.mixVals = [];
+      p.mixVals.push(50);
       if(p.types.length >= 2) tutFlag('pot2');
     }
-    if(p.types.length === 2){
-      p.mixA = clamp(Number(p.mixA) || 0, 0, 100);
-      p.mixB = clamp(Number(p.mixB) || 0, 0, 100);
-    }else{
-      p.mixA = 0; p.mixB = 0;
-    }
+    p.mixA = 0; p.mixB = 0;
+    potMixList(p);
     sfx.tap();
     renderPots();
   }
   function setPotMix(potId, idx, value){
     const p = state.pots[potId];
     if(!p || p.status !== 'idle' || p.types.length < 2) return;
+    const list = potMixList(p);
     const v = clamp(Math.round(Number(value) / 5) * 5, 0, 100);
-    if(idx === 0) p.mixA = v; else p.mixB = v;
-    if(p.mixA === 60 || p.mixB === 60 || p.mixA === 40) tutFlag('mix');
+    list[idx] = v;
+    p.mixVals = list;
+    if(list.some(x => x === 60 || x === 40)) tutFlag('mix');
     paintPotMix(potId);
   }
   function stepPotMix(potId, idx, delta){
     const p = state.pots[potId];
     if(!p || p.status !== 'idle') return;
-    const cur = idx === 0 ? (Number(p.mixA) || 0) : (Number(p.mixB) || 0);
-    setPotMix(potId, idx, cur + delta);
+    const list = potMixList(p);
+    setPotMix(potId, idx, (Number(list[idx]) || 0) + delta);
     sfx.tap();
   }
   function paintPotMix(potId){
     const p = state.pots[potId];
     if(!p) return;
-    [0,1].forEach(idx => {
-      const v = idx === 0 ? clamp(Number(p.mixA) || 0, 0, 100) : clamp(Number(p.mixB) || 0, 0, 100);
+    const list = potMixList(p);
+    list.forEach((v, idx) => {
       const rowEl = document.querySelector(`.pot-mix2[data-pot-mix2-row="${potId}"][data-mix2-idx="${idx}"]`);
       if(!rowEl) return;
       rowEl.style.setProperty('--p', v + '%');
@@ -5815,10 +5826,12 @@
   }
   function potMixRatios(p){
     if(!p || !p.types || p.types.length < 2) return null;
-    let a = Math.max(0, Number(p.mixA) || 0), b = Math.max(0, Number(p.mixB) || 0);
-    if(a + b <= 0){ a = 1; b = 1; }
-    const total = a + b;
-    return { [p.types[0]]: Math.round(a / total * 100), [p.types[1]]: Math.round(b / total * 100) };
+    const list = potMixList(p);
+    let sum = list.reduce((a, b) => a + b, 0);
+    if(sum <= 0){ list.forEach((_, i) => { list[i] = 1; }); sum = list.length; }
+    const out = {};
+    p.types.forEach((t, i) => { out[t] = Math.max(1, Math.round(list[i] / sum * 100)); });
+    return out;
   }
   function addSugar(potId, delta){
     if(state.phase !== 'playing' || state.stage !== 'kitchen') return;
