@@ -326,7 +326,7 @@
   };
   const TUTORIAL_STAGE_TIPS = {
     _default:{
-      kitchen:{ title:'厨房：切黄桃 + 熬糖水', text:'先在「切黄桃」按订单点 切大块 / 切小块；再熬糖：选糖型 → 按<b>订单写的勺数</b>点「糖+」（订单写几勺就加几勺）→ 点「开火」，等火候条进绿色区间再点「收糖」。偏生或焦苦都会扣分。' },
+      kitchen:{ title:'厨房：切黄桃 + 熬糖水', text:'先在「切黄桃」按订单点 切大块 / 切小块；再熬糖：选糖型 → 按「订单写的勺数」点「糖+」（订单写几勺就加几勺）→ 点「开火」，等火候条进绿色区间再点「收糖」。偏生或焦苦都会扣分。' },
       work:{ title:'工作台：按部就班装罐', text:'① 挑罐型 ② 放黄桃（大块/小块要对）③ 按住「倒糖水」倒到绿色目标量 ④ 选温度 ⑤ 选加料 ⑥ 封盖。每步都对着左边的订单卡来。' },
       desk:{ title:'出餐：先拖订单，再交给客人', text:'按住左边那张订单卡，拖到下面的「订单架」松手；然后把罐头封好，点下面的大按钮「交给客人」。' }
     },
@@ -482,10 +482,28 @@
       { id:'t7a', text:'自由营业，完成 3 单', check: () => served >= 3 }
     ];
   }
+  function dailyTasksForCurrent(){
+    if(tutorialActive()) return tutorialTasksForDay(state.day);
+    const served = (state.reviews || []).length;
+    return [
+      { id:'gd1', text:'接待客人，看订单卡', check: () => !!state.order },
+      { id:'gd2', text:'熬好一锅糖水', check: () => (state.batches || []).length > 0 || (state.can && state.can.syrup > 0) },
+      { id:'gd3', text:'装罐、倒糖水并封盖', check: () => !!(state.can && state.can.sealed) || served > 0 },
+      { id:'gd4', text:'把订单架上的罐头交给客人', check: () => served > 0 }
+    ];
+  }
   function renderTutorialTasks(){
-    if(!tutorialActive() || !els.game) return;
+    if(!els.game) return;
+    const onDesk = state.phase === 'playing' && state.stage === 'desk';
+    let tab0 = document.getElementById('taskTab');
+    let panel0 = document.getElementById('taskPanel');
+    if(!onDesk){
+      if(tab0) tab0.style.display = 'none';
+      if(panel0) panel0.classList.remove('open');
+      return;
+    }
     const day = state.day;
-    const list = tutorialTasksForDay(day);
+    const list = dailyTasksForCurrent();
     const done = list.map(x => !!x.check());
     const allDone = done.every(Boolean);
 
@@ -514,9 +532,10 @@
     panel.innerHTML = `<div class="task-head"><span>今日任务</span><em>${count}</em></div>
       <ul>${list.map((x, i) => `<li class="${done[i] ? 'done' : ''}"><i>${done[i] ? '✓' : ''}</i><span>${x.text}</span></li>`).join('')}</ul>`;
     panel.classList.toggle('all-done', allDone);
+    if(tab0) tab0.style.display = 'flex';
     const note = document.querySelector('.desk-note');
-    if(note) note.style.display = 'none';
-    if(allDone && !(state.tutorial && state.tutorial['taskDone' + day])){
+    if(tutorialActive() && note) note.style.display = 'none';
+    if(tutorialActive() && allDone && !(state.tutorial && state.tutorial['taskDone' + day])){
       state.tutorial = state.tutorial || { seen:{} };
       state.tutorial['taskDone' + day] = 1;
       toast('今日任务全部完成！');
@@ -1305,7 +1324,10 @@
   function rogueOwlToday(){ return rogueActive() && rogueHas('sugarOwl') && Number(state.rogue.owlDay) === Number(state.day); }
   function availableSyrups(){
     if(tutorialActive()) return ['classic'].concat(state.tutorial && state.tutorial.syrups || []);
-    if(rogueActive()) return ['classic'].concat(SYRUP_IDS.filter(id => id !== 'classic' && (state.rogue.syrups.includes(id) || rogueOwlToday() || (id === 'death' && shrimpLevel('deathSugar') > 0))));
+    if(rogueActive()) return ['classic'].concat(SYRUP_IDS.filter(id => {
+      if(id === 'death') return shrimpLevel('deathSugar') > 0;
+      return state.rogue.syrups.includes(id) || rogueOwlToday();
+    }));
     const owned = activeProfile && activeProfile.syrups ? activeProfile.syrups : {};
     return ['classic'].concat(['honey','maple','honeysuckle'].filter(id => owned[id]));
   }
@@ -1955,9 +1977,14 @@
     els.leaderboardOverlay.setAttribute('aria-hidden','false');
     sfx.tap();
   }
+  let rankFromSummary = false;
   function closeLeaderboard(){
     els.leaderboardOverlay.classList.remove('show');
     els.leaderboardOverlay.setAttribute('aria-hidden','true');
+    if(rankFromSummary){
+      rankFromSummary = false;
+      goHome();
+    }
   }
   let confirmAction = null;
   function openConfirm(opts={}){
@@ -2832,6 +2859,7 @@
     if(!silent){ sfx.tap(); cueMusic(); }
     if(!restoringRun && state.phase === 'playing') saveRunToProfile();
     if(tutorialActive() && !silent){ tutorialStageTip(stage); tutorialScriptStageTip(stage); tutorialStagePointer(stage); }
+    try { renderTutorialTasks(); } catch(e){}
   }
 
   function updateHud(){
@@ -3606,7 +3634,7 @@
     const rec = (state.orders || []).find(o => o.id === state.activeOrderId);
     if(rec) rec.personality = PERSONALITIES.generous;
     toast('狼牙棒生效：客人变得大方了，评分更宽松');
-    renderDesk(); renderRogueHud(); sfx.coin();
+    renderGuest(); renderDesk(); renderRogueHud(); sfx.coin();
   }
   function renderDesk(){
     if(!state.guest) return;
@@ -4565,7 +4593,7 @@
   }
   function rogueEventToday(){
     if(!rogueActive()) return null;
-    const id = state.rogue.events[state.day];
+    const id = state.rogue.events[rogueWeekDayNow()];
     return ROGUE_EVENTS.find(e => e.id === id) || null;
   }
   function renderRogueHud(){
@@ -4655,11 +4683,17 @@
       state.rogue.items.personality = n - 1;
       const dg = state.dayGuests[state.guestIndex];
       if(dg){
-        dg.personality = PERSONALITIES[PERSONALITY_IDS[randInt(0, PERSONALITY_IDS.length - 1)]];
+        const cur = (state.personality && state.personality.id) || '';
+        const pool = PERSONALITY_IDS.filter(pid => pid !== cur);
+        const nextId = pool.length ? pool[randInt(0, pool.length - 1)] : PERSONALITY_IDS[0];
+        dg.personality = PERSONALITIES[nextId];
         state.personality = dg.personality;
         dg.patienceMs = personalityPatience(dg.personality, dg.guest);
         state.patienceMs = dg.patienceMs;
         state.deadline = performance.now() + state.patienceMs;
+        const rec = (state.orders || []).find(o => o.id === state.activeOrderId);
+        if(rec) rec.personality = dg.personality;
+        renderGuest(); renderDesk(); renderRogueHud();
       }
       toast('性格改造器生效：当前客人的性格被随机改变');
     }else{
@@ -4682,8 +4716,9 @@
     state.eventStartedAt = performance.now();
     const isBoss = state.day % WEEK_DAYS === 0;
     const isElite = !isBoss && state.day % WEEK_DAYS === 5;
+    const dayTag = isBoss ? 'BOSS 日' : isElite ? '精英日' : '';
     if(els.eventIcon) els.eventIcon.textContent = isBoss ? '👑' : isElite ? '⭐' : ev && ev.type === 'good' ? '🍀' : '☠️';
-    if(els.eventTitle) els.eventTitle.textContent = ev ? ev.name : isBoss ? '今天是 BOSS 日' : '今天是精英日';
+    if(els.eventTitle) els.eventTitle.textContent = ev ? (dayTag ? `${ev.name} · ${dayTag}` : ev.name) : (isBoss ? '今天是 BOSS 日' : '今天是精英日');
     if(els.eventDesc){
       let desc = ev ? ev.desc : '';
       if(special && special.guest) desc += `${desc ? ' · ' : ''}今日来客：${special.type === 'boss' ? 'BOSS ' : '精英 '}${special.guest.name}`;
@@ -5124,7 +5159,7 @@
   }
   function clearCanSyrup(){
     const c = state.can;
-    c.components = {classic:0, honey:0, maple:0, honeysuckle:0};
+    c.components = {classic:0, honey:0, maple:0, honeysuckle:0, death:0};
     c.syrup = 0;
     c.pourLog = [];
     c.batchIds = [];
@@ -5182,18 +5217,17 @@
     const batch = findBatch();
     if(!batch){ stopPour(); return; }
     const types = (batch.types && batch.types.length) ? batch.types : ['classic'];
-    const add = POUR_RATE * 16.7;
     const ratios = batch.ratios || (types.length > 1 ? {[types[0]]:50, [types[1]]:50} : {[types[0]]:100});
+    const cap = (rogueActive() && state.rogue.items && state.rogue.items.pourGuard)
+      ? Math.min(100, SUGAR[state.order.sugar].target + (state.order.tol || SUGAR[state.order.sugar].tol))
+      : 100;
+    const add = Math.max(0, Math.min(POUR_RATE * 16.7, cap - c.syrup));
+    if(add <= 0){ stopPour(); return; }
     types.forEach(id => {
       const share = (ratios[id] != null ? ratios[id] : 100 / types.length) / 100;
       c.components[id] = clamp((c.components[id] || 0) + add * share, 0, 100);
     });
-    if(rogueActive() && state.rogue.items && state.rogue.items.pourGuard){
-      const tgt = SUGAR[state.order.sugar].target, tol2 = (state.order.tol || SUGAR[state.order.sugar].tol);
-      c.syrup = clamp(c.syrup + add, 0, Math.min(100, tgt + tol2));
-    }else{
-      c.syrup = clamp(c.syrup + add, 0, 100);
-    }
+    c.syrup = clamp(c.syrup + add, 0, cap);
     if(!c.batchIds.includes(batch.id)) c.batchIds.push(batch.id);
     // 记录倒入顺序：同一锅连续倒只累加一次，换锅就新增一条
     if(!Array.isArray(c.pourLog)) c.pourLog = [];
@@ -5592,7 +5626,6 @@
     if(result.death){
       (state.dayGuests || []).forEach(g => { if(!g.served) g.scared = true; });
       (state.orders || []).forEach(o => { if(!o.served) o.served = true; });
-      setTimeout(() => toast('死亡之糖：后面的客人被吓跑了'), 900);
     }
     state.reviews.push(result);
     state.dayStars += result.stars;
@@ -5602,12 +5635,34 @@
     // 肉鸽：addWallet 里已经把本单金币计入 weekEarned，这里只补无尽/普通模式
     if(!rogueActive()) state.weekEarned += result.coins;
     saveGame();
-    renderReview(result);
+    if(!result.death) renderReview(result);
     updateHud();
     updateTabBadges();
     renderOrderStack();
     cueMusic();
     tutorialAfterServe();
+    if(result.death){
+      openConfirm({
+        iconSvg:'skull',
+        title:'客人被死亡之糖吞噬了',
+        copy:'这一单的客人当场倒下，小费 ×5；排队等着的客人全都被吓跑了。',
+        okText:'去结算',
+        cancelText:'',
+        onOk:() => { state.phase = 'reviewing'; showSummary(); }
+      });
+      return;
+    }
+    if(result.death){
+      openConfirm({
+        iconSvg:'trash',
+        title:'客人被死亡之糖吞噬了',
+        copy:'这一单的客人当场倒下，小费 ×5；排队等着的客人全都被吓跑了。',
+        okText:'去结算',
+        cancelText:'',
+        onOk:() => { state.phase = 'reviewing'; showSummary(); }
+      });
+      return;
+    }
   }
 
   function renderReview(result){
@@ -6195,6 +6250,12 @@
   function rerollShrimp(){
     if(!state.rogue || state.rogue.rerolls <= 0) return toast('没有「再来一份」了');
     state.rogue.rerolls -= 1;
+    state.rogue.items.reroll = Math.max(0, (state.rogue.items.reroll || 0) - 1);
+    if((state.rogue.items.reroll || 0) <= 0) delete state.rogue.items.reroll;
+    renderRogueHud();
+    state.rogue.items.reroll = Math.max(0, (state.rogue.items.reroll || 0) - 1);
+    if((state.rogue.items.reroll || 0) <= 0) delete state.rogue.items.reroll;
+    renderRogueHud();
     state.rogue.pendingShrimp.choices = rollShrimpChoices();
     renderShrimpChoice();
     sfx.tap();
@@ -6905,6 +6966,7 @@
       els.summaryRankBtn.addEventListener('click', () => {
         els.summaryOverlay.classList.remove('show');
         els.summaryOverlay.setAttribute('aria-hidden','true');
+        rankFromSummary = true;
         openLeaderboard();
       });
     }
@@ -7020,7 +7082,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, finishOrder, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
+      window.__naiwa = { state, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
     }
   }
 
