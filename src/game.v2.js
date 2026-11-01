@@ -489,8 +489,21 @@
       { id:'t7a', text:'自由营业，完成 3 单', check: () => served >= 3 }
     ];
   }
+  function customTasks(){
+    const m = customMap();
+    if(!m || m.weeklyOn === false) return [];
+    const stats = state.customStats || {};
+    return (m.missions || []).map((x, i) => {
+      const have = x.type === 'coins' ? (state.weekEarned || 0) : (stats[x.type] || 0);
+      return { id: 'cm' + i, text: (CM_MISSION_LABEL[x.type] || x.type).replace('X', x.target) + `（${Math.min(have, x.target)}/${x.target}）`, check: () => have >= x.target };
+    });
+  }
   function dailyTasksForCurrent(){
     if(tutorialActive()) return tutorialTasksForDay(state.day);
+    if(state.mode === 'custom'){
+      const list = customTasks();
+      if(list.length) return list;
+    }
     const served = (state.reviews || []).length;
     return [
       { id:'gd1', text:'接待客人，看订单卡', check: () => !!state.order },
@@ -516,7 +529,7 @@
     const count = `${done.filter(Boolean).length}/${list.length}`;
     wrap.hidden = false;
     btn.innerHTML = `<span>任务</span><em>${count}</em>`;
-    listEl.innerHTML = `<div class="task-head"><span>今日任务</span><em>${count}</em></div>
+    listEl.innerHTML = `<div class="task-head"><span>${state.mode === 'custom' ? '本周任务' : '今日任务'}</span><em>${count}</em></div>
       <ul>${list.map((x, i) => `<li class="${done[i] ? 'done' : ''}"><i>${done[i] ? '✓' : ''}</i><span>${x.text}</span></li>`).join('')}</ul>`;
     listEl.classList.toggle('all-done', allDone);
     if(!btn._wired){
@@ -1011,7 +1024,7 @@
     return {size:null, jar:'classic', pieces:[], syrup:0, components:{classic:0,honey:0,maple:0,honeysuckle:0}, pourLog:[], stirred:false, temp:null, toppings:[], toppingTouched:false, sealed:false, batchIds:[]};
   }
   function makePots(){
-    return Array.from({length:4}, (_,i) => ({id:i, sugar:0, types:['classic'], mix:50, progress:0, status:'idle', quality:null, startedAt:0, alarm:false, alarmFired:false}));
+    return Array.from({length:20}, (_,i) => ({id:i, sugar:0, types:['classic'], mix:50, progress:0, status:'idle', quality:null, startedAt:0, alarm:false, alarmFired:false}));
   }
 
   const state = {
@@ -2377,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '自定义模式测试版';
+  const CHANGELOG_SUB = '自定义周任务';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -2918,18 +2931,30 @@
 
   function updateWeekBanner(){
     if(!els.weekBanner) return;
-    const show = (state.mode === 'endless' || state.mode === 'rogue') && state.phase !== 'intro';
+    const show = (state.mode === 'endless' || state.mode === 'rogue' || (state.mode === 'custom' && state.customMap && state.customMap.weeklyOn !== false)) && state.phase !== 'intro';
     els.weekBanner.hidden = !show;
     if(!show) return;
+    const left = WEEK_DAYS - ((state.day - 1) % WEEK_DAYS);
+    if(state.mode === 'custom'){
+      const list = customTasks();
+      if(list.length){
+        const done = list.filter(t => t.check()).length;
+        els.weekLabel.textContent = `自定义第 ${state.week} 周任务`;
+        els.weekValue.textContent = `${done} / ${list.length}`;
+        els.weekFill.style.width = (done / list.length * 100) + '%';
+        els.weekFill.classList.toggle('met', done === list.length);
+        els.weekLeft.textContent = done === list.length ? '本周任务完成' : `还剩 ${left} 天`;
+        return;
+      }
+    }
     const devPass = !!state.devMode;
     const shownEarned = devPass ? Math.max(state.weekEarned, state.weekTarget) : state.weekEarned;
     const pct = state.weekTarget ? clamp(shownEarned / state.weekTarget * 100, 0, 100) : 0;
     const ev = state.mode === 'rogue' ? rogueEventToday() : null;
-    els.weekLabel.textContent = state.mode === 'rogue' ? `肉鸽第 ${state.week} 周目标${ev ? ` · 今日：${ev.name}` : ''}` : `第 ${state.week} 周业绩`;
+    els.weekLabel.textContent = state.mode === 'rogue' ? `肉鸽第 ${state.week} 周目标${ev ? ` · 今日：${ev.name}` : ''}` : state.mode === 'custom' ? `自定义第 ${state.week} 周目标` : `第 ${state.week} 周业绩`;
     els.weekValue.textContent = `${state.weekEarned} / ${state.weekTarget}`;
     els.weekFill.style.width = pct + '%';
     els.weekFill.classList.toggle('met', shownEarned >= state.weekTarget);
-    const left = WEEK_DAYS - ((state.day - 1) % WEEK_DAYS);
     els.weekLeft.textContent = shownEarned >= state.weekTarget ? (devPass ? '开发者模式 · 已达标' : '已达标') : `还剩 ${left} 天`;
   }
 
@@ -3945,8 +3970,10 @@
   }
   function renderPots(){
     let html = '';
-    for(let i=0;i<4;i++){
-      if(i >= state.upgrade.pots){
+    const customRun = state.mode === 'custom';
+    const totalSlots = customRun ? Math.max(1, Math.min(20, state.upgrade.pots)) : 4;
+    for(let i=0;i<totalSlots;i++){
+      if(!customRun && i >= state.upgrade.pots){
         html += `<div class="pot-empty">锅位 ${i+1}<br>去金币商店解锁</div>`;
         continue;
       }
@@ -3985,6 +4012,7 @@
         <div class="pot-actions">${actions}</div>
       </div>`;
     }
+    els.potGrid.classList.toggle('many', totalSlots >= 6);
     els.potGrid.innerHTML = html;
   }
   function updatePotVisuals(){
@@ -5107,11 +5135,18 @@
     syrupMax: 2,
     steps: { cut: true, stir: true, temp: true, topping: true },
     order: { complexChance: 35, syrupMin: 1, syrupMax: 2, toppingMin: 0, toppingMax: 2, forceJar: false },
+    weeklyOn: true,
     weeklyTarget: 800,
+    missions: [{ type: 'coins', target: 800 }],
     weights: { size:100, jar:100, peach:100, kind:100, ratio:100, boil:100, pour:100, stir:100, temp:100, topping:100, speed:100 },
     enabled: { size:true, jar:true, peach:true, kind:true, ratio:true, boil:true, pour:true, stir:true, temp:true, topping:true, speed:true }
   };
   const CM_PERSONAS = ['generous','strict','petty','patient','impatient'];
+  const CM_MISSION_TYPES = ['coins','wideJar','honey','mint','perfect','served'];
+  const CM_MISSION_LABEL = {
+    coins: '本周赚到 X 金币', wideJar: '使用 X 次广口罐', honey: '使用 X 次蜂蜜糖浆',
+    mint: '使用 X 次薄荷小料', perfect: '拿下 X 次完美出餐', served: '完成 X 单出餐'
+  };
   const CM_WEIGHT_KEYS = ['size','jar','peach','kind','ratio','boil','pour','stir','temp','topping','speed'];
   const CM_WEIGHT_LABEL = { size:'罐型', jar:'罐子', peach:'黄桃', kind:'糖浆种类', ratio:'糖浆比例', boil:'熬糖火候', pour:'倒糖量', stir:'搅拌', temp:'温度', topping:'加料', speed:'出餐速度' };
 
@@ -5133,9 +5168,15 @@
     out.cover = String(raw.cover || '');
     out.guestsPerDay = Math.round(clampNum(raw.guestsPerDay != null ? raw.guestsPerDay : out.guestsPerDay, 1, 8));
     out.patienceSec = Math.round(clampNum(raw.patienceSec != null ? raw.patienceSec : out.patienceSec, 3, 3600));
-    out.pots = Math.round(clampNum(raw.pots != null ? raw.pots : out.pots, 1, 4));
+    out.pots = Math.round(clampNum(raw.pots != null ? raw.pots : out.pots, 1, 20));
     out.syrupMax = Math.round(clampNum(raw.syrupMax != null ? raw.syrupMax : out.syrupMax, 1, 6));
+    out.weeklyOn = raw.weeklyOn !== false;
     out.weeklyTarget = Math.round(clampNum(raw.weeklyTarget != null ? raw.weeklyTarget : out.weeklyTarget, 0, 999999));
+    if(Array.isArray(raw.missions)){
+      out.missions = raw.missions.filter(x => x && CM_MISSION_TYPES.includes(x.type))
+        .slice(0, 6)
+        .map(x => ({ type: x.type, target: Math.round(clampNum(x.target != null ? x.target : 1, 1, 99999)) }));
+    }
     if(raw.typeWeights){
       ['normal','elite','boss'].forEach(k => { out.typeWeights[k] = Math.round(clampNum(raw.typeWeights[k] != null ? raw.typeWeights[k] : out.typeWeights[k], 0, 100)); });
     }
@@ -5253,7 +5294,7 @@
         '<div class="cm-tags">' + personas + '</div>' +
       '</div>' +
       '<div class="cm-sec"><h4>店铺</h4>' +
-        cmNumRow('熬糖锅数量', '1~4 口（更多锅位等 UI 改版）', 'pots', 1, 4) +
+        cmNumRow('熬糖锅数量', '1~20 口', 'pots', 1, 20) +
         cmNumRow('糖浆份数上限', '1~6 份，可多份混合', 'syrupMax', 1, 6) +
         cmSwitchRow('需要切黄桃', '关掉后碗里一直有黄桃', 'steps.cut') +
         cmSwitchRow('需要搅拌', '关掉后自动搅拌', 'steps.stir') +
@@ -5269,7 +5310,15 @@
         cmSwitchRow('必选非经典罐', '订单一定要求特殊罐型', 'order.forceJar') +
       '</div>' +
       '<div class="cm-sec"><h4>目标与评分</h4>' +
-        cmNumRow('每周金币目标', '任务面板按它来', 'weeklyTarget', 0, 999999, 100) +
+        cmSwitchRow('每周金币目标', '关掉就没有周目标，只按当天营业额结算', 'weeklyOn') +
+        (m.weeklyOn !== false ? cmNumRow('每周金币目标', '任务面板按它来', 'weeklyTarget', 0, 999999, 100) : '') +
+        (m.weeklyOn !== false ? '<div class="cm-row"><label>周任务<small>最多 6 条，按周结算</small></label></div>' + (m.missions || []).map((x, i) =>
+          '<div class="cm-row"><label>' + (CM_MISSION_LABEL[x.type] || x.type).replace('X', '<b>' + x.target + '</b>') + '</label>' +
+          '<div class="cm-num"><button type="button" data-cm-mission="dec" data-idx="' + i + '">−</button>' +
+          '<b>' + x.target + '</b>' +
+          '<button type="button" data-cm-mission="inc" data-idx="' + i + '">＋</button>' +
+          '<button type="button" data-cm-mission="del" data-idx="' + i + '" aria-label="删除任务">×</button></div></div>').join('') +
+          '<div class="cm-tags">' + CM_MISSION_TYPES.map(t => '<button type="button" class="cm-tag" data-cm-mission="add" data-type="' + t + '">＋' + (CM_MISSION_LABEL[t] || t).replace(' X ', ' ') + '</button>').join('') + '</div>' : '') +
         '<div class="cm-note">关掉的评分项不计分；权重越大越吃这一项（100% 为默认）。</div>' +
         weights +
       '</div>' +
@@ -5300,6 +5349,30 @@
     if(authorInput) cmDraft.author = String(authorInput.value || '').slice(0, 16);
   }
   function onCustomEditorClick(e){
+    const missionBtn = e.target.closest('[data-cm-mission]');
+    if(missionBtn){
+      syncDraftFromInputs();
+      const act = missionBtn.dataset.cmMission;
+      const list = Array.isArray(cmDraft.missions) ? cmDraft.missions.slice() : [];
+      if(act === 'add'){
+        const type = missionBtn.dataset.type;
+        if(list.length >= 6){ toast('周任务最多 6 条'); return; }
+        if(list.some(x => x.type === type)){ toast('这类任务已经加过了'); return; }
+        list.push({ type, target: type === 'coins' ? 500 : 3 });
+      }else{
+        const i = Number(missionBtn.dataset.idx);
+        if(!list[i]) return;
+        if(act === 'del') list.splice(i, 1);
+        else {
+          const step = list[i].type === 'coins' ? 100 : 1;
+          list[i].target = Math.max(1, (Number(list[i].target) || 1) + (act === 'inc' ? step : -step));
+        }
+      }
+      cmDraft.missions = list;
+      cmDraft = normalizeCustomMap(cmDraft);
+      renderCustomEditor();
+      return;
+    }
     const stepBtn = e.target.closest('[data-cm-step]');
     if(stepBtn){
       syncDraftFromInputs();
@@ -5488,7 +5561,8 @@
     state.runEarned = 0;
     state.week = 1;
     state.weekEarned = 0;
-    state.weekTarget = state.mode === 'rogue' ? ROGUE_BASE_TARGET : state.mode === 'custom' ? state.customMap.weeklyTarget : weekTargetFor(1);
+    state.customStats = { coins: 0, wideJar: 0, honey: 0, mint: 0, perfect: 0, served: 0 };
+    state.weekTarget = state.mode === 'rogue' ? ROGUE_BASE_TARGET : state.mode === 'custom' ? (state.customMap.weeklyOn === false ? 0 : state.customMap.weeklyTarget) : weekTargetFor(1);
     state.summaryKind = 'day';
     state.metaAwarded = false;
     state.orderTipShown = false;
@@ -5982,6 +6056,15 @@
     if(!c.temp){ toast('还没选温度'); return; }
     if(!c.toppingTouched){ toast('还没选加料，点「不加」也可以'); return; }
     c.sealed = true;
+    if(state.mode === 'custom'){
+      const st = state.customStats;
+      if(st){
+        if((c.jar || 'classic') === 'wide') st.wideJar = (st.wideJar || 0) + 1;
+        if((c.toppings || []).some(t => ((t && t.id) || t) === 'mint')) st.mint = (st.mint || 0) + 1;
+        const bt = batch => !!(batch && (batch.types || []).includes('honey'));
+        if(bt(findBatch())) st.honey = (st.honey || 0) + 1;
+      }
+    }
     tutFlag('seal');
     const batch = findBatch();
     if(batch){
@@ -6405,6 +6488,11 @@
     state.runEarned += result.coins;
     // 肉鸽：addWallet 里已经把本单金币计入 weekEarned，这里只补无尽/普通模式
     if(!rogueActive()) state.weekEarned += result.coins;
+    if(state.mode === 'custom' && state.customStats){
+      state.customStats.served = (state.customStats.served || 0) + 1;
+      if(result.score >= 100) state.customStats.perfect = (state.customStats.perfect || 0) + 1;
+      state.customStats.coins = state.weekEarned;
+    }
     saveGame();
     if(!result.death) renderReview(result);
     updateHud();
@@ -6691,6 +6779,11 @@
       state.week = Math.ceil(state.day / WEEK_DAYS);
       state.weekEarned = 0;
       state.weekTarget = weekTargetFor(state.week);
+    }
+    if(state.mode === 'custom' && (state.day - 1) % WEEK_DAYS === 0){
+      state.week = Math.ceil(state.day / WEEK_DAYS);
+      state.weekEarned = 0;
+      state.customStats = { coins: 0, wideJar: 0, honey: 0, mint: 0, perfect: 0, served: 0 };
     }
     if(state.mode === 'rogue'){
       state.week = Math.ceil(state.day / WEEK_DAYS);
@@ -7887,7 +7980,7 @@
     
 
 
-  window.__naiwa = { openCustomEditor, customCodeOf, decodeCustomCode, getCustomMap: () => state.customMap, customDraft: () => cmDraft, state, renderReview, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, addWallet, spendCoins, handleFurniture, handleClothes, handleSkin, openHome, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, renderRogueShop, makeRogueShopStock, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
+  window.__naiwa = { openCustomEditor, customCodeOf, decodeCustomCode, getCustomMap: () => state.customMap, setCustomMap: (m) => { state.customMap = normalizeCustomMap(m); }, normalizeCustomMap, customTasks, customDraft: () => cmDraft, state, renderReview, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, addWallet, spendCoins, handleFurniture, handleClothes, handleSkin, openHome, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, renderRogueShop, makeRogueShopStock, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
     }
   }
 
