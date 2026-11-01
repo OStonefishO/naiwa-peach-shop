@@ -4776,6 +4776,11 @@
   ];
   let devBagTab = 'shrimp';
   function emptyDevBag(){ return { shrimp:{}, items:{}, events:{} }; }
+  function resetDevBag(){
+    if(activeProfile) activeProfile.devBag = emptyDevBag();
+    if(typeof saveProfiles === 'function') saveProfiles();
+    if(document.getElementById('devBagBody')){ try { renderDevBag(); } catch(e){} }
+  }
   function devBag(create){
     if(!activeProfile) return emptyDevBag();
     if(!activeProfile.devBag){
@@ -4969,6 +4974,7 @@
   }
   function beginRun(mode){
     ensureAudio();
+    resetDevBag();
     if(activeProfile) activeProfile.run = null;
     state.mode = MODES[mode] ? mode : 'normal';
     if(state.mode === 'tutorial'){ state.rogue = null; state.tutorial = { seen:{} }; state.tutorialCoins = null; }
