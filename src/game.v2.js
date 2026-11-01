@@ -2385,7 +2385,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '死亡之糖加成';
+  const CHANGELOG_SUB = '抑郁症出现率';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -4216,16 +4216,24 @@
       toast('奶鼠来袭！多了一位不速之客，优先招待它，否则它会偷小费');
     }
     if(rogueActive() && availableSyrups().includes('death')){
-      // 拿到死亡之糖后，会有客人（重度抑郁症）隐性只想喝死亡之糖
-      state.dayGuests.forEach(dg => {
-        if(dg.guest && dg.guest.kind === 'naishu') return;
-        if(dg.guest && (dg.guest.tier === 'boss' || dg.guest.tier === 'elite')) return;
-        if(Math.random() >= .35) return;
+      // 拿到死亡之糖后，会偶尔出现「重度抑郁症」客人：大约每 8~13 位客人里出 1 位
+      const r = state.rogue;
+      if(!r.depNext) r.depNext = randInt(8, 12);
+      if(typeof r.depSeen !== 'number') r.depSeen = 0;
+      let converted = false;
+      for(const dg of state.dayGuests){
+        if(converted) break;
+        if(dg.guest && (dg.guest.kind === 'naishu' || dg.guest.tier === 'boss' || dg.guest.tier === 'elite')) continue;
+        r.depSeen += 1;
+        if(r.depSeen < r.depNext) continue;
         dg.personality = PERSONALITIES.depression;
         dg.patienceMs = personalityPatience(dg.personality, dg.guest);
         if(!dg.order.syrups || !dg.order.syrups.length) dg.order.syrups = [{id:'classic', ratio:100}];
         dg.order.deathRequirement = true;
-      });
+        converted = true;
+        r.depSeen = 0;
+        r.depNext = randInt(8, 12);
+      }
     }
     if(rogueActive() && (state.rogue.items.personality || 0) > 0 && state.dayGuests[0]){
       state.rogue.items.personality -= 1;
@@ -5022,7 +5030,7 @@
       coins:0, totalCoins:0, week:1, weekEarned:0, weekTarget:ROGUE_BASE_TARGET,
       nextTarget:rogueGrowthTarget(ROGUE_BASE_TARGET),
       toppings:[], jars:[], syrups:[], items:{}, shrimp:[], events:{}, shopStock:null,
-      pendingShop:null, pendingShrimp:null, rerolls:0, boughtToday:{},
+      pendingShop:null, pendingShrimp:null, rerolls:0, boughtToday:{}, depSeen:0, depNext:0,
       upgrades:{pots:1, alarms:0, knife:'wood', knives:['wood']}
     };
     state.rogue.events = rogueWeekEvents();
