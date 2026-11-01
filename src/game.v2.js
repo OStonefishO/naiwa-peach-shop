@@ -1782,8 +1782,10 @@
     if(els.shopCoins) els.shopCoins.textContent = coinText();
     if(els.dressCoins) els.dressCoins.textContent = `${coinText()} 金币`;
   }
-  function spendCoins(n){
+  // scope='global' 时强制走主菜单钱包：肉鸽金币只在本局内花，永远不能买服装/家具/皮肤
+  function spendCoins(n, scope){
     if(state.devMode) return true;
+    if(scope === 'global') return spendGlobalCoins(n);
     if(rogueActive()){
       if(state.rogue.coins < n) return false;
       state.rogue.coins -= n;
@@ -1801,6 +1803,17 @@
     if(!activeProfile || !Number.isFinite(n) || activeProfile.wallet < n) return false;
     activeProfile.wallet -= n;
     state.coins = activeProfile.wallet;
+    saveProfiles();
+    if(els.coins) els.coins.textContent = coinText();
+    if(els.homeCoins) els.homeCoins.textContent = coinText();
+    if(els.shopCoins) els.shopCoins.textContent = coinText();
+    if(els.dressCoins) els.dressCoins.textContent = `${coinText()} 金币`;
+    return true;
+  }
+  function spendGlobalCoins(n){
+    if(!activeProfile || !Number.isFinite(n) || activeProfile.wallet < n) return false;
+    activeProfile.wallet -= n;
+    state.coins = rogueActive() ? state.rogue.coins : (tutorialActive() ? (state.tutorialCoins || 0) : activeProfile.wallet);
     saveProfiles();
     if(els.coins) els.coins.textContent = coinText();
     if(els.homeCoins) els.homeCoins.textContent = coinText();
@@ -2237,9 +2250,10 @@
   function handleFurniture(id){
     const f = FURNITURE[id];
     if(!f || !activeProfile) return;
+    if(rogueActive()){ toast('肉鸽金币只在本局使用，主菜单商店要用普通金币'); sfx.error(); return; }
     const owned = activeProfile.ownedFurniture.includes(id);
     if(!owned){
-      if(!spendCoins(f.price)){ toast('金币不够，先去营业赚一点吧'); sfx.error(); return; }
+      if(!spendCoins(f.price, 'global')){ toast('金币不够，先去营业赚一点吧'); sfx.error(); return; }
       activeProfile.ownedFurniture.push(id);
       if(activeProfile.placedFurniture.length < 4){
         activeProfile.placedFurniture.push(id);
@@ -2262,11 +2276,12 @@
   function handleClothes(spec){
     const [kind,id] = String(spec).split(':');
     if(!CLOTHES[kind] || !activeProfile) return;
+    if(rogueActive() && !(activeProfile.clothes[kind] || []).includes(id)) { toast('肉鸽金币只在本局使用，主菜单商店要用普通金币'); sfx.error(); return; }
     const item = CLOTHES[kind].find(c => c.id === id);
     if(!item) return;
     const owned = activeProfile.clothes[kind].includes(id);
     if(!owned){
-      if(!spendCoins(item.price)){ toast('金币不够，先去营业赚一点吧'); sfx.error(); return; }
+      if(!spendCoins(item.price, 'global')){ toast('金币不够，先去营业赚一点吧'); sfx.error(); return; }
       activeProfile.clothes[kind].push(id);
       sfx.coin();
     }else sfx.tap();
@@ -2340,11 +2355,12 @@
   }
   function handleSkin(area,id){
     if(!SKINS[area] || !activeProfile) return;
+    if(rogueActive() && !(activeProfile.skins[area] || []).includes(id)) { toast('肉鸽金币只在本局使用，主菜单商店要用普通金币'); sfx.error(); return; }
     const skin = SKINS[area].find(s => s.id === id);
     if(!skin) return;
     const owned = activeProfile.skins[area].includes(id);
     if(!owned){
-      if(!spendCoins(skin.price)){ toast('金币不够，先去营业赚一点吧'); sfx.error(); return; }
+      if(!spendCoins(skin.price, 'global')){ toast('金币不够，先去营业赚一点吧'); sfx.error(); return; }
       activeProfile.skins[area].push(id);
       sfx.coin();
     }else sfx.tap();
@@ -5040,6 +5056,9 @@
     els.introOverlay.classList.add('show');
     if(els.homeOverlay) els.homeOverlay.classList.remove('show');
     if(els.leaderboardOverlay) els.leaderboardOverlay.classList.remove('show');
+    // 肉鸽金币只属于本局：回到标题时丢弃，绝不进入主菜单钱包
+    if(state.mode === 'rogue') state.rogue = null;
+    state.coins = activeProfile ? activeProfile.wallet : 0;
     renderPlayerBar();
     els.game.dataset.stage = 'desk';
     updateHud();
@@ -6253,7 +6272,7 @@
     els.shopCoins.textContent = coinText();
     if(els.shopWallet) els.shopWallet.innerHTML = `<svg class="icon"><use href="#i-coin"></use></svg>${rogueActive() ? '肉鸽金币' : '金币'} <b>${coinText()}</b><small>${rogueActive() ? '本局购买 · 结束后重置' : '全局购买，永久生效'}</small>`;
     if(els.shopTitle) els.shopTitle.textContent = rogueActive() ? '肉鸽金币商店' : main ? '道具商店' : '打烊后的金币商店';
-    if(els.shopSub) els.shopSub.textContent = rogueActive() ? '本局有效，肉鸽结束后全部重置' : main ? '家具、升级、糖浆，买了就永久生效' : '买口锅、换把刀，让明天更快一点';
+    if(els.shopSub) els.shopSub.textContent = rogueActive() ? '本局有效，肉鸽金币每局清零、不进主菜单钱包' : main ? '家具、升级、糖浆，买了就永久生效' : '买口锅、换把刀，让明天更快一点';
     if(els.shopStartBtn) els.shopStartBtn.style.display = main ? 'none' : '';
     if(els.shopEarlyBtn) els.shopEarlyBtn.style.display = main ? 'none' : '';
     if(els.shopBackBtn) els.shopBackBtn.textContent = main ? '关闭' : '回到今日结算';
@@ -7270,7 +7289,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
+      window.__naiwa = { state, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, addWallet, spendCoins, handleFurniture, handleClothes, handleSkin, openHome, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
     }
   }
 
