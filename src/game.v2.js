@@ -2379,7 +2379,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '夜市每日限购';
+  const CHANGELOG_SUB = '物品栏分类';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -4791,6 +4791,7 @@
     {id:'events', name:'事件'}
   ];
   let devBagTab = 'shrimp';
+  let devBagRarity = 'all';
   function emptyDevBag(){ return { shrimp:{}, items:{}, events:{} }; }
   function resetDevBag(){
     if(activeProfile) activeProfile.devBag = emptyDevBag();
@@ -4879,8 +4880,19 @@
       return;
     }
     const isShrimp = devBagTab === 'shrimp';
-    const list = isShrimp ? SHRIMPS : ROGUE_ITEMS;
-    body.innerHTML = list.map(m => {
+    const all = isShrimp ? SHRIMPS : ROGUE_ITEMS;
+    let subBar = '';
+    let list = all;
+    if(isShrimp){
+      const rarityIds = ['normal', 'rare', 'legend', 'curse'].filter(r => all.some(s => s.rarity === r));
+      if(devBagRarity !== 'all' && !rarityIds.includes(devBagRarity)) devBagRarity = 'all';
+      subBar = `<div class="dev-subbar">` +
+        `<button type="button" data-dev-rarity="all" class="${devBagRarity === 'all' ? 'on' : ''}">全部 ${all.length}</button>` +
+        rarityIds.map(r => `<button type="button" data-dev-rarity="${r}" class="${devBagRarity === r ? 'on' : ''}" style="--rarity:${ROGUE_RARITY[r].color}">${ROGUE_RARITY[r].name} ${all.filter(s => s.rarity === r).length}</button>`).join('') +
+        `</div>`;
+      if(devBagRarity !== 'all') list = all.filter(s => s.rarity === devBagRarity);
+    }
+    body.innerHTML = subBar + (list.map(m => {
       const cur = Math.max(0, (isShrimp ? b.shrimp : b.items)[m.id] | 0);
       const sub = isShrimp ? `${ROGUE_RARITY[m.rarity].name} · ${m.desc}` : m.desc;
       const max = m.max || 1;
@@ -4890,9 +4902,16 @@
           <b>${cur}</b>
           <button type="button" data-dev-step="1" data-dev-kind="${devBagTab}" data-dev-id="${m.id}" ${cur >= max ? 'disabled' : ''}>＋</button>
         </div></div>`;
-    }).join('') || '<div class="dev-empty">暂无条目</div>';
+    }).join('') || '<div class="dev-empty">这一类还没有辣虾</div>');
   }
   function onDevBagClick(e){
+    const rar = e.target.closest('[data-dev-rarity]');
+    if(rar){
+      devBagRarity = rar.dataset.devRarity || 'all';
+      sfx.tap();
+      renderDevBag();
+      return;
+    }
     const step = e.target.closest('[data-dev-step]');
     if(step){
       const id = step.dataset.devId, kind = step.dataset.devKind, d = Number(step.dataset.devStep);
