@@ -2514,7 +2514,7 @@
       'rogueHudPanel','rogueDayTag','rogueEventLine','rogueItemsBar','buffBagBtn','buffCount','rogueShopBtn','rogueCoinShopBtn',
       'rogueMarketCoin','rogueMarketBag','buffBagOverlay','buffBagClose','buffBagBody','summaryPauseBtn','devEndDayBtn',
       'shrimpCabinetBtn','shrimpCabinetMeta','shrimpCabinetOverlay','shrimpCabinetClose','shrimpCabinetBody','shrimpCabinetSub',
-      'startActions','continueBtn','continueMeta','rogueModeCard','rogueBadge','rogueNote',
+      'startActions','continueBtn','continueLabel','continueMeta','rogueModeCard','rogueBadge','rogueNote',
       'playerMenuToggle','playerMenu',
       'settingsPauseBtn','rogueOverlay','rogueTitle','rogueStayBtn','rogueHomeBtn','confirmTitle','confirmCopy','confirmIcon','confirmTip',
       'tutorialOverlay','tutorialTitle','tutorialText','tutorialStep','tutorialNext'];
@@ -4396,11 +4396,17 @@
     els.startActions.classList.toggle('has-run', !!run);
     els.continueBtn.hidden = !run;
     if(run){
-      const modeName = run.mode === 'normal' ? '普通' : '无尽';
-      const dayLabel = run.mode === 'normal'
-        ? `DAY ${run.day}/${NORMAL_DAYS}`
-        : `W${run.week} · DAY ${((run.day - 1) % WEEK_DAYS) + 1}/${WEEK_DAYS}`;
+      const MODE_LABEL = {normal:'普通', endless:'无尽', rogue:'肉鸽', tutorial:'新手'};
+      const modeName = MODE_LABEL[run.mode] || '存档';
+      let dayLabel;
+      if(run.mode === 'normal') dayLabel = `DAY ${run.day}/${NORMAL_DAYS}`;
+      else if(run.mode === 'tutorial') dayLabel = `DAY ${((run.day - 1) % 7) + 1}/7`;
+      else dayLabel = `W${run.week} · DAY ${((run.day - 1) % WEEK_DAYS) + 1}/${WEEK_DAYS}`;
+      if(els.continueLabel) els.continueLabel.textContent = `继续${modeName}`;
       els.continueMeta.textContent = `${modeName} · ${dayLabel}`;
+    }else if(els.continueLabel){
+      els.continueLabel.textContent = '继续上一局';
+      els.continueMeta.textContent = '';
     }
     updateStartButton();
     renderRogueMode();
