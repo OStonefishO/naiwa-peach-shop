@@ -491,7 +491,7 @@
   }
   function customTasks(){
     const m = customMap();
-    if(!m || m.weeklyOn === false) return [];
+    if(!m || m.missionsOn === false) return [];
     const stats = state.customStats || {};
     return (m.missions || []).map((x, i) => {
       const have = x.type === 'coins' ? (state.weekEarned || 0) : (stats[x.type] || 0);
@@ -2390,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '自定义周任务';
+  const CHANGELOG_SUB = '周任务独立开关';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -2931,7 +2931,9 @@
 
   function updateWeekBanner(){
     if(!els.weekBanner) return;
-    const show = (state.mode === 'endless' || state.mode === 'rogue' || (state.mode === 'custom' && state.customMap && state.customMap.weeklyOn !== false)) && state.phase !== 'intro';
+    const cmMap = state.mode === 'custom' ? state.customMap : null;
+    const cmShow = !!(cmMap && ((cmMap.missionsOn !== false && (cmMap.missions || []).length) || cmMap.weeklyOn !== false));
+    const show = (state.mode === 'endless' || state.mode === 'rogue' || cmShow) && state.phase !== 'intro';
     els.weekBanner.hidden = !show;
     if(!show) return;
     const left = WEEK_DAYS - ((state.day - 1) % WEEK_DAYS);
@@ -5137,19 +5139,24 @@
     order: { complexChance: 35, syrupMin: 1, syrupMax: 2, toppingMin: 0, toppingMax: 2, forceJar: false },
     weeklyOn: true,
     weeklyTarget: 800,
+    missionsOn: true,
     missions: [{ type: 'coins', target: 800 }],
     weights: { size:100, jar:100, peach:100, kind:100, ratio:100, boil:100, pour:100, stir:100, temp:100, topping:100, speed:100 },
     enabled: { size:true, jar:true, peach:true, kind:true, ratio:true, boil:true, pour:true, stir:true, temp:true, topping:true, speed:true }
   };
   const CM_PERSONAS = ['generous','strict','petty','patient','impatient'];
-  const CM_MISSION_TYPES = ['coins','wideJar','honey','mint','perfect','served'];
+  const CM_MISSION_TYPES = ['coins','served','perfect','mixed','richTopping','wideJar','narrowJar','honey','honeysuckle','maple','mint','osmanthus','goji','rock'];
   const CM_MISSION_LABEL = {
-    coins: '本周赚到 X 金币', wideJar: '使用 X 次广口罐', honey: '使用 X 次蜂蜜糖浆',
-    mint: '使用 X 次薄荷小料', perfect: '拿下 X 次完美出餐', served: '完成 X 单出餐'
+    coins: '本周赚到 X 金币', served: '完成 X 单出餐', perfect: '拿下 X 次完美出餐',
+    mixed: '用混合糖浆出 X 单', richTopping: '加 3 种以上小料 X 单',
+    wideJar: '使用 X 次广口罐', narrowJar: '使用 X 次窄口罐',
+    honey: '使用 X 次蜂蜜糖浆', honeysuckle: '使用 X 次金银花糖浆', maple: '使用 X 次枫糖浆',
+    mint: '使用 X 次薄荷', osmanthus: '使用 X 次桂花', goji: '使用 X 次枸杞', rock: '使用 X 次冰糖'
   };
   const CM_WEIGHT_KEYS = ['size','jar','peach','kind','ratio','boil','pour','stir','temp','topping','speed'];
   const CM_WEIGHT_LABEL = { size:'罐型', jar:'罐子', peach:'黄桃', kind:'糖浆种类', ratio:'糖浆比例', boil:'熬糖火候', pour:'倒糖量', stir:'搅拌', temp:'温度', topping:'加料', speed:'出餐速度' };
 
+  const CM_MISSION_SHORT = { coins:'赚金币', served:'出餐单数', perfect:'完美出餐', mixed:'混合糖浆', richTopping:'三料以上', wideJar:'广口罐', narrowJar:'窄口罐', honey:'蜂蜜', honeysuckle:'金银花', maple:'枫糖浆', mint:'薄荷', osmanthus:'桂花', goji:'枸杞', rock:'冰糖' };
   function cloneJSON(o){ return JSON.parse(JSON.stringify(o)); }
   function cmPathGet(obj, path){ return path.split('.').reduce((o,k) => (o == null ? o : o[k]), obj); }
   function cmPathSet(obj, path, val){
@@ -5171,6 +5178,7 @@
     out.pots = Math.round(clampNum(raw.pots != null ? raw.pots : out.pots, 1, 20));
     out.syrupMax = Math.round(clampNum(raw.syrupMax != null ? raw.syrupMax : out.syrupMax, 1, 6));
     out.weeklyOn = raw.weeklyOn !== false;
+    out.missionsOn = raw.missionsOn !== false;
     out.weeklyTarget = Math.round(clampNum(raw.weeklyTarget != null ? raw.weeklyTarget : out.weeklyTarget, 0, 999999));
     if(Array.isArray(raw.missions)){
       out.missions = raw.missions.filter(x => x && CM_MISSION_TYPES.includes(x.type))
@@ -5310,15 +5318,16 @@
         cmSwitchRow('必选非经典罐', '订单一定要求特殊罐型', 'order.forceJar') +
       '</div>' +
       '<div class="cm-sec"><h4>目标与评分</h4>' +
-        cmSwitchRow('每周金币目标', '关掉就没有周目标，只按当天营业额结算', 'weeklyOn') +
-        (m.weeklyOn !== false ? cmNumRow('每周金币目标', '任务面板按它来', 'weeklyTarget', 0, 999999, 100) : '') +
-        (m.weeklyOn !== false ? '<div class="cm-row"><label>周任务<small>最多 6 条，按周结算</small></label></div>' + (m.missions || []).map((x, i) =>
+        cmSwitchRow('每周金币目标', '关掉后不再判定周金币达标', 'weeklyOn') +
+        (m.weeklyOn !== false ? cmNumRow('每周金币目标', '只影响周金币达标，不影响下面的周任务', 'weeklyTarget', 0, 999999, 100) : '') +
+        cmSwitchRow('周任务', '按周结算的自定义任务，和金币目标互不影响', 'missionsOn') +
+        (m.missionsOn !== false ? '<div class="cm-row"><label>周任务<small>最多 6 条，按周结算</small></label></div>' + (m.missions || []).map((x, i) =>
           '<div class="cm-row"><label>' + (CM_MISSION_LABEL[x.type] || x.type).replace('X', '<b>' + x.target + '</b>') + '</label>' +
           '<div class="cm-num"><button type="button" data-cm-mission="dec" data-idx="' + i + '">−</button>' +
           '<b>' + x.target + '</b>' +
           '<button type="button" data-cm-mission="inc" data-idx="' + i + '">＋</button>' +
           '<button type="button" data-cm-mission="del" data-idx="' + i + '" aria-label="删除任务">×</button></div></div>').join('') +
-          '<div class="cm-tags">' + CM_MISSION_TYPES.map(t => '<button type="button" class="cm-tag" data-cm-mission="add" data-type="' + t + '">＋' + (CM_MISSION_LABEL[t] || t).replace(' X ', ' ') + '</button>').join('') + '</div>' : '') +
+          '<div class="cm-tags">' + CM_MISSION_TYPES.map(t => '<button type="button" class="cm-tag" data-cm-mission="add" data-type="' + t + '">＋' + (CM_MISSION_SHORT[t] || t) + '</button>').join('') + '</div>' : '') +
         '<div class="cm-note">关掉的评分项不计分；权重越大越吃这一项（100% 为默认）。</div>' +
         weights +
       '</div>' +
@@ -6059,10 +6068,17 @@
     if(state.mode === 'custom'){
       const st = state.customStats;
       if(st){
-        if((c.jar || 'classic') === 'wide') st.wideJar = (st.wideJar || 0) + 1;
-        if((c.toppings || []).some(t => ((t && t.id) || t) === 'mint')) st.mint = (st.mint || 0) + 1;
-        const bt = batch => !!(batch && (batch.types || []).includes('honey'));
-        if(bt(findBatch())) st.honey = (st.honey || 0) + 1;
+        const inc = k => { st[k] = (st[k] || 0) + 1; };
+        const jar = c.jar || 'classic';
+        if(jar === 'wide') inc('wideJar');
+        if(jar === 'narrow') inc('narrowJar');
+        const bb = findBatch();
+        const types = (bb && bb.types) || [];
+        ['honey','honeysuckle','maple'].forEach(id => { if(types.includes(id)) inc(id); });
+        if(types.length > 1) inc('mixed');
+        const tops = (c.toppings || []).map(t => (t && t.id) || t);
+        ['mint','osmanthus','goji','rock'].forEach(id => { if(tops.includes(id)) inc(id); });
+        if(tops.length >= 3) inc('richTopping');
       }
     }
     tutFlag('seal');
