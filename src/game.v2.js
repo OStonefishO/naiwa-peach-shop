@@ -2385,7 +2385,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '双性格与订单架';
+  const CHANGELOG_SUB = '事件开关修正';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -4900,6 +4900,12 @@
     if(state.rogue.items.sugarOwl && Number(state.rogue.owlDay) !== Number(state.day)){
       state.rogue.owlDay = state.day;
     }
+    // 开发者模式：事件开关是唯一真相——关掉的事件从本周排期里彻底清掉
+    if(state.devMode && state.rogue.events){
+      Object.keys(state.rogue.events).forEach(d => {
+        if(!devEventAllowed(state.rogue.events[d])) delete state.rogue.events[d];
+      });
+    }
   }
   function ensureDevBagUI(){
     if(!els.game) return;
@@ -5013,8 +5019,16 @@
           state.rogue.events[rogueWeekDayNow()] = id;
           state.rogue.eventShownDay = 0;
           state.rogue.pendingEventShow = true;
-        }else if(state.rogue.events[rogueWeekDayNow()] === id){
-          delete state.rogue.events[rogueWeekDayNow()];
+        }else{
+          // 关掉某个事件：把它从整周排期里全部移除，并取消今天待弹出的弹窗
+          Object.keys(state.rogue.events).forEach(d => {
+            if(state.rogue.events[d] === id) delete state.rogue.events[d];
+          });
+          state.rogue.pendingEventShow = false;
+          state.rogue.eventShownDay = state.day;
+          if(state.rogue.today === id) state.rogue.today = null;
+          const ov = document.getElementById('eventOverlay');
+          if(ov && ov.classList.contains('show')) ov.classList.remove('show');
         }
         if(on && id === 'naishu' && state.phase === 'playing'){
           setupDayGuests();
