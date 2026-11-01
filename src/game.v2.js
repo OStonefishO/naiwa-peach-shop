@@ -2385,7 +2385,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '抑郁症显示修正';
+  const CHANGELOG_SUB = '死亡之糖加成';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -5785,6 +5785,12 @@
     }
     const maxScore = rogueActive() ? rogueMaxScore() : 100;
     score = clamp(Math.round(score), 0, maxScore);
+    let deathSyrupPct = 0, deathSyrupBonus = 0;
+    if(!timedOut && deathSyrupOk){
+      deathSyrupPct = Math.round((10 + Math.random() * 10));
+      deathSyrupBonus = Math.max(1, Math.round(score * deathSyrupPct / 100));
+      score = Math.min(maxScore + 40, score + deathSyrupBonus);
+    }
     const perfect = !timedOut && score >= maxScore;
     const stars = score >= 90 ? 3 : score >= 70 ? 2 : score >= 45 ? 1 : 0;
     const tipInfo = orderTip(o);
@@ -5873,9 +5879,9 @@
     if(jarChoice) details.push({ok:jarOk, label:'罐子', text: goldMatches ? '大金罐 ✓' : jarOk ? `${JARS[c.jar || 'classic'].name} ✓` : `要${JARS[o.jar || 'classic'].name}`});
     details.push({ok:peachScore===12, label:'黄桃', text: `${counts.large}大${counts.small}小 · 共${total}块${peachScore===12 ? ' ✓' : ` / 要${peachText(o.peaches)}`}`});
     const needsDeathOnly = deathWant && !gotDeath;
-    details.push({ok:kindScore>=7.5, label:'糖浆种类', text: deathWant ? (gotDeath ? '死亡之糖 ✓' : '客人不满足你的选择') : (c.syrup > 0 ? `${gotIds.map(id => SYRUPS[id].name).join('+') || '空'}${kindScore>=7.5 ? ' ✓' : ` / 要${wantIds.map(id => SYRUPS[id].name).join('+')}${wantIds.length > 1 ? (o.boilStyle === 'together' ? '·一起熬' : '·分开熬') : ''}`}` : '还没倒糖浆')});
+    details.push({ok:kindScore>=7.5, label:'糖浆种类', text: deathWant ? (gotDeath ? `死亡之糖 ✓ · 得分×2` : '客人不满足你的选择') : (c.syrup > 0 ? `${gotIds.map(id => SYRUPS[id].name).join('+') || '空'}${kindScore>=7.5 ? ' ✓' : ` / 要${wantIds.map(id => SYRUPS[id].name).join('+')}${wantIds.length > 1 ? (o.boilStyle === 'together' ? '·一起熬' : '·分开熬') : ''}`}` : '还没倒糖浆')});
     const ratioText = deathWant
-      ? (gotDeath ? `死亡之糖 ${Math.round(c.components.death || 0)}/${Math.round(target)}%` : '客人不满足你的选择')
+      ? (gotDeath ? `死亡之糖 ${Math.round(c.components.death || 0)}/${Math.round(target)}% · 得分×2` : '客人不满足你的选择')
       : wantSyrups.map(s => `${SYRUPS[s.id].name} ${Math.round(c.components[s.id] || 0)}/${Math.round(target * s.ratio / 100)}%`).join(' · ');
     details.push({ok:ratioScore>=13, label:'糖浆比例', text: ratioText});
     const boilText = usedBatches.length ? usedBatches.map(b => `${(b.types||['classic']).map(id=>SYRUPS[id].name).join('+')}：${b.quality === 'perfect' ? '完美' : b.quality === 'thin' ? '偏生' : '焦苦'}`).join(' / ') : '没有可用糖水';
@@ -5884,11 +5890,14 @@
     details.push({ok:stirScore===3, label:'搅拌', text: wantIds.length > 1 ? (c.stirred ? '已搅拌 ✓' : '分层') + (o.stirred === !!c.stirred ? ' ✓' : o.stirred ? ' / 要搅拌' : ' / 要分层') : '单糖浆 ✓'});
     details.push({ok:tempScore===6, label:'温度', text: c.temp ? `${TEMPS[c.temp]}${tempScore===6 ? ' ✓' : ` / 要${TEMPS[o.temp]}`}` : '没选温度'});
     details.push({ok:toppingScore>=13.5, label:'加料', text: c.toppingTouched ? `${toppingText(gotTops)}${toppingScore>=13.5 ? ' ✓' : ` / 要${toppingText(wantTops)}`}` : '没选加料'});
+    if(deathSyrupBonus > 0){
+      details.push({ok:true, label:'死亡之糖', text:`糖浆加成 +${deathSyrupPct}%（+${deathSyrupBonus} 分）`});
+    }
     if(queueDelta){
       details.push({ok:queueDelta > 0, label:'排队', text: queueDelta > 0 ? `提前服务 +${queueDelta}` : `被插队 ${queueDelta}`});
     }
     details.push({ok:speedScore===6, label:'出餐速度', text: timedOut ? '超时了…' : speedScore===6 ? '手速超快' : speedScore===4 ? '稍微有点慢' : '客人等急了'});
-    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipBase, scoreTip, addTip, tipInfoTip:tipInfo.tip, tipLines, tipNotes:tipInfo.notes, details, timedOut, death:deathHit, guest:state.guest};
+    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipBase, scoreTip, addTip, tipInfoTip:tipInfo.tip, tipLines, tipNotes:tipInfo.notes, details, timedOut, death:deathHit, deathSyrupPct, deathSyrupBonus, guest:state.guest};
   }
 
   function commentFor(result){
@@ -5942,11 +5951,14 @@
     if(result.death){
       const tipRows = (result.tipLines || []).filter(l => l.k && !String(l.k).includes('小费合计'))
         .map(l => `<div><span>${l.k}</span><i>${l.v}</i></div>`).join('');
+      const deathBonusRow = result.deathSyrupBonus > 0
+        ? `<div><span>死亡之糖糖浆加成</span><i>+${result.deathSyrupPct}%（评分 +${result.deathSyrupBonus}）</i></div>`
+        : '';
       openConfirm({
         iconSvg:'skull',
         title:'客人被死亡之糖吞噬了',
         copy:'这一单的客人当场倒下，小费 ×5；排队等着的客人全都被吓跑了。',
-        tipHtml:`<div class="confirm-tip-head"><span>本单小费</span><b>+${result.coins}</b></div><div class="confirm-tip-lines">${tipRows}</div>`,
+        tipHtml:`<div class="confirm-tip-head"><span>本单小费</span><b>+${result.coins}</b></div><div class="confirm-tip-lines">${tipRows}${deathBonusRow}</div>`,
         okText:'去结算',
         cancelText:'',
         onOk:() => { state.phase = 'reviewing'; showSummary(); }
