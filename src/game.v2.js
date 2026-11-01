@@ -2385,7 +2385,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '抑郁症客人与奶鼠事件';
+  const CHANGELOG_SUB = '抑郁症显示修正';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -2960,9 +2960,15 @@
     els.orderTicket.classList.add('ticket-in');
   }
 
+  function livePersonality(guest){
+    if(!guest) return state.personality;
+    const rec = (state.dayGuests || []).find(d => d && d.guest && (d.guest === guest || d.guest.name === guest.name));
+    return (rec && rec.personality) || state.personality;
+  }
+
   function renderGuest(){
     if(!state.guest){ els.guestWrap.innerHTML = ''; return; }
-    els.guestWrap.innerHTML = `<div class="guest-name">${state.guest.name}${guestTag(state.guest)}${personalityTag(state.personality)}</div>${guestSVG(state.guest, state.guestIndex)}`;
+    els.guestWrap.innerHTML = `<div class="guest-name">${state.guest.name}${guestTag(state.guest)}${personalityTag(livePersonality(state.guest))}</div>${guestSVG(state.guest, state.guestIndex)}`;
     els.guestWrap.classList.remove('guest-enter');
     void els.guestWrap.offsetWidth;
     els.guestWrap.classList.add('guest-enter');
@@ -3674,7 +3680,7 @@
   function renderDesk(){
     if(!state.guest) return;
     els.deskAvatar.innerHTML = guestSVG(state.guest, state.guestIndex);
-    els.deskGuestName.innerHTML = `${state.guest.name}${guestTag(state.guest)}${personalityTag(state.personality)}`;
+    els.deskGuestName.innerHTML = `${state.guest.name}${guestTag(state.guest)}${personalityTag(livePersonality(state.guest))}`;
     const remain = Math.max(0, state.deadline - performance.now());
     els.deskGuestMood.textContent = state.guest.tier === 'boss'
       ? (state.can.sealed ? '检查中…这次能不能通过？' : '认真检查中 · 耐心很短')
@@ -5866,13 +5872,15 @@
     details.push({ok:sizeScore===6, label:'罐型', text: goldMatches ? '大金罐 ✓' : sizeOk ? `${SIZES[c.size].name} ✓` : `要${SIZES[o.size].name}${c.size ? ` · 用了${SIZES[c.size].name}` : ''}`});
     if(jarChoice) details.push({ok:jarOk, label:'罐子', text: goldMatches ? '大金罐 ✓' : jarOk ? `${JARS[c.jar || 'classic'].name} ✓` : `要${JARS[o.jar || 'classic'].name}`});
     details.push({ok:peachScore===12, label:'黄桃', text: `${counts.large}大${counts.small}小 · 共${total}块${peachScore===12 ? ' ✓' : ` / 要${peachText(o.peaches)}`}`});
+    const needsDeathOnly = deathWant && !gotDeath;
     details.push({ok:kindScore>=7.5, label:'糖浆种类', text: deathWant ? (gotDeath ? '死亡之糖 ✓' : '客人不满足你的选择') : (c.syrup > 0 ? `${gotIds.map(id => SYRUPS[id].name).join('+') || '空'}${kindScore>=7.5 ? ' ✓' : ` / 要${wantIds.map(id => SYRUPS[id].name).join('+')}${wantIds.length > 1 ? (o.boilStyle === 'together' ? '·一起熬' : '·分开熬') : ''}`}` : '还没倒糖浆')});
     const ratioText = deathWant
-      ? `死亡之糖 ${Math.round(c.components.death || 0)}/${Math.round(target)}%`
+      ? (gotDeath ? `死亡之糖 ${Math.round(c.components.death || 0)}/${Math.round(target)}%` : '客人不满足你的选择')
       : wantSyrups.map(s => `${SYRUPS[s.id].name} ${Math.round(c.components[s.id] || 0)}/${Math.round(target * s.ratio / 100)}%`).join(' · ');
     details.push({ok:ratioScore>=13, label:'糖浆比例', text: ratioText});
-    details.push({ok:boilScore>=14, label:'熬糖火候', text: usedBatches.length ? usedBatches.map(b => `${(b.types||['classic']).map(id=>SYRUPS[id].name).join('+')}：${b.quality === 'perfect' ? '完美' : b.quality === 'thin' ? '偏生' : '焦苦'}`).join(' / ') : '没有可用糖水'});
-    details.push({ok:pourScore>=12, label:'倒糖量', text: `总 ${Math.round(c.syrup)}% / 目标 ${Math.round(target)}%`});
+    const boilText = usedBatches.length ? usedBatches.map(b => `${(b.types||['classic']).map(id=>SYRUPS[id].name).join('+')}：${b.quality === 'perfect' ? '完美' : b.quality === 'thin' ? '偏生' : '焦苦'}`).join(' / ') : '没有可用糖水';
+    details.push({ok:boilScore>=14, label:'熬糖火候', text: needsDeathOnly ? '客人不满足你的选择' : boilText});
+    details.push({ok:pourScore>=12, label:'倒糖量', text: needsDeathOnly ? '客人不满足你的选择' : `总 ${Math.round(c.syrup)}% / 目标 ${Math.round(target)}%`});
     details.push({ok:stirScore===3, label:'搅拌', text: wantIds.length > 1 ? (c.stirred ? '已搅拌 ✓' : '分层') + (o.stirred === !!c.stirred ? ' ✓' : o.stirred ? ' / 要搅拌' : ' / 要分层') : '单糖浆 ✓'});
     details.push({ok:tempScore===6, label:'温度', text: c.temp ? `${TEMPS[c.temp]}${tempScore===6 ? ' ✓' : ` / 要${TEMPS[o.temp]}`}` : '没选温度'});
     details.push({ok:toppingScore>=13.5, label:'加料', text: c.toppingTouched ? `${toppingText(gotTops)}${toppingScore>=13.5 ? ' ✓' : ` / 要${toppingText(wantTops)}`}` : '没选加料'});
@@ -7397,7 +7405,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, addWallet, spendCoins, handleFurniture, handleClothes, handleSkin, openHome, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, renderRogueShop, makeRogueShopStock, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
+      window.__naiwa = { state, renderReview, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, addWallet, spendCoins, handleFurniture, handleClothes, handleSkin, openHome, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, renderRogueShop, makeRogueShopStock, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
     }
   }
 
