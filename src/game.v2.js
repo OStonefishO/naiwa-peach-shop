@@ -5722,7 +5722,7 @@
 
     // 重度抑郁症客人：只用死亡之糖才算数，用别的糖糖浆项直接作废；用对了糖浆相关分数翻倍
     const syrupFactor = deathWant && !gotDeath ? 0 : deathSyrupOk ? 2 : 1;
-    const kindScore = kindScoreRaw * syrupFactor;
+    const kindScore = deathWant ? (gotDeath ? 16 : 0) : kindScoreRaw * syrupFactor;
     const ratioScore = ratioScoreRaw * syrupFactor;
     const boilScore = boilScoreRaw * syrupFactor;
     const pourScore = pourScoreRaw * syrupFactor;
