@@ -235,7 +235,8 @@
     normal:{name:'普通模式', days:28, desc:'4 周 · 28 天 · 尽可能多赚钱'},
     tutorial:{name:'新手模式', weekDays:7, desc:'7 天教学 · 出餐 / 性格 / 商店 / 精英 / 混合糖浆'},
     endless:{name:'无尽模式', weekDays:7, desc:'每周完成业绩 · 不达标就关门'},
-    rogue:{name:'肉鸽模式', weekDays:7, desc:'每周业绩 · 辣虾 · 随机事件 · 肉鸽商店'}
+    rogue:{name:'肉鸽模式', weekDays:7, desc:'每周业绩 · 辣虾 · 随机事件 · 肉鸽商店'},
+    custom:{name:'自定义模式', days:28, desc:'自定义客人 / 订单 / 目标 / 评分 · 自定义码与工坊'}
   };
   const NORMAL_DAYS = 28;
   const WEEK_DAYS = 7;
@@ -500,50 +501,38 @@
   }
   function renderTutorialTasks(){
     if(!els.game) return;
+    const wrap = document.getElementById('taskInline');
+    const btn = document.getElementById('taskInlineBtn');
+    const listEl = document.getElementById('taskInlineList');
+    if(!wrap || !btn || !listEl) return;
     const onDesk = state.phase === 'playing' && state.stage === 'desk';
-    let tab0 = document.getElementById('taskTab');
-    let panel0 = document.getElementById('taskPanel');
     if(!onDesk){
-      if(tab0) tab0.style.display = 'none';
-      if(panel0) panel0.classList.remove('open');
+      wrap.hidden = true;
       return;
     }
-    const day = state.day;
     const list = dailyTasksForCurrent();
     const done = list.map(x => !!x.check());
-    const allDone = done.every(Boolean);
-
-    let tab = document.getElementById('taskTab');
-    if(!tab){
-      tab = document.createElement('button');
-      tab.id = 'taskTab';
-      tab.type = 'button';
-      tab.className = 'task-tab';
-      tab.addEventListener('click', () => {
-        const p2 = document.getElementById('taskPanel');
-        if(p2) p2.classList.toggle('open');
-        tab.classList.toggle('open');
-      });
-      els.game.appendChild(tab);
-    }
-    let panel = document.getElementById('taskPanel');
-    if(!panel){
-      panel = document.createElement('div');
-      panel.id = 'taskPanel';
-      panel.className = 'task-panel';
-      els.game.appendChild(panel);
-    }
+    const allDone = done.length > 0 && done.every(Boolean);
     const count = `${done.filter(Boolean).length}/${list.length}`;
-    tab.innerHTML = `<span>任务</span><em>${count}</em>`;
-    panel.innerHTML = `<div class="task-head"><span>今日任务</span><em>${count}</em></div>
+    wrap.hidden = false;
+    btn.innerHTML = `<span>任务</span><em>${count}</em>`;
+    listEl.innerHTML = `<div class="task-head"><span>今日任务</span><em>${count}</em></div>
       <ul>${list.map((x, i) => `<li class="${done[i] ? 'done' : ''}"><i>${done[i] ? '✓' : ''}</i><span>${x.text}</span></li>`).join('')}</ul>`;
-    panel.classList.toggle('all-done', allDone);
-    if(tab0) tab0.style.display = 'flex';
+    listEl.classList.toggle('all-done', allDone);
+    if(!btn._wired){
+      btn._wired = true;
+      btn.addEventListener('click', () => {
+        const p2 = document.getElementById('taskInlineList');
+        if(!p2) return;
+        p2.hidden = !p2.hidden;
+        btn.classList.toggle('open', !p2.hidden);
+      });
+    }
     const note = document.querySelector('.desk-note');
     if(tutorialActive() && note) note.style.display = 'none';
-    if(tutorialActive() && allDone && !(state.tutorial && state.tutorial['taskDone' + day])){
+    if(tutorialActive() && allDone && !(state.tutorial && state.tutorial['taskDone' + state.day])){
       state.tutorial = state.tutorial || { seen:{} };
-      state.tutorial['taskDone' + day] = 1;
+      state.tutorial['taskDone' + state.day] = 1;
       toast('今日任务全部完成！');
     }
   }
@@ -1329,6 +1318,7 @@
   }
   function rogueOwlToday(){ return rogueActive() && rogueHas('sugarOwl') && Number(state.rogue.owlDay) === Number(state.day); }
   function availableSyrups(){
+    if(state.mode === 'custom') return SYRUP_IDS.slice().filter(id => id !== 'death');
     if(tutorialActive()) return Array.from(new Set(['classic'].concat((state.tutorial && state.tutorial.syrups) || [])));
     if(rogueActive()) return Array.from(new Set(['classic'].concat(SYRUP_IDS.filter(id => {
       if(id === 'classic') return false;
@@ -1339,6 +1329,7 @@
     return ['classic'].concat(['honey','maple','honeysuckle'].filter(id => owned[id]));
   }
   function unlockedToppings(){
+    if(state.mode === 'custom') return Array.from(new Set(BASE_TOPPINGS.concat(EXPANSION.topping.map(x => x.id))));
     if(tutorialActive()) return Array.from(new Set(BASE_TOPPINGS.concat((state.tutorial && state.tutorial.toppings) || [])));
     if(rogueActive()){
       const extra = rogueOwlToday() ? EXPANSION.topping.map(x => x.id) : state.rogue.toppings;
@@ -1348,6 +1339,7 @@
     return BASE_TOPPINGS.concat(extra);
   }
   function unlockedJars(){
+    if(state.mode === 'custom') return ['classic','narrow','wide'];
     if(tutorialActive()) return ['classic'].concat((state.tutorial && state.tutorial.jars) || []);
     if(rogueActive()){
       const extra = rogueOwlToday() ? EXPANSION.jar.map(x => x.id) : state.rogue.jars;
@@ -2385,7 +2377,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '客人名牌排版';
+  const CHANGELOG_SUB = '自定义模式测试版';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -2786,6 +2778,7 @@
   function randInt(a,b){ return a + Math.floor(Math.random() * (b - a + 1)); }
   let lastOrderSig = '';
   function makeOrder(index, guest, pOverride){
+    if(state.mode === 'custom' && state.customMap) return makeCustomOrder(index, guest, pOverride);
     const hard = guest && (guest.tier === 'elite' || guest.tier === 'boss');
     const p = pOverride !== undefined ? pOverride : (state.personality || null);
     const complex = hard || (p && (p.id === 'patient' || p.id === 'strict'));
@@ -2914,6 +2907,8 @@
         els.daySub.textContent = `肉鸽 W${state.week} · DAY ${d}/${WEEK_DAYS}${mark} · ${label}`;
       }else if(state.mode === 'tutorial'){
         els.daySub.textContent = `新手 DAY ${state.day}/${TUTORIAL_DAYS} · ${label}`;
+      }else if(state.mode === 'custom'){
+        els.daySub.textContent = `自定义 · DAY ${state.day}/${NORMAL_DAYS}${mark} · ${label}`;
       }else{
         els.daySub.textContent = `普通 · DAY ${state.day}/${NORMAL_DAYS}${mark} · ${label}`;
       }
@@ -4171,6 +4166,7 @@
     state.rackOrderId = null;
     state.orderSeq = 0;
     state.queueInfo = null;
+    if(state.mode === 'custom'){ setupCustomDay(); return; }
     if(tutorialActive()){
       applyTutorialDay();
       const sc = tutorialScript() || {};
@@ -4480,7 +4476,7 @@
     els.startActions.classList.toggle('has-run', !!run);
     els.continueBtn.hidden = !run;
     if(run){
-      const MODE_LABEL = {normal:'普通', endless:'无尽', rogue:'肉鸽', tutorial:'新手'};
+      const MODE_LABEL = {normal:'普通', endless:'无尽', rogue:'肉鸽', tutorial:'新手', custom:'自定义'};
       const modeName = MODE_LABEL[run.mode] || '存档';
       let dayLabel;
       if(run.mode === 'normal') dayLabel = `DAY ${run.day}/${NORMAL_DAYS}`;
@@ -4498,7 +4494,7 @@
   function updateStartButton(){
     if(!els.startBtn) return;
     const hasRun = !!(activeProfile && activeProfile.run);
-    const label = hasRun ? '新开一局' : state.introMode === 'normal' ? `开始 ${NORMAL_DAYS} 天营业` : state.introMode === 'tutorial' ? '开始 7 天新手教学' : state.introMode === 'rogue' ? '开始肉鸽营业' : '开始无尽营业';
+    const label = state.introMode === 'custom' ? '自定义模式' : hasRun ? '新开一局' : state.introMode === 'normal' ? `开始 ${NORMAL_DAYS} 天营业` : state.introMode === 'tutorial' ? '开始 7 天新手教学' : state.introMode === 'rogue' ? '开始肉鸽营业' : state.introMode === 'custom' ? '进入自定义模式' : '开始无尽营业';
     els.startBtn.innerHTML = `${label}${icon('arrow')}`;
   }
   function renderRogueMode(){
@@ -4628,6 +4624,7 @@
       ? `普通模式 · ${NORMAL_DAYS} 天后结算总营业额`
       : mode === 'tutorial' ? '新手模式 · 7 天教学 · 不会因为失误关门'
       : mode === 'rogue' ? '肉鸽模式 · 每周完成金币指标 · 每局重置'
+      : mode === 'custom' ? '自定义模式 · 客人 / 订单 / 目标 / 评分都能改 · 支持自定义码'
       : '无尽模式 · 每周业绩递增 · 不达标就关门') + bestText;
     setMenuGroup(els.modeToggle, els.modePanel, false);
     updateStartButton();
@@ -4635,6 +4632,7 @@
   }
   function startGame(){
     if(state.phase !== 'intro') return;
+    if(state.introMode === 'custom'){ openCustomEditor(); return; }
     const run = activeProfile ? activeProfile.run : null;
     if(run){
       openConfirm({
@@ -5094,6 +5092,382 @@
     if(shrimpLevel('challenger')) m *= 1.33;
     return m;
   }
+  // ================= 自定义模式 =================
+  const CUSTOM_MAP_VERSION = 1;
+  const CUSTOM_DEFAULTS = {
+    version: CUSTOM_MAP_VERSION,
+    name: '我的自定义小店',
+    author: '',
+    cover: '',
+    guestsPerDay: 3,
+    patienceSec: 90,
+    typeWeights: { normal: 70, elite: 20, boss: 10 },
+    personalities: ['strict', 'generous'],
+    pots: 2,
+    syrupMax: 2,
+    steps: { cut: true, stir: true, temp: true, topping: true },
+    order: { complexChance: 35, syrupMin: 1, syrupMax: 2, toppingMin: 0, toppingMax: 2, forceJar: false },
+    weeklyTarget: 800,
+    weights: { size:100, jar:100, peach:100, kind:100, ratio:100, boil:100, pour:100, stir:100, temp:100, topping:100, speed:100 },
+    enabled: { size:true, jar:true, peach:true, kind:true, ratio:true, boil:true, pour:true, stir:true, temp:true, topping:true, speed:true }
+  };
+  const CM_PERSONAS = ['generous','strict','petty','patient','impatient'];
+  const CM_WEIGHT_KEYS = ['size','jar','peach','kind','ratio','boil','pour','stir','temp','topping','speed'];
+  const CM_WEIGHT_LABEL = { size:'罐型', jar:'罐子', peach:'黄桃', kind:'糖浆种类', ratio:'糖浆比例', boil:'熬糖火候', pour:'倒糖量', stir:'搅拌', temp:'温度', topping:'加料', speed:'出餐速度' };
+
+  function cloneJSON(o){ return JSON.parse(JSON.stringify(o)); }
+  function cmPathGet(obj, path){ return path.split('.').reduce((o,k) => (o == null ? o : o[k]), obj); }
+  function cmPathSet(obj, path, val){
+    const keys = path.split('.');
+    let cur = obj;
+    for(let i=0;i<keys.length-1;i++){ cur[keys[i]] = cur[keys[i]] || {}; cur = cur[keys[i]]; }
+    cur[keys[keys.length-1]] = val;
+  }
+  function clampNum(v, min, max){ v = Number(v); if(!isFinite(v)) v = min; return Math.max(min, Math.min(max, v)); }
+  function normalizeCustomMap(raw){
+    const out = cloneJSON(CUSTOM_DEFAULTS);
+    if(!raw || typeof raw !== 'object') return out;
+    out.version = CUSTOM_MAP_VERSION;
+    out.name = String(raw.name || out.name).slice(0, 24);
+    out.author = String(raw.author || '').slice(0, 16);
+    out.cover = String(raw.cover || '');
+    out.guestsPerDay = Math.round(clampNum(raw.guestsPerDay != null ? raw.guestsPerDay : out.guestsPerDay, 1, 8));
+    out.patienceSec = Math.round(clampNum(raw.patienceSec != null ? raw.patienceSec : out.patienceSec, 3, 3600));
+    out.pots = Math.round(clampNum(raw.pots != null ? raw.pots : out.pots, 1, 4));
+    out.syrupMax = Math.round(clampNum(raw.syrupMax != null ? raw.syrupMax : out.syrupMax, 1, 6));
+    out.weeklyTarget = Math.round(clampNum(raw.weeklyTarget != null ? raw.weeklyTarget : out.weeklyTarget, 0, 999999));
+    if(raw.typeWeights){
+      ['normal','elite','boss'].forEach(k => { out.typeWeights[k] = Math.round(clampNum(raw.typeWeights[k] != null ? raw.typeWeights[k] : out.typeWeights[k], 0, 100)); });
+    }
+    if(Array.isArray(raw.personalities)) out.personalities = raw.personalities.filter(id => CM_PERSONAS.includes(id));
+    if(raw.steps) ['cut','stir','temp','topping'].forEach(k => { out.steps[k] = raw.steps[k] !== false; });
+    if(raw.order){
+      out.order.complexChance = Math.round(clampNum(raw.order.complexChance != null ? raw.order.complexChance : out.order.complexChance, 0, 100));
+      out.order.syrupMin = Math.round(clampNum(raw.order.syrupMin != null ? raw.order.syrupMin : out.order.syrupMin, 1, out.syrupMax));
+      out.order.syrupMax = Math.round(clampNum(raw.order.syrupMax != null ? raw.order.syrupMax : out.order.syrupMax, out.order.syrupMin, out.syrupMax));
+      out.order.toppingMin = Math.round(clampNum(raw.order.toppingMin != null ? raw.order.toppingMin : out.order.toppingMin, 0, 6));
+      out.order.toppingMax = Math.round(clampNum(raw.order.toppingMax != null ? raw.order.toppingMax : out.order.toppingMax, out.order.toppingMin, 6));
+      out.order.forceJar = !!raw.order.forceJar;
+    }
+    if(raw.weights) CM_WEIGHT_KEYS.forEach(k => { out.weights[k] = Math.round(clampNum(raw.weights[k] != null ? raw.weights[k] : out.weights[k], 0, 200)); });
+    if(raw.enabled) CM_WEIGHT_KEYS.forEach(k => { out.enabled[k] = raw.enabled[k] !== false; });
+    return out;
+  }
+  function customActive(){ return state.mode === 'custom' && !!state.customMap; }
+  function customMap(){ return state.customMap || CUSTOM_DEFAULTS; }
+
+  let cmDraft = null;
+  function customCodeOf(map){
+    const json = JSON.stringify(map);
+    const b64 = btoa(unescape(encodeURIComponent(json)));
+    return 'NCM1:' + b64;
+  }
+  function decodeCustomCode(code){
+    const raw = String(code || '').trim();
+    if(!raw.startsWith('NCM1:')) throw new Error('自定义码格式不对，应该以 NCM1: 开头');
+    const json = decodeURIComponent(escape(atob(raw.slice(5))));
+    return normalizeCustomMap(JSON.parse(json));
+  }
+  function localMaps(){
+    const p2 = activeProfile;
+    if(!p2) return [];
+    if(!Array.isArray(p2.customMaps)) p2.customMaps = [];
+    return p2.customMaps;
+  }
+  function saveLocalMap(map){
+    const list = localMaps();
+    const idx = list.findIndex(x => x.name === map.name);
+    const copy = cloneJSON(map);
+    copy.savedAt = Date.now();
+    if(idx >= 0) list[idx] = copy; else list.push(copy);
+    if(activeProfile) activeProfile.customMap = cloneJSON(map);
+    saveProfiles();
+  }
+
+  function openCustomEditor(){
+    let ov = document.getElementById('customOverlay');
+    if(!ov){
+      ov = document.createElement('div');
+      ov.id = 'customOverlay';
+      ov.className = 'overlay cm-overlay';
+      ov.setAttribute('aria-hidden', 'true');
+      ov.innerHTML = '<div class="cm-sheet" id="cmSheet"></div>';
+      document.body.appendChild(ov);
+      ov.addEventListener('click', e => { if(e.target === ov) closeCustomEditor(); });
+      ov.addEventListener('click', onCustomEditorClick);
+    }
+    cmDraft = normalizeCustomMap((activeProfile && activeProfile.customMap) || CUSTOM_DEFAULTS);
+    renderCustomEditor();
+    ov.classList.add('show');
+    ov.setAttribute('aria-hidden', 'false');
+  }
+  function closeCustomEditor(){
+    const ov = document.getElementById('customOverlay');
+    if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden', 'true'); }
+  }
+  function cmSwitch(on){ return '<span class="cm-switch ' + (on ? 'on' : '') + '"><i></i></span>'; }
+  function cmNumRow(label, sub, path, min, max, step){
+    const v = cmPathGet(cmDraft, path);
+    return '<div class="cm-row"><label>' + label + (sub ? '<small>' + sub + '</small>' : '') + '</label>' +
+      '<div class="cm-num"><button type="button" data-cm-step="' + path + '" data-delta="-' + (step || 1) + '">−</button>' +
+      '<b data-cm-val="' + path + '">' + v + '</b>' +
+      '<button type="button" data-cm-step="' + path + '" data-delta="' + (step || 1) + '">＋</button></div></div>';
+  }
+  function cmSwitchRow(label, sub, path){
+    return '<div class="cm-row"><label>' + label + (sub ? '<small>' + sub + '</small>' : '') + '</label>' +
+      '<button type="button" class="cm-switch-btn" data-cm-switch="' + path + '" style="border:0;background:none;padding:0">' + cmSwitch(cmPathGet(cmDraft, path)) + '</button></div>';
+  }
+  function renderCustomEditor(){
+    const sheet = document.getElementById('cmSheet');
+    if(!sheet || !cmDraft) return;
+    const m = cmDraft;
+    const personas = CM_PERSONAS.map(id => {
+      const p = PERSONALITIES[id];
+      const on = m.personalities.includes(id);
+      return '<button type="button" class="cm-tag ' + (on ? 'on' : '') + '" data-cm-tag="' + id + '">' + (p ? p.name : id) + '</button>';
+    }).join('');
+    const weights = CM_WEIGHT_KEYS.map(k =>
+      '<div class="cm-row"><label>' + CM_WEIGHT_LABEL[k] + '</label>' +
+      '<div style="display:flex;align-items:center;gap:6px">' +
+        '<button type="button" class="cm-switch-btn" data-cm-switch="enabled.' + k + '" style="border:0;background:none;padding:0">' + cmSwitch(m.enabled[k]) + '</button>' +
+        '<div class="cm-num"><button type="button" data-cm-step="weights.' + k + '" data-delta="-10">−</button>' +
+        '<b data-cm-val="weights.' + k + '">' + m.weights[k] + '%</b>' +
+        '<button type="button" data-cm-step="weights.' + k + '" data-delta="10">＋</button></div>' +
+      '</div></div>').join('');
+    const maps = localMaps();
+    const ws = maps.length ? maps.map(x => '<div class="cm-ws-item"><div><b>' + x.name + '</b><small>' + (x.author || '匿名') + ' · 每天 ' + x.guestsPerDay + ' 位 · 目标 ' + x.weeklyTarget + ' 金币</small></div><button type="button" data-cm-loadmap="' + x.name + '">载入</button></div>').join('')
+      : '<div class="cm-note">还没有保存过地图。设好参数后点「保存本地地图」，就能在这里和标题页的「继续上一局」里找到它。</div>';
+    sheet.innerHTML = '<div class="cm-head"><div><b>自定义模式</b><small>上帝黄桃营业 · 你的客人你定规矩</small></div>' +
+        '<button type="button" class="round-btn" data-cm-close="1" aria-label="关闭" style="width:26px;height:26px">✕</button></div>' +
+      '<div class="cm-sec"><h4>地图信息</h4>' +
+        '<div class="cm-row"><label>地图名</label><input class="cm-code" style="min-height:0;width:150px;font-size:10px" data-cm-text="name" value="' + m.name + '"></div>' +
+        '<div class="cm-row"><label>作者名</label><input class="cm-code" style="min-height:0;width:150px;font-size:10px" data-cm-text="author" value="' + m.author + '"></div>' +
+      '</div>' +
+      '<div class="cm-sec"><h4>客人</h4>' +
+        cmNumRow('每天客人数', '1~8 位', 'guestsPerDay', 1, 8) +
+        cmNumRow('客人耐心', '秒，3~3600', 'patienceSec', 3, 3600, 10) +
+        cmNumRow('普通客人权重', '', 'typeWeights.normal', 0, 100, 10) +
+        cmNumRow('精英客人权重', '', 'typeWeights.elite', 0, 100, 10) +
+        cmNumRow('BOSS 客人权重', '', 'typeWeights.boss', 0, 100, 10) +
+        '<div class="cm-row" style="align-items:flex-start"><label>性格池<small>点一下开关，空池=没有性格</small></label></div>' +
+        '<div class="cm-tags">' + personas + '</div>' +
+      '</div>' +
+      '<div class="cm-sec"><h4>店铺</h4>' +
+        cmNumRow('熬糖锅数量', '1~4 口（更多锅位等 UI 改版）', 'pots', 1, 4) +
+        cmNumRow('糖浆份数上限', '1~6 份，可多份混合', 'syrupMax', 1, 6) +
+        cmSwitchRow('需要切黄桃', '关掉后碗里一直有黄桃', 'steps.cut') +
+        cmSwitchRow('需要搅拌', '关掉后自动搅拌', 'steps.stir') +
+        cmSwitchRow('需要选温度', '关掉后自动按订单选', 'steps.temp') +
+        cmSwitchRow('需要选小料', '关掉后自动按订单加', 'steps.topping') +
+      '</div>' +
+      '<div class="cm-sec"><h4>订单</h4>' +
+        cmNumRow('复杂订单概率', '%', 'order.complexChance', 0, 100, 5) +
+        cmNumRow('糖浆最少份数', '', 'order.syrupMin', 1, 6) +
+        cmNumRow('糖浆最多份数', '', 'order.syrupMax', 1, 6) +
+        cmNumRow('小料最少种', '', 'order.toppingMin', 0, 6) +
+        cmNumRow('小料最多种', '', 'order.toppingMax', 0, 6) +
+        cmSwitchRow('必选非经典罐', '订单一定要求特殊罐型', 'order.forceJar') +
+      '</div>' +
+      '<div class="cm-sec"><h4>目标与评分</h4>' +
+        cmNumRow('每周金币目标', '任务面板按它来', 'weeklyTarget', 0, 999999, 100) +
+        '<div class="cm-note">关掉的评分项不计分；权重越大越吃这一项（100% 为默认）。</div>' +
+        weights +
+      '</div>' +
+      '<div class="cm-sec"><h4>自定义码</h4>' +
+        '<textarea class="cm-code" id="cmCodeBox" placeholder="把别人的 NCM1:... 码粘进来，点「导入码」">' + customCodeOf(m) + '</textarea>' +
+        '<div class="cm-actions">' +
+          '<button type="button" class="cm-secondary" data-cm-act="copycode">复制我的码</button>' +
+          '<button type="button" class="cm-secondary" data-cm-act="importcode">导入码</button>' +
+          '<button type="button" class="cm-secondary" data-cm-act="savelocal">保存本地地图</button>' +
+          '<button type="button" class="cm-secondary" data-cm-act="reset">恢复默认</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="cm-sec"><h4>创意工坊</h4>' +
+        '<div class="cm-note">本地地图可以直接载入；全网工坊需要服务器，已留好接口（上传会带地图名 / 作者 / 自定义码）。</div>' +
+        '<div class="cm-workshop">' + ws + '</div>' +
+        '<div class="cm-actions"><button type="button" class="cm-secondary" data-cm-act="upload">上传到工坊（即将开放）</button></div>' +
+      '</div>' +
+      '<div class="cm-actions">' +
+        '<button type="button" class="primary-btn" data-cm-act="start">开始上帝黄桃营业 →</button>' +
+      '</div>';
+    const box = document.getElementById('cmCodeBox');
+    if(box) box.value = customCodeOf(m);
+  }
+  function syncDraftFromInputs(){
+    const nameInput = document.querySelector('[data-cm-text="name"]');
+    const authorInput = document.querySelector('[data-cm-text="author"]');
+    if(nameInput) cmDraft.name = String(nameInput.value || '').slice(0, 24);
+    if(authorInput) cmDraft.author = String(authorInput.value || '').slice(0, 16);
+  }
+  function onCustomEditorClick(e){
+    const stepBtn = e.target.closest('[data-cm-step]');
+    if(stepBtn){
+      syncDraftFromInputs();
+      const path = stepBtn.dataset.cmStep;
+      const delta = Number(stepBtn.dataset.delta) || 0;
+      let v = Number(cmPathGet(cmDraft, path)) || 0;
+      v += delta;
+      if(path.startsWith('weights.')) cmPathSet(cmDraft, path, Math.round(clampNum(v, 0, 200)));
+      else cmPathSet(cmDraft, path, v);
+      cmDraft = normalizeCustomMap(cmDraft);
+      renderCustomEditor();
+      return;
+    }
+    const sw = e.target.closest('[data-cm-switch]');
+    if(sw){
+      syncDraftFromInputs();
+      const path = sw.dataset.cmSwitch;
+      cmPathSet(cmDraft, path, !cmPathGet(cmDraft, path));
+      cmDraft = normalizeCustomMap(cmDraft);
+      renderCustomEditor();
+      return;
+    }
+    const tag = e.target.closest('[data-cm-tag]');
+    if(tag){
+      syncDraftFromInputs();
+      const id = tag.dataset.cmTag;
+      const idx = cmDraft.personalities.indexOf(id);
+      if(idx >= 0) cmDraft.personalities.splice(idx, 1); else cmDraft.personalities.push(id);
+      renderCustomEditor();
+      return;
+    }
+    const loadBtn = e.target.closest('[data-cm-loadmap]');
+    if(loadBtn){
+      const found = localMaps().find(x => x.name === loadBtn.dataset.cmLoadmap);
+      if(found){ cmDraft = normalizeCustomMap(found); renderCustomEditor(); toast('已载入地图：' + found.name); }
+      return;
+    }
+    if(e.target.closest('[data-cm-close]')){ closeCustomEditor(); return; }
+    const act = e.target.closest('[data-cm-act]');
+    if(!act) return;
+    syncDraftFromInputs();
+    cmDraft = normalizeCustomMap(cmDraft);
+    const a = act.dataset.cmAct;
+    if(a === 'copycode'){
+      const code = customCodeOf(cmDraft);
+      if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(() => toast('自定义码已复制')).catch(() => toast('请手动复制下面的码'));
+      else toast('请手动复制下面的码');
+      return;
+    }
+    if(a === 'importcode'){
+      const box = document.getElementById('cmCodeBox');
+      try{ cmDraft = decodeCustomCode(box ? box.value : ''); renderCustomEditor(); toast('导入成功：' + cmDraft.name); }
+      catch(err){ toast(err.message || '导入失败'); }
+      return;
+    }
+    if(a === 'savelocal'){
+      saveLocalMap(cmDraft);
+      toast('已保存本地地图：' + cmDraft.name);
+      renderCustomEditor();
+      return;
+    }
+    if(a === 'reset'){ cmDraft = normalizeCustomMap(CUSTOM_DEFAULTS); renderCustomEditor(); return; }
+    if(a === 'upload'){ toast('创意工坊联网上传还要配服务器，先用自定义码分享吧'); return; }
+    if(a === 'start'){
+      if(activeProfile) activeProfile.customMap = cloneJSON(cmDraft);
+      saveProfiles();
+      closeCustomEditor();
+      if(activeProfile && activeProfile.run){
+        openConfirm({ title:'要新开一局吗？', copy:'开始自定义对局会覆盖当前未完成的对局。', okText:'开始', cancelText:'取消', onOk:() => { clearRun(); beginRun('custom'); } });
+        return;
+      }
+      beginRun('custom');
+      return;
+    }
+  }
+
+  function setupCustomDay(){
+    const map = customMap();
+    state.dayGuests = [];
+    state.todayGuests = [];
+    state.orders = [];
+    state.activeOrderId = null;
+    state.rackOrderId = null;
+    state.orderSeq = 0;
+    state.queueInfo = null;
+    const totalW = Math.max(1, (map.typeWeights.normal || 0) + (map.typeWeights.elite || 0) + (map.typeWeights.boss || 0));
+    const count = map.guestsPerDay;
+    for(let i=0;i<count;i++){
+      let r = Math.random() * totalW;
+      let tier = 'normal';
+      if((r -= map.typeWeights.normal || 0) < 0) tier = 'normal';
+      else if((r -= map.typeWeights.elite || 0) < 0) tier = 'elite';
+      else tier = 'boss';
+      let guest;
+      if(tier === 'elite') guest = cloneJSON(ELITE_GUESTS[randInt(0, ELITE_GUESTS.length-1)]);
+      else if(tier === 'boss') guest = cloneJSON(BOSS_GUESTS[randInt(0, BOSS_GUESTS.length-1)]);
+      else guest = cloneJSON(GUESTS[randInt(0, GUESTS.length-1)]);
+      guest.tier = tier;
+      const pool = map.personalities || [];
+      const p = pool.length && Math.random() < .8 ? PERSONALITIES[pool[randInt(0, pool.length-1)]] : null;
+      guest.personality = p ? p.id : null;
+      state.todayGuests.push(guest.name);
+      markSeen(guest);
+      const patienceMs = Math.max(3000, (map.patienceSec || 90) * 1000);
+      const order = makeOrder(i, guest, p);
+      state.dayGuests.push({index:i, guest, personality:p, patienceMs, order, accepted:false, served:false, queuePenalty:0, orderId:null});
+    }
+  }
+  function makeCustomOrder(index, guest, pOverride){
+    const map = customMap();
+    const p = pOverride !== undefined ? pOverride : (state.personality || null);
+    const complex = Math.random() * 100 < (map.order.complexChance || 0) || (guest && guest.tier !== 'normal');
+    const size = ['small','medium','large'][randInt(0,2)];
+    const total = complex ? randInt(3,4) : randInt(2,3);
+    let large = randInt(0, total);
+    if(total >= 2 && Math.random() < .8) large = clamp(large, 1, total - 1);
+    const sugar = complex ? randInt(2,3) : randInt(1,3);
+    const temp = ['ice','room','warm'][randInt(0,2)];
+    const jars = unlockedJars();
+    const jar = map.order.forceJar && jars.length > 1 ? jars[randInt(1, jars.length-1)] : (jars.length > 1 && Math.random() < .38 ? jars[randInt(1, jars.length-1)] : 'classic');
+    const pool = unlockedToppings().slice();
+    const tops = [];
+    const tMin = map.order.toppingMin, tMax = map.order.toppingMax;
+    const want = pool.length ? randInt(tMin, Math.min(tMax, pool.length)) : 0;
+    for(let k=0;k<want && pool.length;k++){
+      const pick = pool.splice(randInt(0, pool.length-1), 1)[0];
+      tops.push({id:pick, qty:randInt(1,3)});
+    }
+    const poolS = availableSyrups().filter(id => id !== 'death');
+    const sMax = Math.min(map.syrupMax || 2, poolS.length);
+    const sCount = clamp(randInt(Math.min(map.order.syrupMin || 1, sMax), sMax), 1, sMax);
+    const picked = poolS.slice().sort(() => Math.random() - .5).slice(0, sCount);
+    let ratios;
+    if(sCount <= 1) ratios = [100];
+    else {
+      const cuts = [];
+      let left = 100;
+      for(let k=0;k<sCount-1;k++){
+        const remain = sCount - 1 - k;
+        const v = remain === 0 ? left : randInt(10, Math.max(10, left - 10 * remain));
+        cuts.push(v); left -= v;
+      }
+      cuts.push(Math.max(5, left));
+      const sum = cuts.reduce((a,b)=>a+b,0);
+      ratios = cuts.map(v => Math.round(v * 100 / sum));
+      const diff = 100 - ratios.reduce((a,b)=>a+b,0);
+      ratios[0] += diff;
+    }
+    const syrups = picked.map((id,i) => ({id, ratio:ratios[i]}));
+    const stirred = sCount > 1 ? (Math.random() < .85) : (guest && guest.tier !== 'normal' && Math.random() < .3);
+    const boilStyle = sCount > 1 ? (Math.random() < .5 ? 'together' : 'separate') : 'single';
+    const tolBase = SUGAR[sugar].tol + (guest && guest.tolDelta || 0) + (p && p.id === 'strict' ? -1 : p && p.id === 'petty' ? -1 : p && p.id === 'generous' ? 1 : 0);
+    const tol = Math.max(3, tolBase);
+    return {size, jar, peaches:{large, small:total-large}, sugar, temp, toppings:tops, tol, syrups, stirred, boilStyle};
+  }
+  function customStepOn(k){ return !customActive() || customMap().steps[k] !== false; }
+  function applyCustomModeClass(){
+    if(!els.game) return;
+    els.game.dataset.custom = customActive() ? '1' : '0';
+    if(customActive()){
+      const st = customMap().steps;
+      els.game.dataset.cmCut = st.cut ? '1' : '0';
+      els.game.dataset.cmStir = st.stir ? '1' : '0';
+      els.game.dataset.cmTemp = st.temp ? '1' : '0';
+      els.game.dataset.cmTop = st.topping ? '1' : '0';
+    }
+  }
+
   function beginRun(mode){
     ensureAudio();
     resetDevBag();
@@ -5101,6 +5475,10 @@
     state.mode = MODES[mode] ? mode : 'normal';
     if(state.mode === 'tutorial'){ state.rogue = null; state.tutorial = { seen:{} }; state.tutorialCoins = null; }
     else if(state.mode === 'rogue'){ startRogueRun(); applyDevBag(); }
+    else if(state.mode === 'custom'){
+      state.rogue = null;
+      state.customMap = normalizeCustomMap(activeProfile && activeProfile.customMap ? activeProfile.customMap : CUSTOM_DEFAULTS);
+    }
     else state.rogue = null;
     state.day = 1;
     state.coins = state.mode === 'rogue' ? state.rogue.coins : (activeProfile ? activeProfile.wallet : 0);
@@ -5110,7 +5488,7 @@
     state.runEarned = 0;
     state.week = 1;
     state.weekEarned = 0;
-    state.weekTarget = state.mode === 'rogue' ? ROGUE_BASE_TARGET : weekTargetFor(1);
+    state.weekTarget = state.mode === 'rogue' ? ROGUE_BASE_TARGET : state.mode === 'custom' ? state.customMap.weeklyTarget : weekTargetFor(1);
     state.summaryKind = 'day';
     state.metaAwarded = false;
     state.orderTipShown = false;
@@ -5121,6 +5499,13 @@
     state.selectedBatch = null;
     state.pots = makePots();
     if(state.mode !== 'rogue' && activeProfile && activeProfile.upgrades) state.upgrade = activeProfile.upgrades;
+    if(state.mode === 'custom'){
+      const cm = state.customMap;
+      state.upgrade = { pots: cm.pots, alarms: 0, knives: [0,0,0] };
+      state.upgradeBase = { pots: cm.pots, alarms: 0, knives: [0,0,0] };
+      if(!cm.steps.cut) state.bowl = { large: 12, small: 12 };
+    }
+    applyCustomModeClass();
     if(state.mode === 'tutorial'){
       state.tutorial = { seen:{} };
       state.tutorialQueue = [];
@@ -5585,6 +5970,12 @@
   function sealCan(){
     if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
     const c = state.can;
+    if(customActive()){
+      const cm = customMap();
+      if(cm.steps.temp === false){ c.temp = state.order.temp; }
+      if(cm.steps.topping === false){ c.toppings = cloneJSON(state.order.toppings || []); c.toppingTouched = true; }
+      if(cm.steps.stir === false){ c.stirred = !!state.order.stirred; }
+    }
     if(!c.size){ toast('还没挑罐型'); return; }
     if(!c.pieces.length){ toast('罐子里还没有黄桃'); return; }
     if(!findBatch() || c.syrup <= 0){ toast('还没倒糖水'); return; }
@@ -5803,7 +6194,21 @@
     const toppingScore = (toppingKindScore + toppingQtyScore) * (1 + .03 * (rogueActive() ? shrimpLevel('plating') : 0));
     const remain = Math.max(0, state.deadline - performance.now());
     const speedScore = remain >= state.patienceMs * .5 ? 6 : remain >= state.patienceMs * .25 ? 4 : remain > 0 ? 2 : 0;
-    const baseScore = timedOut ? 0 : Math.round(sizeScore + jarScore + peachScore + kindScore + ratioScore + boilScore + pourScore + stirScore + tempScore + toppingScore + speedScore);
+    let baseScore;
+    if(customActive()){
+      const cm = customMap();
+      const maxMap = {size:6, jar:2, peach:12, kind:8, ratio:14, boil:15, pour:13, stir:3, temp:6, topping:15, speed:6};
+      const valMap = {size:sizeScore, jar:jarScore, peach:peachScore, kind:kindScore, ratio:ratioScore, boil:boilScore, pour:pourScore, stir:stirScore, temp:tempScore, topping:toppingScore, speed:speedScore};
+      let num = 0, den = 0;
+      Object.keys(maxMap).forEach(k => {
+        if(cm.enabled[k] === false) return;
+        const w = (cm.weights[k] != null ? cm.weights[k] : 100) / 100;
+        num += valMap[k] * w; den += maxMap[k] * w;
+      });
+      baseScore = timedOut ? 0 : Math.round(num * 100 / Math.max(1, den));
+    } else {
+      baseScore = timedOut ? 0 : Math.round(sizeScore + jarScore + peachScore + kindScore + ratioScore + boilScore + pourScore + stirScore + tempScore + toppingScore + speedScore);
+    }
     const p = state.personality || (state.guest && state.guest.personality ? PERSONALITIES[state.guest.personality] : null);
     const servedRecX = (state.dayGuests || [])[state.guestIndex];
     const extraDepression = !!(servedRecX && servedRecX.extraPersonality === 'depression');
@@ -6125,6 +6530,7 @@
   function summaryKindForDay(){
     if(state.mode === 'tutorial' && state.day >= TUTORIAL_DAYS) return 'tutorialDone';
     if(state.mode === 'normal' && state.day >= NORMAL_DAYS) return 'runEnd';
+    if(state.mode === 'custom') return state.day >= NORMAL_DAYS ? 'runEnd' : 'day';
     if(state.mode === 'rogue' && state.day % WEEK_DAYS === 0){
       return (state.devMode || state.weekEarned >= state.weekTarget) ? 'weekPass' : 'gameOver';
     }
@@ -7478,7 +7884,10 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, renderReview, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, addWallet, spendCoins, handleFurniture, handleClothes, handleSkin, openHome, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, renderRogueShop, makeRogueShopStock, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
+    
+
+
+  window.__naiwa = { openCustomEditor, customCodeOf, decodeCustomCode, getCustomMap: () => state.customMap, customDraft: () => cmDraft, state, renderReview, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, addWallet, spendCoins, handleFurniture, handleClothes, handleSkin, openHome, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, renderRogueShop, makeRogueShopStock, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
     }
   }
 
