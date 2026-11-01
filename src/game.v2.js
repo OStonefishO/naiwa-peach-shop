@@ -1323,11 +1323,12 @@
   }
   function rogueOwlToday(){ return rogueActive() && rogueHas('sugarOwl') && Number(state.rogue.owlDay) === Number(state.day); }
   function availableSyrups(){
-    if(tutorialActive()) return ['classic'].concat(state.tutorial && state.tutorial.syrups || []);
-    if(rogueActive()) return ['classic'].concat(SYRUP_IDS.filter(id => {
+    if(tutorialActive()) return Array.from(new Set(['classic'].concat((state.tutorial && state.tutorial.syrups) || [])));
+    if(rogueActive()) return Array.from(new Set(['classic'].concat(SYRUP_IDS.filter(id => {
+      if(id === 'classic') return false;
       if(id === 'death') return shrimpLevel('deathSugar') > 0;
-      return state.rogue.syrups.includes(id) || rogueOwlToday();
-    }));
+      return (state.rogue.syrups || []).includes(id) || rogueOwlToday();
+    }))));
     const owned = activeProfile && activeProfile.syrups ? activeProfile.syrups : {};
     return ['classic'].concat(['honey','maple','honeysuckle'].filter(id => owned[id]));
   }
@@ -2589,6 +2590,8 @@
     }
     syncProfile();
     updateHud();
+    applyDevBag();
+    syncDevBagUI();
     if(els.shopOverlay && els.shopOverlay.classList.contains('show')) renderShop();
   }
   function redeemCode(){
@@ -2864,6 +2867,7 @@
     if(!restoringRun && state.phase === 'playing') saveRunToProfile();
     if(tutorialActive() && !silent){ tutorialStageTip(stage); tutorialScriptStageTip(stage); tutorialStagePointer(stage); }
     try { renderTutorialTasks(); } catch(e){}
+    try { syncDevBagUI(); } catch(e){}
   }
 
   function updateHud(){
@@ -4567,7 +4571,7 @@
     const luckyBoost = shrimpLevel('luckyHorseshoe') ? .25 : 0;
     days.forEach(day => {
       const lucky = Math.random() < .5 + luckyBoost;
-      const pool = ROGUE_EVENTS.filter(e => (lucky ? e.type === 'good' : e.type === 'bad'));
+      const pool = ROGUE_EVENTS.filter(e => (lucky ? e.type === 'good' : e.type === 'bad') && devEventAllowed(e.id));
       const ev = pool[Math.floor(Math.random() * pool.length)];
       if(ev) out[day] = ev.id;
     });
@@ -4589,7 +4593,7 @@
     const poolDays = ahead.length ? ahead : free;
     const pick = poolDays[Math.floor(Math.random() * poolDays.length)];
     const lucky = Math.random() < .5 + (shrimpLevel('luckyHorseshoe') ? .25 : 0);
-    const pool = ROGUE_EVENTS.filter(e => (lucky ? e.type === 'good' : e.type === 'bad'));
+    const pool = ROGUE_EVENTS.filter(e => (lucky ? e.type === 'good' : e.type === 'bad') && devEventAllowed(e.id));
     const ev = pool[Math.floor(Math.random() * pool.length)];
     if(!ev) return false;
     events[pick] = ev.id;
@@ -4753,6 +4757,177 @@
     els.buffBagBody.innerHTML = `${sh.length ? `<div class="bag-kind">辣虾</div>${sh.join('')}` : ''}${its.length ? `<div class="bag-kind">道具</div>${its.join('')}` : ''}${!sh.length && !its.length ? '<div class="bag-empty">袋子还是空的。去精英日/BOSS日抽辣虾，或逛肉鸽夜市。</div>' : ''}`;
     if(els.buffBagOverlay){ els.buffBagOverlay.classList.add('show'); els.buffBagOverlay.setAttribute('aria-hidden','false'); }
   }
+  // ===== 开发者物品栏（仅开发者模式 · 肉鸽局内） =====
+  const DEV_BAG_TABS = [
+    {id:'shrimp', name:'辣虾'},
+    {id:'items', name:'增幅道具'},
+    {id:'events', name:'事件'}
+  ];
+  let devBagTab = 'shrimp';
+  function emptyDevBag(){ return { shrimp:{}, items:{}, events:{} }; }
+  function devBag(create){
+    if(!activeProfile) return emptyDevBag();
+    if(!activeProfile.devBag){
+      if(!create) return emptyDevBag();
+      activeProfile.devBag = emptyDevBag();
+    }
+    const b = activeProfile.devBag;
+    b.shrimp = b.shrimp || {}; b.items = b.items || {}; b.events = b.events || {};
+    return b;
+  }
+  function devEventAllowed(id){
+    const b = activeProfile && activeProfile.devBag;
+    if(!b || !b.events) return true;
+    return b.events[id] !== false;
+  }
+  function applyDevBag(){
+    if(!rogueActive()) return;
+    const bag = devBag(false);
+    const arr = [];
+    Object.keys(bag.shrimp || {}).forEach(id => {
+      const meta = SHRIMPS.find(s => s.id === id); if(!meta) return;
+      const n = Math.min(Math.max(0, bag.shrimp[id] | 0), meta.max || 1);
+      for(let i = 0; i < n; i++) arr.push(id);
+    });
+    state.rogue.shrimp = arr;
+    Object.keys(bag.items || {}).forEach(id => {
+      if(!ROGUE_ITEMS.find(i => i.id === id)) return;
+      const n = Math.max(0, bag.items[id] | 0);
+      if(n > 0) state.rogue.items[id] = n; else delete state.rogue.items[id];
+    });
+    if(state.rogue.items.sugarOwl && Number(state.rogue.owlDay) !== Number(state.day)){
+      state.rogue.owlDay = state.day;
+    }
+  }
+  function ensureDevBagUI(){
+    if(!els.game) return;
+    if(!document.getElementById('devTab')){
+      const tab = document.createElement('button');
+      tab.id = 'devTab'; tab.type = 'button'; tab.className = 'dev-tab';
+      tab.textContent = '开发者物品栏';
+      tab.addEventListener('click', openDevBag);
+      els.game.appendChild(tab);
+    }
+    if(document.getElementById('devBagOverlay')) return;
+    const ov = document.createElement('div');
+    ov.id = 'devBagOverlay';
+    ov.className = 'overlay bag-overlay';
+    ov.setAttribute('aria-hidden', 'true');
+    ov.innerHTML = `<div class="dev-panel">
+      <button class="codex-close" id="devBagClose" type="button">✕</button>
+      <div class="rogue-kicker">DEV ITEMS</div>
+      <h3>开发者物品栏</h3>
+      <p class="dev-sub">改动立刻生效并存档；退出开发者模式后仍然保留，方便切回玩家视角复测。</p>
+      <div class="dev-tabs" id="devBagTabs"></div>
+      <div id="devBagBody"></div>
+    </div>`;
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e => { if(e.target === ov) closeDevBag(); });
+    ov.querySelector('#devBagClose').addEventListener('click', closeDevBag);
+    ov.querySelector('#devBagTabs').addEventListener('click', e => {
+      const b = e.target.closest('[data-dev-tab]'); if(!b) return;
+      devBagTab = b.dataset.devTab;
+      renderDevBag();
+    });
+    ov.querySelector('#devBagBody').addEventListener('click', onDevBagClick);
+  }
+  function renderDevBag(){
+    ensureDevBagUI();
+    const ov = document.getElementById('devBagOverlay'); if(!ov) return;
+    const tabs = ov.querySelector('#devBagTabs');
+    tabs.innerHTML = DEV_BAG_TABS.map(t => `<button type="button" data-dev-tab="${t.id}" class="${devBagTab === t.id ? 'on' : ''}">${t.name}</button>`).join('');
+    const body = ov.querySelector('#devBagBody');
+    const b = devBag(true);
+    if(devBagTab === 'events'){
+      body.innerHTML = ROGUE_EVENTS.map(e => {
+        const on = b.events[e.id] !== false;
+        return `<div class="dev-row"><div class="nm"><b>${e.name} · ${e.type === 'good' ? '好运' : '霉运'}</b><small>${e.desc}</small></div>
+          <button type="button" class="dev-switch ${on ? 'on' : ''}" data-dev-switch="${e.id}" aria-label="开关 ${e.name}"></button></div>`;
+      }).join('');
+      return;
+    }
+    const isShrimp = devBagTab === 'shrimp';
+    const list = isShrimp ? SHRIMPS : ROGUE_ITEMS;
+    body.innerHTML = list.map(m => {
+      const cur = Math.max(0, (isShrimp ? b.shrimp : b.items)[m.id] | 0);
+      const sub = isShrimp ? `${ROGUE_RARITY[m.rarity].name} · ${m.desc}` : m.desc;
+      const max = m.max || 1;
+      return `<div class="dev-row"><div class="nm"><b>${m.name}</b><small>${sub}</small></div>
+        <div class="dev-step">
+          <button type="button" data-dev-step="-1" data-dev-kind="${devBagTab}" data-dev-id="${m.id}" ${cur <= 0 ? 'disabled' : ''}>−</button>
+          <b>${cur}</b>
+          <button type="button" data-dev-step="1" data-dev-kind="${devBagTab}" data-dev-id="${m.id}" ${cur >= max ? 'disabled' : ''}>＋</button>
+        </div></div>`;
+    }).join('') || '<div class="dev-empty">暂无条目</div>';
+  }
+  function onDevBagClick(e){
+    const step = e.target.closest('[data-dev-step]');
+    if(step){
+      const id = step.dataset.devId, kind = step.dataset.devKind, d = Number(step.dataset.devStep);
+      const b = devBag(true);
+      const isShrimp = kind === 'shrimp';
+      const bag = isShrimp ? b.shrimp : b.items;
+      const meta = isShrimp ? SHRIMPS.find(s => s.id === id) : ROGUE_ITEMS.find(i => i.id === id);
+      if(!meta) return;
+      const max = meta.max || 1;
+      const next = clamp((bag[id] | 0) + d, 0, max);
+      bag[id] = next;
+      applyDevBag();
+      saveProfiles();
+      if(rogueActive()){ renderRogueHud(); renderWork(); renderKitchen(); renderDesk(); renderCan(); }
+      renderDevBag();
+      toast(`${meta.name} ×${next}`);
+      sfx.tap();
+      return;
+    }
+    const sw = e.target.closest('[data-dev-switch]');
+    if(sw){
+      const id = sw.dataset.devSwitch;
+      const b = devBag(true);
+      const on = b.events[id] === false;
+      b.events[id] = on;
+      saveProfiles();
+      if(rogueActive()){
+        state.rogue.events = state.rogue.events || {};
+        if(on){
+          state.rogue.events[rogueWeekDayNow()] = id;
+          state.rogue.eventShownDay = 0;
+          state.rogue.pendingEventShow = true;
+        }else if(state.rogue.events[rogueWeekDayNow()] === id){
+          delete state.rogue.events[rogueWeekDayNow()];
+        }
+      }
+      renderDevBag();
+      toast(on ? '已开启：这个事件今天就到' : '已关闭该事件');
+      sfx.tap();
+    }
+  }
+  function openDevBag(){
+    if(!state.devMode) return;
+    devBagTab = devBagTab || 'shrimp';
+    renderDevBag();
+    const ov = document.getElementById('devBagOverlay');
+    if(ov){ ov.classList.add('show'); ov.setAttribute('aria-hidden', 'false'); }
+  }
+  function closeDevBag(){
+    const ov = document.getElementById('devBagOverlay');
+    if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden', 'true'); }
+    if(rogueActive() && state.rogue.pendingEventShow){
+      state.rogue.pendingEventShow = false;
+      setTimeout(() => { try { showRogueEventPopup(); } catch(e){} }, 140);
+    }
+  }
+  function syncDevBagUI(){
+    ensureDevBagUI();
+    const tab = document.getElementById('devTab');
+    if(!tab) return;
+    const show = !!(state.devMode && rogueActive() && (state.phase === 'playing' || state.phase === 'event'));
+    tab.classList.toggle('on', show);
+    if(!show){
+      const ov = document.getElementById('devBagOverlay');
+      if(ov) ov.classList.remove('show');
+    }
+  }
   function startRogueRun(){
     state.rogue = {
       coins:0, totalCoins:0, week:1, weekEarned:0, weekTarget:ROGUE_BASE_TARGET,
@@ -4786,7 +4961,7 @@
     if(activeProfile) activeProfile.run = null;
     state.mode = MODES[mode] ? mode : 'normal';
     if(state.mode === 'tutorial'){ state.rogue = null; state.tutorial = { seen:{} }; state.tutorialCoins = null; }
-    else if(state.mode === 'rogue') startRogueRun();
+    else if(state.mode === 'rogue'){ startRogueRun(); applyDevBag(); }
     else state.rogue = null;
     state.day = 1;
     state.coins = state.mode === 'rogue' ? state.rogue.coins : (activeProfile ? activeProfile.wallet : 0);
@@ -7086,7 +7261,7 @@
     bindOrderDrag();
     requestAnimationFrame(tick);
     if(location.search.includes('debug=1')){
-      window.__naiwa = { state, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
+      window.__naiwa = { state, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
     }
   }
 
