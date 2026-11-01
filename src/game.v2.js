@@ -1995,8 +1995,13 @@
     }
     if(els.confirmTitle) els.confirmTitle.textContent = opts.title || '要提前下班吗？';
     if(els.confirmCopy) els.confirmCopy.innerHTML = opts.copy || '';
+    if(els.confirmTip){
+      els.confirmTip.innerHTML = opts.tipHtml || '';
+      els.confirmTip.hidden = !opts.tipHtml;
+    }
     if(els.confirmOk) els.confirmOk.textContent = opts.okText || '确定';
     const noCancel = opts.cancelText === '';
+    if(els.confirmOk) els.confirmOk.classList.toggle('solo', noCancel);
     if(els.confirmCancel){
       els.confirmCancel.textContent = noCancel ? '取消' : (opts.cancelText || '取消');
       els.confirmCancel.style.display = noCancel ? 'none' : '';
@@ -2511,7 +2516,7 @@
       'shrimpCabinetBtn','shrimpCabinetMeta','shrimpCabinetOverlay','shrimpCabinetClose','shrimpCabinetBody','shrimpCabinetSub',
       'startActions','continueBtn','continueMeta','rogueModeCard','rogueBadge','rogueNote',
       'playerMenuToggle','playerMenu',
-      'settingsPauseBtn','rogueOverlay','rogueTitle','rogueStayBtn','rogueHomeBtn','confirmTitle','confirmCopy','confirmIcon',
+      'settingsPauseBtn','rogueOverlay','rogueTitle','rogueStayBtn','rogueHomeBtn','confirmTitle','confirmCopy','confirmIcon','confirmTip',
       'tutorialOverlay','tutorialTitle','tutorialText','tutorialStep','tutorialNext'];
     ids.forEach(id => els[id] = document.getElementById(id));
     els.panel = $('#panel');
@@ -5821,21 +5826,13 @@
     cueMusic();
     tutorialAfterServe();
     if(result.death){
+      const tipRows = (result.tipLines || []).filter(l => l.k && !String(l.k).includes('小费合计'))
+        .map(l => `<div><span>${l.k}</span><i>${l.v}</i></div>`).join('');
       openConfirm({
         iconSvg:'skull',
         title:'客人被死亡之糖吞噬了',
         copy:'这一单的客人当场倒下，小费 ×5；排队等着的客人全都被吓跑了。',
-        okText:'去结算',
-        cancelText:'',
-        onOk:() => { state.phase = 'reviewing'; showSummary(); }
-      });
-      return;
-    }
-    if(result.death){
-      openConfirm({
-        iconSvg:'trash',
-        title:'客人被死亡之糖吞噬了',
-        copy:'这一单的客人当场倒下，小费 ×5；排队等着的客人全都被吓跑了。',
+        tipHtml:`<div class="confirm-tip-head"><span>本单小费</span><b>+${result.coins}</b></div><div class="confirm-tip-lines">${tipRows}</div>`,
         okText:'去结算',
         cancelText:'',
         onOk:() => { state.phase = 'reviewing'; showSummary(); }
