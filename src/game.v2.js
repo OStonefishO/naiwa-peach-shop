@@ -1995,7 +1995,11 @@
     if(els.confirmTitle) els.confirmTitle.textContent = opts.title || '要提前下班吗？';
     if(els.confirmCopy) els.confirmCopy.innerHTML = opts.copy || '';
     if(els.confirmOk) els.confirmOk.textContent = opts.okText || '确定';
-    if(els.confirmCancel) els.confirmCancel.textContent = opts.cancelText || '取消';
+    const noCancel = opts.cancelText === '';
+    if(els.confirmCancel){
+      els.confirmCancel.textContent = noCancel ? '取消' : (opts.cancelText || '取消');
+      els.confirmCancel.style.display = noCancel ? 'none' : '';
+    }
     confirmAction = typeof opts.onOk === 'function' ? opts.onOk : null;
     els.confirmOverlay.classList.add('show');
     els.confirmOverlay.setAttribute('aria-hidden','false');
