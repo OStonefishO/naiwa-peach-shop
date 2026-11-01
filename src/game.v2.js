@@ -2385,7 +2385,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '抑郁症出现率';
+  const CHANGELOG_SUB = '双性格与订单架';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -2966,9 +2966,15 @@
     return (rec && rec.personality) || state.personality;
   }
 
+  function liveExtraTag(guest){
+    if(!guest) return '';
+    const rec = (state.dayGuests || []).find(d => d && d.guest && (d.guest === guest || d.guest.name === guest.name));
+    return (rec && rec.extraPersonality === 'depression') ? personalityTag(PERSONALITIES.depression) : '';
+  }
+
   function renderGuest(){
     if(!state.guest){ els.guestWrap.innerHTML = ''; return; }
-    els.guestWrap.innerHTML = `<div class="guest-name">${state.guest.name}${guestTag(state.guest)}${personalityTag(livePersonality(state.guest))}</div>${guestSVG(state.guest, state.guestIndex)}`;
+    els.guestWrap.innerHTML = `<div class="guest-name">${state.guest.name}${guestTag(state.guest)}${personalityTag(livePersonality(state.guest))}${liveExtraTag(state.guest)}</div>${guestSVG(state.guest, state.guestIndex)}`;
     els.guestWrap.classList.remove('guest-enter');
     void els.guestWrap.offsetWidth;
     els.guestWrap.classList.add('guest-enter');
@@ -3680,7 +3686,7 @@
   function renderDesk(){
     if(!state.guest) return;
     els.deskAvatar.innerHTML = guestSVG(state.guest, state.guestIndex);
-    els.deskGuestName.innerHTML = `${state.guest.name}${guestTag(state.guest)}${personalityTag(livePersonality(state.guest))}`;
+    els.deskGuestName.innerHTML = `${state.guest.name}${guestTag(state.guest)}${personalityTag(livePersonality(state.guest))}${liveExtraTag(state.guest)}`;
     const remain = Math.max(0, state.deadline - performance.now());
     els.deskGuestMood.textContent = state.guest.tier === 'boss'
       ? (state.can.sealed ? '检查中…这次能不能通过？' : '认真检查中 · 耐心很短')
@@ -4087,7 +4093,7 @@
         : `<button class="rest-accept" data-accept-guest="${dg.index}">接单</button>`;
       return `<div class="rest-card ${cls}" data-rest-index="${dg.index}"${dg.guest.tier && dg.guest.tier !== 'normal' ? ' data-elite="1"' : ''}>
         <div class="rest-avatar">${guestSVG(dg.guest, dg.index)}</div>
-        <div class="rest-copy"><b>${dg.guest.name}${guestTag(dg.guest)}${ptag}</b><small>${st} · ${brief}</small><small>${p ? p.effect : '按普通耐心等待'}</small></div>
+        <div class="rest-copy"><b>${dg.guest.name}${guestTag(dg.guest)}${ptag}${dg.extraPersonality === 'depression' ? personalityTag(PERSONALITIES.depression) : ''}</b><small>${st} · ${brief}</small><small>${p ? p.effect : '按普通耐心等待'}${dg.extraPersonality === 'depression' ? ' · 只要死亡之糖' : ''}</small></div>
         ${btn}
       </div>`;
     }).join('');
@@ -4098,8 +4104,17 @@
     if(!wrapL || !wrapR) return;
     const open = state.orders.filter(o => !o.served);
     const mini = o => `<button class="order-mini ${o.id === state.activeOrderId ? 'active' : ''}" data-order-id="${o.id}" type="button">${o.guest.name}<br>${o.id.toString().padStart(2,'0')}</button>`;
-    wrapL.innerHTML = open.filter((_,i) => i % 2 === 0).slice(0,4).map(mini).join('');
-    wrapR.innerHTML = open.filter((_,i) => i % 2 === 1).slice(0,4).map(mini).join('');
+    const left = open.filter((_,i) => i % 2 === 0);
+    const right = open.filter((_,i) => i % 2 === 1);
+    wrapL.innerHTML = left.map(mini).join('');
+    wrapR.innerHTML = right.map(mini).join('');
+    // 客人变多时把订单架整体撑高，保证左右置物棍的订单都能摆开、不被裁掉
+    const board = document.querySelector('.order-board');
+    if(board){
+      const rows = Math.max(left.length, right.length);
+      board.style.minHeight = `${Math.min(190, 48 + Math.max(0, rows - 2) * 22)}px`;
+      board.classList.toggle('many', rows > 2);
+    }
     if(els.submitRack){
       const racked = orderOnRack();
       els.submitRack.classList.toggle('has-order', racked);
@@ -4216,20 +4231,32 @@
       toast('奶鼠来袭！多了一位不速之客，优先招待它，否则它会偷小费');
     }
     if(rogueActive() && availableSyrups().includes('death')){
-      // 拿到死亡之糖后，会偶尔出现「重度抑郁症」客人：大约每 8~13 位客人里出 1 位
+      // 拿到死亡之糖后，会偶尔出现「重度抑郁症」客人：大约每 8~12 位客人里出 1 位
       const r = state.rogue;
       if(!r.depNext) r.depNext = randInt(8, 12);
       if(typeof r.depSeen !== 'number') r.depSeen = 0;
       let converted = false;
-      for(const dg of state.dayGuests){
-        if(converted) break;
-        if(dg.guest && (dg.guest.kind === 'naishu' || dg.guest.tier === 'boss' || dg.guest.tier === 'elite')) continue;
-        r.depSeen += 1;
-        if(r.depSeen < r.depNext) continue;
-        dg.personality = PERSONALITIES.depression;
-        dg.patienceMs = personalityPatience(dg.personality, dg.guest);
+      const markDep = (dg, extra) => {
+        if(extra){
+          dg.extraPersonality = 'depression';
+        }else{
+          dg.personality = PERSONALITIES.depression;
+          dg.patienceMs = personalityPatience(dg.personality, dg.guest);
+        }
         if(!dg.order.syrups || !dg.order.syrups.length) dg.order.syrups = [{id:'classic', ratio:100}];
         dg.order.deathRequirement = true;
+      };
+      for(const dg of state.dayGuests){
+        if(converted) break;
+        const special = !!(dg.guest && (dg.guest.kind === 'naishu' || dg.guest.tier === 'boss' || dg.guest.tier === 'elite'));
+        if(special){
+          // BOSS / 精英 / 事件客人：作为「第二性格」叠加，不占用普通客人的计数
+          if(Math.random() < .2) markDep(dg, true);
+          continue;
+        }
+        r.depSeen += 1;
+        if(r.depSeen < r.depNext) continue;
+        markDep(dg, false);
         converted = true;
         r.depSeen = 0;
         r.depNext = randInt(8, 12);
@@ -5764,6 +5791,8 @@
     const speedScore = remain >= state.patienceMs * .5 ? 6 : remain >= state.patienceMs * .25 ? 4 : remain > 0 ? 2 : 0;
     const baseScore = timedOut ? 0 : Math.round(sizeScore + jarScore + peachScore + kindScore + ratioScore + boilScore + pourScore + stirScore + tempScore + toppingScore + speedScore);
     const p = state.personality || (state.guest && state.guest.personality ? PERSONALITIES[state.guest.personality] : null);
+    const servedRecX = (state.dayGuests || [])[state.guestIndex];
+    const extraDepression = !!(servedRecX && servedRecX.extraPersonality === 'depression');
     let score = baseScore;
     if(!timedOut && p){
       if(p.id === 'generous') score = Math.min(100, Math.round(baseScore + 5 + (100 - baseScore) * .12));
@@ -5905,7 +5934,7 @@
       details.push({ok:queueDelta > 0, label:'排队', text: queueDelta > 0 ? `提前服务 +${queueDelta}` : `被插队 ${queueDelta}`});
     }
     details.push({ok:speedScore===6, label:'出餐速度', text: timedOut ? '超时了…' : speedScore===6 ? '手速超快' : speedScore===4 ? '稍微有点慢' : '客人等急了'});
-    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipBase, scoreTip, addTip, tipInfoTip:tipInfo.tip, tipLines, tipNotes:tipInfo.notes, details, timedOut, death:deathHit, deathSyrupPct, deathSyrupBonus, guest:state.guest};
+    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipBase, scoreTip, addTip, tipInfoTip:tipInfo.tip, tipLines, tipNotes:tipInfo.notes, details, timedOut, death:deathHit, deathSyrupPct, deathSyrupBonus, extraDepression, guest:state.guest};
   }
 
   function commentFor(result){
@@ -5939,8 +5968,16 @@
     state.rackOrderId = null;
     state.scoreResult = result;
     if(result.death){
-      (state.dayGuests || []).forEach(g => { if(!g.served) g.scared = true; });
-      (state.orders || []).forEach(o => { if(!o.served) o.served = true; });
+      // 普通客人吃到死亡之糖会吓跑所有人；「重度抑郁症」客人只认死亡之糖，只有 33% 概率波及别人
+      const servedRecP = (state.dayGuests || []).find(g => g.index === state.guestIndex);
+      const depEater = !!(servedRecP && (servedRecP.extraPersonality === 'depression' || (servedRecP.personality && servedRecP.personality.id === 'depression')));
+      const scareOthers = !depEater || Math.random() < .33;
+      result.scaredOthers = scareOthers;
+      result.depEater = depEater;
+      if(scareOthers){
+        (state.dayGuests || []).forEach(g => { if(!g.served && g.index !== state.guestIndex) g.scared = true; });
+        (state.orders || []).forEach(o => { if(!o.served) o.served = true; });
+      }
     }
     state.reviews.push(result);
     state.dayStars += result.stars;
@@ -5965,7 +6002,11 @@
       openConfirm({
         iconSvg:'skull',
         title:'客人被死亡之糖吞噬了',
-        copy:'这一单的客人当场倒下，小费 ×5；排队等着的客人全都被吓跑了。',
+        copy: result.depEater
+          ? (result.scaredOthers
+            ? '这位「重度抑郁症」客人心愿已了，小费 ×5；后排客人被吓得四散逃跑。'
+            : '这位「重度抑郁症」客人安静地倒下了，小费 ×5；其他客人见怪不怪，没有跑。')
+          : '这一单的客人当场倒下，小费 ×5；排队等着的客人全都被吓跑了。',
         tipHtml:`<div class="confirm-tip-head"><span>本单小费</span><b>+${result.coins}</b></div><div class="confirm-tip-lines">${tipRows}${deathBonusRow}</div>`,
         okText:'去结算',
         cancelText:'',
@@ -5994,7 +6035,7 @@
       if(p){
         els.reviewPersonality.style.setProperty('--pc', p.color);
         const delta = result.pDelta ? ` · 性格修正 ${result.pDelta > 0 ? '+' : ''}${result.pDelta}` : '';
-        els.reviewPersonality.innerHTML = `<span class="personality-tag" style="--pc:${p.color}">${p.icon} ${p.name}</span><small>${personalityWaitText(p)}${delta}</small>`;
+        els.reviewPersonality.innerHTML = `<span class="personality-tag" style="--pc:${p.color}">${p.icon} ${p.name}</span>${result.extraDepression ? personalityTag(PERSONALITIES.depression) : ''}<small>${personalityWaitText(p)}${delta}</small>`;
       }
     }
     els.reviewQuote.innerHTML = `<b>${result.guest.name}：</b>${result.comment}`;
