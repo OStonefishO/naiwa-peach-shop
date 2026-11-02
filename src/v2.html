@@ -13,7 +13,7 @@
 <meta property="og:title" content="奶蛙黄桃罐头店 · 点开即玩">
 <meta property="og:description" content="接单、装罐、封盖、出餐，做一罐甜甜的黄桃罐头。微信/QQ 内直接打开。">
 <meta property="og:type" content="website">
-<title>奶蛙黄桃罐头店 · 正式版 4.65</title>
+<title>奶蛙黄桃罐头店 · 正式版 4.66</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23FFD23F'/%3E%3Ccircle cx='50' cy='58' r='27' fill='%23FFC42E'/%3E%3Ccircle cx='39' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='61' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='50' cy='72' r='4' fill='%23FFF3CE'/%3E%3C/svg%3E">
 <style>
   :root{
@@ -124,7 +124,7 @@
 
   .piggy{position:absolute;border:0;background:none;padding:0;cursor:pointer;display:grid;place-items:center}
   .piggy>svg{display:block;filter:drop-shadow(0 4px 6px rgba(80,40,20,.22))}
-  .scene-piggy{right:14px;bottom:56px;width:58px;height:58px;z-index:40}
+  .scene-piggy{right:14px;bottom:30px;width:58px;height:58px;z-index:40}
   .scene-piggy>svg{width:58px;height:58px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.15))}
   .piggy.bounce{animation:piggyBounce .5s ease}
   @keyframes piggyBounce{0%{transform:translateY(0) scale(1)}30%{transform:translateY(-7px) scale(1.06,.95)}60%{transform:translateY(0) scale(.96,1.04)}100%{transform:translateY(0) scale(1)}}
@@ -139,11 +139,11 @@
   .review-piggy.bounce>svg{animation:piggyBounce .42s ease 4}
   @keyframes coinFall{0%{opacity:1;transform:translate(-50%,-6px) scale(.9)}80%{opacity:1;transform:translate(-50%,58px) scale(1)}100%{opacity:0;transform:translate(-50%,64px) scale(.85)}}
   .review-piggy .piggy-tip{font-size:13px}
-  .scene-piggy{bottom:56px !important;z-index:40}
+  .scene-piggy{bottom:30px !important;z-index:40}
   .scene-piggy .piggy-tip{left:auto;right:-10px;bottom:calc(100% + 4px);transform:translate(0,6px)}
   .scene-piggy .piggy-tip.show{transform:translate(0,-6px)}
   .scene-piggy .piggy-tip.bubble::after{left:auto;right:22px}
-  .scene-piggy .piggy-label{position:absolute;left:50%;transform:translateX(-50%);bottom:-4px;background:#FFFDF6;border:1.5px solid #E6D2B6;border-radius:9px;padding:1px 7px;font-size:8.5px;font-weight:800;color:#8A6A45;white-space:nowrap;box-shadow:0 1px 0 #EBD9C0}
+  .scene-piggy .piggy-label{position:absolute;left:50%;transform:translateX(-50%);bottom:-12px;background:#FFFDF6;border:1.5px solid #E6D2B6;border-radius:9px;padding:1px 7px;font-size:8.5px;font-weight:800;color:#8A6A45;white-space:nowrap;box-shadow:0 1px 0 #EBD9C0}
   .game:not([data-stage="desk"]) .scene-piggy{display:none !important}
   /* ---------- 场景 ---------- */
   .scene{

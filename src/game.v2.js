@@ -2468,7 +2468,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '小费罐与商店页签';
+  const CHANGELOG_SUB = '小费罐位置';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
