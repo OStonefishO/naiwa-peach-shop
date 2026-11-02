@@ -2390,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '自定义中心与工坊';
+  const CHANGELOG_SUB = '死亡之糖流程修正';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -7059,7 +7059,11 @@
     const scoreTip = timedOut ? 0 : 8 + Math.round(score * .12) + (perfect ? 5 : 0);
     const addTip = timedOut ? 0 : tipInfo.tip;
     const tipBase = scoreTip + addTip;
-    const deathHit = rogueActive() && !timedOut && (c.components && (c.components.death || 0) > .5);
+    const guestRecNow = (state.dayGuests || []).find(g => g.index === state.guestIndex);
+    const depEaterNow = !!(guestRecNow && (guestRecNow.extraPersonality === 'depression' || (guestRecNow.personality && guestRecNow.personality.id === 'depression')));
+    const deathUsed = rogueActive() && !timedOut && (c.components && (c.components.death || 0) > .5);
+    // 「重度抑郁症」客人吃死亡之糖只有 20% 触发吞噬，其余正常出餐
+    const deathHit = deathUsed && (!depEaterNow || Math.random() < .20);
 
     const tipLines = [];
     let tipMul = 1;
@@ -7158,7 +7162,7 @@
       details.push({ok:queueDelta > 0, label:'排队', text: queueDelta > 0 ? `提前服务 +${queueDelta}` : `被插队 ${queueDelta}`});
     }
     details.push({ok:speedScore===6, label:'出餐速度', text: timedOut ? '超时了…' : speedScore===6 ? '手速超快' : speedScore===4 ? '稍微有点慢' : '客人等急了'});
-    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipBase, scoreTip, addTip, tipInfoTip:tipInfo.tip, tipLines, tipNotes:tipInfo.notes, details, timedOut, death:deathHit, deathSyrupPct, deathSyrupBonus, extraDepression, guest:state.guest};
+    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipBase, scoreTip, addTip, tipInfoTip:tipInfo.tip, tipLines, tipNotes:tipInfo.notes, details, timedOut, death:deathHit, depEater:depEaterNow, deathSyrupPct, deathSyrupBonus, extraDepression, guest:state.guest};
   }
 
   function commentFor(result){
@@ -7192,16 +7196,10 @@
     state.rackOrderId = null;
     state.scoreResult = result;
     if(result.death){
-      // 普通客人吃到死亡之糖会吓跑所有人；「重度抑郁症」客人只认死亡之糖，只有 33% 概率波及别人
-      const servedRecP = (state.dayGuests || []).find(g => g.index === state.guestIndex);
-      const depEater = !!(servedRecP && (servedRecP.extraPersonality === 'depression' || (servedRecP.personality && servedRecP.personality.id === 'depression')));
-      const scareOthers = !depEater || Math.random() < .33;
-      result.scaredOthers = scareOthers;
-      result.depEater = depEater;
-      if(scareOthers){
-        (state.dayGuests || []).forEach(g => { if(!g.served && g.index !== state.guestIndex) g.scared = true; });
-        (state.orders || []).forEach(o => { if(!o.served) o.served = true; });
-      }
+      // 触发吞噬时，排队客人全部被吓跑（抑郁客人只有 20% 触发，见 scoreOrder）
+      result.scaredOthers = true;
+      (state.dayGuests || []).forEach(g => { if(!g.served && g.index !== state.guestIndex) g.scared = true; });
+      (state.orders || []).forEach(o => { if(!o.served) o.served = true; });
     }
     state.reviews.push(result);
     state.dayStars += result.stars;
@@ -7312,7 +7310,7 @@
     sfx.tap();
     if(els.nextBtn.dataset.death === '1'){
       delete els.nextBtn.dataset.death;
-      setTimeout(() => startNextDay(), 240);
+      setTimeout(() => showSummary(), 240);
       return;
     }
     if((state.dayGuests || []).every(d => d.served)){
@@ -7908,7 +7906,7 @@
   function renderRogueShop(){
     if(!els.rogueShopList) return;
     if(els.rogueShopCoins) els.rogueShopCoins.textContent = coinText();
-    els.rogueShopList.innerHTML = (state.rogue.shopStock || ['cashback']).filter(id => rogueStockAvailable(id)).map(id => {
+    els.rogueShopList.innerHTML = (state.rogue.shopStock || ['cashback']).map(id => {
       const item = ROGUE_ITEMS.find(i => i.id === id);
       if(!item) return '';
       const owned = state.rogue.items[id] || 0;
@@ -7916,12 +7914,13 @@
       const bought = rogueBoughtToday(id);
       const soldOutToday = bought >= cap;
       const maxed = owned >= item.max;
+      const ownedPermanent = !!item.permanent && owned > 0;
       const price = rogueShopPrice(item);
       const todayOnly = id === 'sugarOwl' && rogueOwlToday();
       const reserved = id === 'sugarOwl' && Number(state.rogue.owlDay) > Number(state.day);
       const active = todayOnly || reserved;
-      const label = active ? (todayOnly ? '今日生效' : '明天生效') : soldOutToday ? (cap > 1 ? `今日 ${bought}/${cap}` : '今日已售完') : maxed ? '已满' : `${price} 金币`;
-      const sold = soldOutToday && !active;
+      const label = ownedPermanent ? '已拥有' : active ? (todayOnly ? '今日生效' : '明天生效') : soldOutToday ? (cap > 1 ? `今日 ${bought}/${cap}` : '今日已售完') : maxed ? '已满' : `${price} 金币`;
+      const sold = (soldOutToday || ownedPermanent) && !active;
       return `<div class="rogue-shop-item${active ? ' active' : ''}${sold ? ' sold' : ''}"><div><b>${item.name}${owned ? ` ×${owned}` : ''}${todayOnly ? ' · 今日' : reserved ? ' · 明天' : ''}</b><small>${item.desc}</small></div><button data-rogue-buy="${id}" ${((maxed || sold) && !active) || (!state.devMode && state.rogue.coins < price) || active ? 'disabled' : ''}>${label}</button></div>`;
     }).join('');
   }
