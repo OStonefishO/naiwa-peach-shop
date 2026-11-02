@@ -2468,7 +2468,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '暂停层级与立绘';
+  const CHANGELOG_SUB = '小费罐与商店页签';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -2757,12 +2757,15 @@
     if(!els.settingsOverlay) return;
     els.settingsOverlay.classList.add('show');
     els.settingsOverlay.setAttribute('aria-hidden', 'false');
+    try { els.settingsOverlay.style.zIndex = '1300'; } catch(e){}
+    try { if(typeof isPaused === 'function' && isPaused()) hidePausePanel(); } catch(e){}
     sfx.tap();
   }
   function closeSettings(){
     if(!els.settingsOverlay) return;
     els.settingsOverlay.classList.remove('show');
     els.settingsOverlay.setAttribute('aria-hidden', 'true');
+    try { if(typeof isPaused === 'function' && isPaused()) showPausePanel(); } catch(e){}
   }
   function setSetting(key, value){
     if(!(key in settings)) return;
@@ -7938,6 +7941,7 @@
       if(result.score >= 100) state.customStats.perfect = (state.customStats.perfect || 0) + 1;
       state.customStats.coins = state.weekEarned;
     }
+    try { state.tipJar = Math.max(0, (state.tipJar || 0) + (result.tip || result.coins || 0)); } catch(e){}
     saveGame();
     if(!result.death) renderReview(result);
     updateHud();
@@ -7960,7 +7964,8 @@
     el.classList.add('bounce');
     const tip = el.querySelector('.piggy-tip');
     if(tip){
-      tip.textContent = '+' + amount;
+      tip.classList.add('bubble');
+      tip.textContent = '现在有 ' + Math.max(0, Math.round(amount)) + ' 块钱';
       tip.classList.add('show');
       clearTimeout(el.__tipTimer);
       el.__tipTimer = setTimeout(() => tip.classList.remove('show'), 3000);
@@ -8452,13 +8457,16 @@
     return items;
   }
   function setShopTab(tab){
-    const valid = ['run','syrup','furniture','expand','skin'];
+    const inRun = !!(state.phase === 'playing' || state.phase === 'event' || state.phase === 'reviewing' || state.phase === 'summary' || isPaused());
+    const valid = inRun ? ['run','syrup','furniture','expand'] : ['run','syrup','furniture','expand','skin'];
     state.shopTab = valid.includes(tab) ? tab : 'run';
     if(els.shopTabs) els.shopTabs.querySelectorAll('[data-shoptab]').forEach(b => b.classList.toggle('active', b.dataset.shoptab === state.shopTab));
     [['shopGrid','run'],['shopSyrupGrid','syrup'],['shopFurnGrid','furniture'],['shopExpandGrid','expand'],['shopSkinGrid','skin']].forEach(([key,id]) => {
       if(els[key]){ els[key].hidden = state.shopTab !== id; els[key].style.display = state.shopTab === id ? 'grid' : 'none'; }
     });
-    if(els.shopSkinSub) els.shopSkinSub.hidden = state.shopTab !== 'skin';
+    if(els.shopTabs) els.shopTabs.querySelectorAll('[data-shoptab="skin"]').forEach(b => { b.style.display = inRun ? 'none' : ''; });
+    if(els.shopSkinSub){ els.shopSkinSub.hidden = state.shopTab !== 'skin'; els.shopSkinSub.style.display = state.shopTab === 'skin' ? 'flex' : 'none'; }
+    if(els.shopSkinGrid){ els.shopSkinGrid.hidden = state.shopTab !== 'skin'; els.shopSkinGrid.style.display = state.shopTab === 'skin' ? 'grid' : 'none'; }
     if(els.shopWallet){ els.shopWallet.hidden = false; els.shopWallet.style.display = 'flex'; }
   }
   function skinOwnedFull(id){
@@ -8902,16 +8910,39 @@
     if(state.pouring) stopPour();
     pausedAtMs = performance.now();
     const ov = document.getElementById('pauseOverlay');
-    if(ov){ ov.classList.add('show'); ov.setAttribute('aria-hidden','false'); }
+    if(ov){
+      try { document.body.appendChild(ov); } catch(e){}
+      if(!ov.__hardHide){
+        ov.__hardHide = true;
+        ov.addEventListener('click', e => { if(e.target.closest('button')) hidePausePanel(); }, true);
+      }
+      ov.style.display = '';
+      ov.classList.add('show');
+      ov.setAttribute('aria-hidden','false');
+    }
   }
   let pauseToSettings = false;
+  function hidePausePanel(){
+    const ov = document.getElementById('pauseOverlay') || els.pauseOverlay;
+    if(!ov) return;
+    ov.classList.remove('show');
+    ov.setAttribute('aria-hidden','true');
+    ov.style.display = 'none';
+  }
+  function showPausePanel(){
+    const ov = document.getElementById('pauseOverlay') || els.pauseOverlay;
+    if(!ov) return;
+    ov.style.display = '';
+    ov.classList.add('show');
+    ov.setAttribute('aria-hidden','false');
+  }
   function pauseOpenSettings(){
     pauseToSettings = true;
-    if(els.pauseOverlay){ els.pauseOverlay.classList.remove('show'); els.pauseOverlay.setAttribute('aria-hidden','true'); }
+    hidePausePanel();
     openSettings();
   }
   function pauseQuitRun(){
-    if(els.pauseOverlay){ els.pauseOverlay.classList.remove('show'); els.pauseOverlay.setAttribute('aria-hidden','true'); }
+    hidePausePanel();
     openConfirm({ title:'确定提前下班？', copy:'结束本局会立刻回到主菜单，今天的进度不保存。', okText:'结束游戏', cancelText:'再想想', onOk:() => { clearRun(); closeConfirm(); goHome(); }, onCancel:() => { if(isPaused() && els.pauseOverlay){ els.pauseOverlay.classList.add('show'); els.pauseOverlay.setAttribute('aria-hidden','false'); } } });
   }
   function resumeGame(){
@@ -9080,7 +9111,7 @@
     if(els.shopToggle) els.shopToggle.addEventListener('click', () => toggleMenuGroup(els.shopToggle, els.shopPanel));
     const piggyBtn = document.getElementById('tipPiggy');
     if(piggyBtn) piggyBtn.addEventListener('click', () => {
-      if(lastTipShown > 0) tipPiggyShow(lastTipShown);
+      if((state.tipJar || 0) > 0) tipPiggyShow(state.tipJar || 0);
       else toast('小费罐还是空的，先出一单吧');
     });
     if(els.settingsBtn) els.settingsBtn.addEventListener('click', () => {
@@ -9088,7 +9119,7 @@
     });
     if(els.settingsEntryBtn) els.settingsEntryBtn.addEventListener('click', openSettings);
     [['pauseResume', resumeGame], ['pauseSettings', pauseOpenSettings],
-      ['pauseDemo', () => { if(els.pauseOverlay){ els.pauseOverlay.classList.remove('show'); els.pauseOverlay.setAttribute('aria-hidden','true'); } saveRunToProfile(); resumeGame(); goHome(); toast('已保存，下次点「继续上一局」回来'); }],
+      ['pauseDemo', () => { hidePausePanel(); saveRunToProfile(); resumeGame(); goHome(); toast('已保存，下次点「继续上一局」回来'); }],
       ['pauseQuit', pauseQuitRun], ['__oldPauseQuit', () => { openConfirm({ iconSvg:'', title:'确定提前下班？', copy:'提前下班会直接结束这一局，本局进度不保留。', okText:'确认下班', cancelText:'再干一会儿', onOk:() => { clearRun(); resumeGame(); goHome(); toast('提前下班，本局不保留'); } }); }]
     ].forEach(([id, fn]) => {
       const b = document.getElementById(id);
