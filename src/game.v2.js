@@ -7927,9 +7927,20 @@
   function reviewPiggyPlay(coins){
     const el = document.getElementById('reviewPiggy');
     if(!el) return;
-    el.classList.remove('drop');
+    el.classList.remove('drop','bounce');
+    el.querySelectorAll('.piggy-coin.extra').forEach(n => n.remove());
     void el.offsetWidth;
-    el.classList.add('drop');
+    const coin = el.querySelector('.piggy-coin');
+    if(coin){
+      coin.style.animationDelay = '0ms';
+      for(let i=1;i<4;i++){
+        const c = coin.cloneNode(true);
+        c.classList.add('extra');
+        c.style.animationDelay = (i * 190) + 'ms';
+        el.appendChild(c);
+      }
+    }
+    el.classList.add('drop','bounce');
     const tip = el.querySelector('.piggy-tip');
     if(tip){
       tip.textContent = '+' + coins;
@@ -7937,9 +7948,9 @@
       clearTimeout(el.__tipTimer);
       el.__tipTimer = setTimeout(() => tip.classList.remove('show'), 2600);
     }
-    setTimeout(() => piggySay(el, coins), 430);
+    setTimeout(() => piggySay(el, coins), 520);
+    setTimeout(() => { el.classList.remove('bounce'); el.querySelectorAll('.piggy-coin.extra').forEach(n => n.remove()); }, 2400);
   }
-
     function renderReview(result){
     try { reviewPiggyPlay(result.coins || 0); lastTipShown = result.coins || 0; } catch(e){}
     const starsHtml = [0,1,2].map(i => `<svg class="icon star ${i < result.stars ? 'on' : ''}" style="transition-delay:${i*.08}s"><use href="#i-star"></use></svg>`).join('');
