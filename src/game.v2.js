@@ -2390,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '封面与工坊体验';
+  const CHANGELOG_SUB = '客人名单与免熬糖';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -2871,6 +2871,9 @@
     return pieces.reduce((a,s) => { a[s]++; return a; }, {large:0,small:0});
   }
   function findBatch(){
+    if(customActive() && customMap().steps.boil === false){
+      return { id: 'free', sugar: (state.order && state.order.sugar) || 2, quality: 'perfect', types: ['classic'], ratios: { classic: 100 }, free: true };
+    }
     if(state.selectedBatch == null) return null;
     return state.batches.find(b => b.id === state.selectedBatch && !b.used) || null;
   }
@@ -3780,8 +3783,11 @@
       if(els.toppingQtyVal) els.toppingQtyVal.textContent = focusItem ? focusItem.qty : 1;
     }
 
+    const freeBoil = customActive() && customMap().steps.boil === false;
     const visibleBatches = state.batches.filter(b => !b.used);
-    if(!visibleBatches.length){
+    if(freeBoil){
+      els.batchStrip.innerHTML = '<button class="batch-chip active perfect" type="button" disabled>大锅标准糖浆 · 无限供应<small>地图关闭了熬糖，直接用这锅</small></button>';
+    }else if(!visibleBatches.length){
       els.batchStrip.innerHTML = `<span class="batch-empty">还没有熬好的糖水，先去厨房熬一锅。</span>`;
     }else{
       els.batchStrip.innerHTML = visibleBatches.map(b => {
@@ -3998,9 +4004,9 @@
           const name = SYRUPS[sid].name.replace('糖浆',''), color = SYRUPS[sid].color, val = vals[idx];
           return `<div class="pot-mix2" data-pot-mix2-row="${i}" data-mix2-idx="${idx}" style="--p:${val}%;--c:${color}">
             <span class="pm2-name"><i class="mix-dot" style="background:${color}"></i>${name}<b data-mix2-val="${idx}">${val}%</b></span>
-            <button class="mix-step" type="button" data-mix2-step="-5" data-pot="${i}" data-idx="${idx}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="减少 5%">−</button>
-            <input type="range" min="0" max="100" step="5" value="${val}" data-pot-mix2="${i}" data-idx="${idx}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="${name}比例">
-            <button class="mix-step" type="button" data-mix2-step="5" data-pot="${i}" data-idx="${idx}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="增加 5%">＋</button>
+            <button class="mix-step" type="button" data-mix2-step="-1" data-pot="${i}" data-idx="${idx}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="减少 1%">−</button>
+            <input type="range" min="0" max="100" step="1" value="${val}" data-pot-mix2="${i}" data-idx="${idx}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="${name}比例">
+            <button class="mix-step" type="button" data-mix2-step="1" data-pot="${i}" data-idx="${idx}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="增加 1%">＋</button>
           </div>`;
         }).join('') + '</div>';
       }
@@ -5133,7 +5139,9 @@
     personalities: ['strict', 'generous'],
     pots: 2,
     syrupMax: 2,
-    steps: { cut: true, stir: true, temp: true, topping: true },
+    steps: { cut: true, boil: true, stir: true, temp: true, topping: true },
+    patienceByPersona: true,
+    guestOff: { normal: [], elite: [], boss: [] },
     order: { complexChance: 35, syrupMin: 1, syrupMax: 2, toppingMin: 0, toppingMax: 2, forceJar: false },
     weeklyOn: true,
     weeklyTarget: 800,
@@ -5172,6 +5180,80 @@
     cur[keys[keys.length-1]] = val;
   }
   function clampNum(v, min, max){ v = Number(v); if(!isFinite(v)) v = min; return Math.max(min, Math.min(max, v)); }
+
+  let gpTab = 'normal';
+  function gpPoolOf(tier){
+    if(tier === 'elite') return ELITE_GUESTS;
+    if(tier === 'boss') return BOSS_GUESTS;
+    return GUESTS;
+  }
+  function guestPoolSummary(m){
+    const off = (m && m.guestOff) || {};
+    return ['normal','elite','boss'].map(t => {
+      const all = gpPoolOf(t).length;
+      const n = all - ((off[t] || []).length);
+      const label = t === 'normal' ? '普通' : t === 'elite' ? '精英' : 'BOSS';
+      return label + ' ' + n + '/' + all;
+    }).join(' · ');
+  }
+  function renderCmGuestPool(){
+    const card = document.getElementById('gpCard');
+    if(!card || !cmDraft) return;
+    const off = ((cmDraft.guestOff || {})[gpTab] || []);
+    const pool = gpPoolOf(gpTab);
+    const rows = pool.map(g => {
+      const on = !off.includes(g.name);
+      return '<div class="gp-row ' + (on ? '' : 'off') + '">' +
+        '<div class="gp-thumb">' + guestSVG(g) + '</div>' +
+        '<div class="gp-info"><b>' + escapeHtml(g.name) + (g.personalityTag ? ' · ' + escapeHtml(String(g.personalityTag)) : '') + '</b>' +
+        '<small>' + escapeHtml((g.greet || g.desc || '').slice(0, 40)) + '</small></div>' +
+        '<button type="button" class="cm-switch-btn" data-gp-toggle="' + escapeHtml(g.name) + '" style="border:0;background:none;padding:0">' + cmSwitch(on) + '</button>' +
+      '</div>';
+    }).join('') || '<div class="gp-empty">这一类没有客人</div>';
+    card.innerHTML = '<div class="cm-head"><b>出现的客人</b><small>关掉的客人这一类里就不会再刷出来</small></div>' +
+      '<div class="gp-tabs">' + ['normal','elite','boss'].map(t => {
+        const label = t === 'normal' ? '普通客人' : t === 'elite' ? '精英客人' : 'BOSS 客人';
+        const n = gpPoolOf(t).length - (((cmDraft.guestOff || {})[t] || []).length);
+        return '<button type="button" class="gp-tab ' + (gpTab === t ? 'on' : '') + '" data-gp-tab="' + t + '">' + label + ' ' + n + '/' + gpPoolOf(t).length + '</button>';
+      }).join('') + '</div>' +
+      '<div class="gp-list">' + rows + '</div>' +
+      '<div class="cm-actions"><button type="button" class="cm-btn primary" data-gp-done="1">完成</button></div>';
+  }
+  function openCmGuestPool(){
+    if(!cmDraft) return;
+    let ov = document.getElementById('gpOverlay');
+    if(!ov){
+      ov = document.createElement('div');
+      ov.id = 'gpOverlay';
+      ov.className = 'overlay';
+      ov.innerHTML = '<div class="cm-sheet" id="gpCard" style="max-width:430px"></div>';
+      ov.addEventListener('click', ev => { if(ev.target === ov) closeCmGuestPool(); });
+      document.body.appendChild(ov);
+    }
+    gpTab = 'normal';
+    renderCmGuestPool();
+    ov.classList.add('show');
+    ov.setAttribute('aria-hidden', 'false');
+  }
+  function closeCmGuestPool(){
+    const ov = document.getElementById('gpOverlay');
+    if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden', 'true'); }
+    renderCustomEditor();
+  }
+  function onCmGuestPoolClick(ev){
+    const tab = ev.target.closest('[data-gp-tab]');
+    if(tab){ gpTab = tab.dataset.gpTab; renderCmGuestPool(); return; }
+    if(ev.target.closest('[data-gp-done]')){ closeCmGuestPool(); return; }
+    const tg = ev.target.closest('[data-gp-toggle]');
+    if(tg){
+      const name = tg.dataset.gpToggle;
+      if(!cmDraft.guestOff) cmDraft.guestOff = { normal: [], elite: [], boss: [] };
+      const arr = cmDraft.guestOff[gpTab] = cmDraft.guestOff[gpTab] || [];
+      const i = arr.indexOf(name);
+      if(i >= 0) arr.splice(i, 1); else arr.push(name);
+      renderCmGuestPool();
+    }
+  }
   function normalizeCustomMap(raw){
     const out = cloneJSON(CUSTOM_DEFAULTS);
     if(!raw || typeof raw !== 'object') return out;
@@ -5183,6 +5265,15 @@
     out.patienceSec = Math.round(clampNum(raw.patienceSec != null ? raw.patienceSec : out.patienceSec, 3, 3600));
     out.pots = Math.round(clampNum(raw.pots != null ? raw.pots : out.pots, 1, 20));
     out.syrupMax = Math.round(clampNum(raw.syrupMax != null ? raw.syrupMax : out.syrupMax, 1, 6));
+    if(raw.steps && typeof raw.steps === 'object'){
+      ['cut','boil','stir','temp','topping'].forEach(k => { out.steps[k] = raw.steps[k] !== false; });
+    }
+    out.patienceByPersona = raw.patienceByPersona !== false;
+    if(raw.guestOff && typeof raw.guestOff === 'object'){
+      ['normal','elite','boss'].forEach(t => {
+        out.guestOff[t] = Array.isArray(raw.guestOff[t]) ? raw.guestOff[t].filter(n => typeof n === 'string').slice(0, 40) : [];
+      });
+    }
     out.weeklyOn = raw.weeklyOn !== false;
     out.missionsOn = raw.missionsOn !== false;
     if(Array.isArray(raw.fixedGuests)){
@@ -5246,7 +5337,7 @@
     saveProfiles();
   }
 
-  function openCustomEditor(){
+  function openCustomEditor(preset){
     let ov = document.getElementById('customOverlay');
     if(!ov){
       ov = document.createElement('div');
@@ -5258,7 +5349,7 @@
       ov.addEventListener('click', e => { if(e.target === ov) closeCustomEditor(); });
       ov.addEventListener('click', onCustomEditorClick);
     }
-    cmDraft = normalizeCustomMap((activeProfile && activeProfile.customMap) || CUSTOM_DEFAULTS);
+    cmDraft = normalizeCustomMap(preset || (activeProfile && activeProfile.customMap) || CUSTOM_DEFAULTS);
     renderCustomEditor();
     ov.classList.add('show');
     ov.setAttribute('aria-hidden', 'false');
@@ -5775,16 +5866,16 @@
           last = res2.status;
         }
         if(!ok2) throw new Error('HTTP ' + last);
-        toast('已上传（老库未升级：去重/简介暂不生效）');
+        toast('上传成功！');
       }
       // 同步回本地地图，方便再编辑
       saveLocalMap(map);
       closeWsUpload();
-      toast('上传成功，已出现在创意工坊');
+      toast('上传成功！');
       openWorkshop();
     }catch(err){
       window.__wsErr = String(err && err.message || err);
-      toast('上传失败：' + (String(err.message || err).indexOf('404') >= 0 ? '缺少封面/简介字段，先跑一次工坊升级 SQL' : String(err.message || err)));
+      toast('上传失败！请重试！');
     }finally{
       if(btn){ btn.disabled = false; btn.textContent = '上传地图'; }
     }
@@ -5920,6 +6011,9 @@
     return '<div class="cm-row"><label>' + label + (sub ? '<small>' + sub + '</small>' : '') + '</label>' +
       '<button type="button" class="cm-switch-btn" data-cm-switch="' + path + '" style="border:0;background:none;padding:0">' + cmSwitch(cmPathGet(cmDraft, path)) + '</button></div>';
   }
+  document.addEventListener('click', ev => {
+    if(ev.target.closest('#gpOverlay')) onCmGuestPoolClick(ev);
+  }, true);
   function renderCustomEditor(){
     const sheet = document.getElementById('cmSheet');
     if(!sheet || !cmDraft) return;
@@ -5952,18 +6046,21 @@
       '<div class="cm-sec"><h4>客人</h4>' +
         cmNumRow('每天客人数', '1~8 位', 'guestsPerDay', 1, 8) +
         cmNumRow('客人耐心', '秒，3~3600', 'patienceSec', 3, 3600, 10) +
+        cmSwitchRow('受性格影响', '关掉后「有耐心 / 缺乏耐心」不再增减耐心时间', 'patienceByPersona') +
         cmNumRow('普通客人权重', '', 'typeWeights.normal', 0, 100, 10) +
         cmNumRow('精英客人权重', '', 'typeWeights.elite', 0, 100, 10) +
         cmNumRow('BOSS 客人权重', '', 'typeWeights.boss', 0, 100, 10) +
         '<div class="cm-row" style="align-items:flex-start"><label>性格池<small>点一下开关，空池=没有性格</small></label></div>' +
         '<div class="cm-tags">' + personas + '</div>' +
+        '<div class="cm-row"><label>出现的客人<small>点开开关决定这类客人里谁会出现</small></label><button type="button" class="cm-tag" data-cm-act="guestpool">编辑 · ' + guestPoolSummary(m) + '</button></div>' +
         '<div class="cm-row"><label>高级客人<small>指定第几天来什么客人</small></label><div class="cm-num"><b>' + ((m.fixedGuests || []).length) + ' 条</b></div></div>' +
         '<div class="cm-tags"><button type="button" class="cm-tag" data-cm-guest="open">编辑高级客人</button></div>' +
       '</div>' +
       '<div class="cm-sec"><h4>店铺</h4>' +
         cmNumRow('熬糖锅数量', '1~20 口', 'pots', 1, 20) +
         cmNumRow('糖浆份数上限', '1~6 份，可多份混合', 'syrupMax', 1, 6) +
-        cmSwitchRow('需要切黄桃', '关掉后碗里一直有黄桃', 'steps.cut') +
+        cmSwitchRow('需要切黄桃', '关掉后黄桃无限供应', 'steps.cut') +
+        cmSwitchRow('需要熬糖', '关掉后倒糖处直接有大锅标准糖浆', 'steps.boil') +
         cmSwitchRow('需要搅拌', '关掉后自动搅拌', 'steps.stir') +
         cmSwitchRow('需要选温度', '关掉后自动按订单选', 'steps.temp') +
         cmSwitchRow('需要选小料', '关掉后自动按订单加', 'steps.topping') +
@@ -6042,6 +6139,8 @@
     if(authorInput) cmDraft.author = String(authorInput.value || '').slice(0, 16);
   }
   function onCustomEditorClick(e){
+    const poolBtn = e.target.closest('[data-cm-act="guestpool"]');
+    if(poolBtn){ syncDraftFromInputs(); openCmGuestPool(); return; }
     const missionBtn = e.target.closest('[data-cm-mission]');
     if(missionBtn){
       syncDraftFromInputs();
@@ -6207,10 +6306,11 @@
       else tier = 'boss';
       let forcedPersona = '';
       if(fixed[i]){ tier = fixed[i].tier; forcedPersona = fixed[i].personality || ''; }
-      let guest;
-      if(tier === 'elite') guest = cloneJSON(ELITE_GUESTS[randInt(0, ELITE_GUESTS.length-1)]);
-      else if(tier === 'boss') guest = cloneJSON(BOSS_GUESTS[randInt(0, BOSS_GUESTS.length-1)]);
-      else guest = cloneJSON(GUESTS[randInt(0, GUESTS.length-1)]);
+      const offNames = ((map.guestOff || {})[tier] || []);
+      const allPool = tier === 'elite' ? ELITE_GUESTS : tier === 'boss' ? BOSS_GUESTS : GUESTS;
+      const allowPool = allPool.filter(g => !offNames.includes(g.name));
+      const pickPool = allowPool.length ? allowPool : allPool;
+      const guest = cloneJSON(pickPool[randInt(0, pickPool.length-1)]);
       guest.tier = tier;
       const pool = map.personalities || [];
       const p = forcedPersona ? PERSONALITIES[forcedPersona] : (pool.length && Math.random() < .8 ? PERSONALITIES[pool[randInt(0, pool.length-1)]] : null);
@@ -6218,7 +6318,10 @@
       if(fixed[i]) guest.name = '特邀客';
       state.todayGuests.push(guest.name);
       markSeen(guest);
-      const patienceMs = Math.max(3000, (map.patienceSec || 90) * 1000);
+      let patienceMs = Math.max(3000, (map.patienceSec || 90) * 1000);
+      if(map.patienceByPersona !== false && p && Array.isArray(p.delta)){
+        patienceMs = Math.max(3000, patienceMs + p.delta[0] + Math.random() * (p.delta[1] - p.delta[0]));
+      }
       const order = makeOrder(i, guest, p);
       state.dayGuests.push({index:i, guest, personality:p, patienceMs, order, accepted:false, served:false, queuePenalty:0, orderId:null});
     }
@@ -6277,6 +6380,7 @@
     if(customActive()){
       const st = customMap().steps;
       els.game.dataset.cmCut = st.cut ? '1' : '0';
+      els.game.dataset.cmBoil = st.boil === false ? '0' : '1';
       els.game.dataset.cmStir = st.stir ? '1' : '0';
       els.game.dataset.cmTemp = st.temp ? '1' : '0';
       els.game.dataset.cmTop = st.topping ? '1' : '0';
@@ -6403,8 +6507,9 @@
     if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
     if(!state.can.size){ toast('先挑一个罐型'); return; }
     if(state.can.pieces.length >= 24){ toast('罐子已经塞满啦，先出餐吧'); return; }
-    if(!state.bowl[size]){ toast(`碗里没有${size === 'large' ? '大块' : '小块'}，先去厨房切`); return; }
-    state.bowl[size]--;
+    const freeCut = customActive() && customMap().steps.cut === false;
+    if(!freeCut && !state.bowl[size]){ toast(`碗里没有${size === 'large' ? '大块' : '小块'}，先去厨房切`); return; }
+    if(!freeCut) state.bowl[size]--;
     state.can.pieces.push(size);
     renderCan();
     updateSyrupVisual();
