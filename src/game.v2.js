@@ -2166,12 +2166,32 @@
       });
     });
   }
+  function bindRoomPan(){
+    const host = els.homeRoom;
+    if(!host) return;
+    document.querySelectorAll('[data-room-pan]').forEach(btn => {
+      if(btn.__bound) return;
+      btn.__bound = true;
+      const step = { up: [0,-56], down: [0,56], left: [-56,0], right: [56,0] }[btn.dataset.roomPan] || [0,0];
+      const start = e => {
+        e.preventDefault();
+        host.scrollBy({ left: step[0], top: step[1], behavior: 'smooth' });
+        btn.__timer = setInterval(() => host.scrollBy({ left: step[0], top: step[1], behavior: 'smooth' }), 220);
+      };
+      const stop = () => { clearInterval(btn.__timer); };
+      btn.addEventListener('pointerdown', start);
+      btn.addEventListener('pointerup', stop);
+      btn.addEventListener('pointerleave', stop);
+      btn.addEventListener('pointercancel', stop);
+    });
+  }
   function renderRoom(){
     if(!els.homeRoom || !activeProfile) return;
     const scrollLeft = els.homeRoom.scrollLeft, scrollTop = els.homeRoom.scrollTop;
     const furn = activeProfile.placedFurniture.map(furnitureItemHTML).join('');
     els.homeRoom.innerHTML = `<div class="room-canvas">${furn}${dollHTML()}<div class="room-pan-tip">拖动家具摆放 · 滑动空白处看房间</div></div>`;
     bindFurnitureDrag();
+    try { bindRoomPan(); } catch(e){}
     const count = activeProfile.placedFurniture.length;
     if(els.homeRoomTip) els.homeRoomTip.textContent = count
       ? `已经摆下 ${count} 件家具，按住家具可以拖动换位置。`
@@ -2473,7 +2493,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '周任务输入框';
+  const CHANGELOG_SUB = '存钱罐与房间浏览';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -7961,6 +7981,12 @@
     }
   }
 
+  function jarTotal(){
+    try {
+      if(typeof rogueActive === 'function' && rogueActive()) return Math.max(0, Math.round(state.rogue && state.rogue.coins || 0));
+    } catch(e){}
+    return Math.max(0, Math.round(state.tipJar || 0));
+  }
   let lastTipShown = 0;
   function piggySay(el, amount){
     if(!el) return;
@@ -8010,7 +8036,7 @@
     setTimeout(() => { el.classList.remove('bounce'); el.querySelectorAll('.piggy-coin.extra').forEach(n => n.remove()); }, 2400);
   }
     function renderReview(result){
-    try { reviewPiggyPlay(result.coins || 0); lastTipShown = result.coins || 0; } catch(e){}
+    try { const jv = (typeof jarTotal === 'function') ? jarTotal() : (result.coins || 0); reviewPiggyPlay(jv || 0); lastTipShown = jv || 0; } catch(e){}
     const starsHtml = [0,1,2].map(i => `<svg class="icon star ${i < result.stars ? 'on' : ''}" style="transition-delay:${i*.08}s"><use href="#i-star"></use></svg>`).join('');
     els.reviewStars.innerHTML = starsHtml;
     els.reviewTitle.textContent = result.death ? '客人被死亡之糖吞噬了'
@@ -9118,7 +9144,8 @@
     if(els.shopToggle) els.shopToggle.addEventListener('click', () => toggleMenuGroup(els.shopToggle, els.shopPanel));
     const piggyBtn = document.getElementById('tipPiggy');
     if(piggyBtn) piggyBtn.addEventListener('click', () => {
-      if((state.tipJar || 0) > 0) tipPiggyShow(state.tipJar || 0);
+      const total = jarTotal();
+      if(total > 0) tipPiggyShow(total);
       else toast('小费罐还是空的，先出一单吧');
     });
     if(els.settingsBtn) els.settingsBtn.addEventListener('click', () => {
