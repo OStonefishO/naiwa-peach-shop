@@ -2166,32 +2166,12 @@
       });
     });
   }
-  function bindRoomPan(){
-    const host = els.homeRoom;
-    if(!host) return;
-    document.querySelectorAll('[data-room-pan]').forEach(btn => {
-      if(btn.__bound) return;
-      btn.__bound = true;
-      const step = { up: [0,-56], down: [0,56], left: [-56,0], right: [56,0] }[btn.dataset.roomPan] || [0,0];
-      const start = e => {
-        e.preventDefault();
-        host.scrollBy({ left: step[0], top: step[1], behavior: 'smooth' });
-        btn.__timer = setInterval(() => host.scrollBy({ left: step[0], top: step[1], behavior: 'smooth' }), 220);
-      };
-      const stop = () => { clearInterval(btn.__timer); };
-      btn.addEventListener('pointerdown', start);
-      btn.addEventListener('pointerup', stop);
-      btn.addEventListener('pointerleave', stop);
-      btn.addEventListener('pointercancel', stop);
-    });
-  }
   function renderRoom(){
     if(!els.homeRoom || !activeProfile) return;
     const scrollLeft = els.homeRoom.scrollLeft, scrollTop = els.homeRoom.scrollTop;
     const furn = activeProfile.placedFurniture.map(furnitureItemHTML).join('');
     els.homeRoom.innerHTML = `<div class="room-canvas">${furn}${dollHTML()}<div class="room-pan-tip">拖动家具摆放 · 滑动空白处看房间</div></div>`;
     bindFurnitureDrag();
-    try { bindRoomPan(); } catch(e){}
     const count = activeProfile.placedFurniture.length;
     if(els.homeRoomTip) els.homeRoomTip.textContent = count
       ? `已经摆下 ${count} 件家具，按住家具可以拖动换位置。`
@@ -2493,7 +2473,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '存钱罐与房间浏览';
+  const CHANGELOG_SUB = '小家滚动条';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
