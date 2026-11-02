@@ -2317,6 +2317,15 @@
   function handleVariant(spec){
     if(!activeProfile) return;
     const [skinId, id] = String(spec).split(':');
+    if(id === 'none'){
+      activeProfile.equippedVariant = activeProfile.equippedVariant || {};
+      delete activeProfile.equippedVariant[skinId];
+      if(typeof syncProfile === 'function') syncProfile();
+      saveProfiles();
+      applyCharSkin(); renderDress(); sfx.tap();
+      toast('已换回原皮形态');
+      return;
+    }
     const v = skinVariants(skinId).find(x => x.id === id);
     if(!v) return;
     if(rogueActive() && !variantOwned(skinId, id)) { toast('肉鸽金币只在本局使用，主菜单商店要用普通金币'); sfx.error(); return; }
@@ -2387,7 +2396,7 @@
         const thumb = art0
           ? `<span class="di skin-thumb"><img src="${art0.img}" alt=""></span>`
           : '<span class="di skin-thumb"><svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg></span>';
-        const ownedSkin = !!s.free || ['desk','work','kitchen'].some(k => (activeProfile.skins[k] || []).includes(s.id));
+        const ownedSkin = skinOwnedFull(s.id);
         return `<button class="dress-item skin-item${active ? ' active' : ''}${ownedSkin ? '' : ' locked'}" type="button" data-dress-skin="${s.id}">
           ${thumb}${s.name.replace(' · 全套皮肤','')}
           <small>${worn ? '正在穿' : active ? '预览中' : (ownedSkin ? '点击预览' : (s.price ? s.price + ' 金币' : '点击预览'))}</small>
@@ -2406,7 +2415,10 @@
       }).join('')}</div></div>`;
     const variantsForSkin = skinVariants(previewSkin);
     const variantGroup = variantsForSkin.length ? `<div class="dress-section"><h4><span>变体槽</span><span>${previewDef.name.replace(' · 全套皮肤','')}</span></h4>
-      <div class="dress-row">${variantsForSkin.map(v => {
+      <div class="dress-row"><button class="dress-item variant-item${variantEquipped(previewSkin) ? '' : ' active'}" type="button" data-variant="${previewSkin}:none">
+        <span class="di">${charDollInner(previewSkin)}</span>原肤形态
+        <small>${variantEquipped(previewSkin) ? '换回原皮' : '正在用'}</small>
+      </button>${variantsForSkin.map(v => {
         const vOwned = variantOwned(previewSkin, v.id);
         const vOn = variantEquipped(previewSkin) === v.id;
         return `<button class="dress-item variant-item${vOn ? ' active' : ''}${vOwned ? '' : ' locked'}" type="button" data-variant="${previewSkin}:${v.id}">
@@ -2456,7 +2468,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '商店皮肤页';
+  const CHANGELOG_SUB = '皮肤全流程修正';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -2466,13 +2478,19 @@
       els.changelogBtn.textContent = `📝 更新日志 · ${v} ${CHANGELOG_SUB}`;
     }
   }
-  function renderCharImg(host, blob){
+  function skinVariantArt(skinId){
+    const vid = variantEquipped(skinId);
+    if(!vid) return null;
+    const v = skinVariants(skinId).find(x => x.id === vid);
+    return v ? { img: v.img, laugh: v.img } : null;
+  }
+  function renderCharImg(host, useArt){
     if(!host) return;
-    const useLaugh = blob && host.classList.contains('summary-frog');
-    const art = skinArt(charSkinId());
+    const art = skinVariantArt(charSkinId()) || skinArt(charSkinId());
+    const useLaugh = useArt && host.classList.contains('summary-frog');
     const src = useLaugh ? ((art && art.laugh) || CHAR_SKIN_ASSETS.laugh) : ((art && art.img) || CHAR_SKIN_ASSETS.blob);
     let img = host.querySelector(':scope > img.char-img');
-    if(!blob){ if(img) img.remove(); return; }
+    if(!useArt){ if(img) img.remove(); return; }
     if(!img){
       img = document.createElement('img');
       img.className = 'char-img';
@@ -2484,10 +2502,12 @@
     img.classList.toggle('is-laugh', useLaugh);
   }
   function applyCharSkin(){
-    const blob = charSkinId() === 'blob';
-    document.body.classList.toggle('char-blob', blob);
+    const id = charSkinId();
+    const useArt = !!(skinArt(id) || skinVariantArt(id));
+    document.body.classList.toggle('char-blob', id === 'blob');
+    document.body.dataset.charSkin = id;
     document.querySelectorAll('.frog, .room-doll, .summary-frog, .hint-frog, .sp-frog')
-      .forEach(host => renderCharImg(host, blob));
+      .forEach(host => renderCharImg(host, useArt));
   }
   function ensureLaughAudio(){
     if(!laughEl){
@@ -2527,7 +2547,8 @@
     if(p && p.catch) p.catch(() => {});
   }
   function playBellyLaugh(){
-    if(charSkinId() !== 'blob' || !state.sound) return;
+    const laughArt = skinArt(charSkinId());
+   if(!laughArt || !laughArt.laugh || !state.sound) return;
     const el = ensureLaughAudio();
     if(!el) return;
     const go = attempt => {
@@ -6894,6 +6915,7 @@
 
   function beginRun(mode){
     setHeaderPause(true);
+    try { applyCharSkin(); } catch(e){}
     ensureAudio();
     resetDevBag();
     if(activeProfile) activeProfile.run = null;
@@ -9457,7 +9479,7 @@
     document.addEventListener('click', e => {
       const host = e.target.closest('.frog, .room-doll, .dress-doll, .summary-frog');
       if(!host) return;
-      if(host.classList.contains('is-blob') || charSkinId() === 'blob') playBellyLaugh();
+      const _art = skinArt(charSkinId()); if(_art && _art.laugh) playBellyLaugh();
     }, true);
     if(els.dressEntryBtn) els.dressEntryBtn.addEventListener('click', openDress);
     if(els.dressClose) els.dressClose.addEventListener('click', closeDress);
