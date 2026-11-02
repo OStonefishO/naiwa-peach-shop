@@ -2473,7 +2473,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '小家滚动条';
+  const CHANGELOG_SUB = '工坊排序与时间';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -5619,7 +5619,7 @@
         '<div class="ws-rank">' + (wsPage * WS_PAGE_SIZE + i + 1) + '</div>' +
         '<div class="ws-cover">' + (m.cover ? '<img src="' + m.cover + '" alt="">' : '<span>' + escapeHtml((m.name || '图').slice(0, 1)) + '</span>') + '</div>' +
         '<div class="ws-main"><b>' + escapeHtml(m.name || '未命名') + '</b><small class="ws-author">' + escapeHtml(m.author || '匿名') + '</small><em class="ws-play">' + escapeHtml((m.gameplay || '作者还没写玩法介绍').slice(0, 40)) + '</em>' +
-          '<div class="ws-stats">👍 ' + (m.likes || 0) + ' · ⬇ ' + (m.plays || 0) + (favSet.includes(m.id) ? ' · ★ 已收藏' : '') + '</div></div>' +
+          '<div class="ws-stats">👍 ' + (m.likes || 0) + ' · ⬇ ' + (m.plays || 0) + (favSet.includes(m.id) ? ' · ★ 已收藏' : '') + '</div>' + (m.created_at ? '<div class="ws-time">上传于 ' + wsTimeText(m.created_at) + '</div>' : '') + '</div>' +
         '<div class="ws-btns2">' +
           '<button type="button" class="ws-mini' + (likeSet.includes(m.id) ? ' on' : '') + '" data-ws-act="like" data-id="' + m.id + '">👍</button>' +
           '<button type="button" class="ws-mini' + (favSet.includes(m.id) ? ' on' : '') + '" data-ws-act="fav" data-id="' + m.id + '">★</button>' +
@@ -5660,8 +5660,8 @@
     const order = WS_SORT_ORDER[wsSort] || WS_SORT_ORDER.hot;
     const base = '/rest/v1/' + WS_TABLE + '?order=' + order + '&limit=30&select=';
     const attempts = [
-      'id,name,author,likes,plays,code,cover,intro,gameplay,owner',
-      'id,name,author,likes,plays,code,cover,intro,gameplay',
+      'id,name,author,likes,plays,code,cover,intro,gameplay,owner,created_at',
+      'id,name,author,likes,plays,code,cover,intro,gameplay,created_at',
       'id,name,author,likes,plays,code,cover'
     ];
     let lastErr = null;
@@ -5774,7 +5774,7 @@
     if(act === 'refresh'){ wsReload(); return; }
     if(act === 'search'){ wsDoSearch(); return; }
     if(act === 'upload'){ wsUploadDraft(); return; }
-    if(act === 'sort'){ wsSort = btn.dataset.sort || 'hot'; wsReload(); return; }
+    if(act === 'sort'){ wsSort = btn.dataset.sort || 'hot'; document.querySelectorAll('.ws-sorts button').forEach(b => b.classList.toggle('on', b.dataset.sort === wsSort)); wsReload(); return; }
     if(act === 'fav'){ const id = btn.dataset.id; const on = wsToggleLocal('naiwa_ws_fav', id); wsPatchCard(id, card => { const b = card.querySelector('[data-ws-act="fav"]'); if(b) b.classList.toggle('on', on); }); toast(on ? '已收藏，可在「★ 收藏过的」里找到' : '已取消收藏'); return; }
     if(act === 'detail'){ openWsDetail(btn.dataset.id); return; }
     if(act === 'dl'){ wsDownload(btn.dataset.id); return; }
@@ -5848,6 +5848,14 @@
       if(!Array.isArray(rows)) return false;
       return rows.some(r => r.id !== exceptId);
     }catch(e){ return false; }
+  }
+  function wsTimeText(iso){
+    try {
+      const d = new Date(iso);
+      if(isNaN(d.getTime())) return '';
+      const p = n => String(n).padStart(2, '0');
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    } catch(e){ return ''; }
   }
   function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   // ================= 自定义中心 / 我的地图 / 上传向导 / 封面裁切 =================
