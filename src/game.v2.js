@@ -2473,7 +2473,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '暂停确认框修正';
+  const CHANGELOG_SUB = '周任务输入框';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -6660,7 +6660,7 @@
     const poolBtn = e.target.closest('[data-cm-act="guestpool"]');
     if(poolBtn){ syncDraftFromInputs(); openCmGuestPool(); return; }
     const missionBtn = e.target.closest('[data-cm-mission]');
-    if(missionBtn){
+    if(missionBtn && missionBtn.tagName !== 'INPUT' && missionBtn.dataset.cmMission !== 'set'){
       syncDraftFromInputs();
       const act = missionBtn.dataset.cmMission;
       const list = Array.isArray(cmDraft.missions) ? cmDraft.missions.slice() : [];
