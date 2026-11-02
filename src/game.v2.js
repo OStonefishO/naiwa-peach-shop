@@ -2468,7 +2468,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '皮肤全流程修正';
+  const CHANGELOG_SUB = '输入与暂停面板';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -6399,6 +6399,8 @@
   document.addEventListener('change', ev => {
     const mi = ev.target.closest('[data-cm-mission="set"]');
     if(mi){ cmMissionSet(Number(mi.dataset.idx), mi.value); return; }
+    const wi = ev.target.closest('[data-cm-weight]');
+    if(wi){ const k = wi.dataset.cmWeight; cmDraft.weights[k] = Math.max(0, Math.min(300, Math.round(Number(wi.value) || 0))); renderCustomEditor(); return; }
     const inp = ev.target.closest('[data-cm-input]');
     if(!inp) return;
     cmNumSet(inp.dataset.cmInput, inp.value);
@@ -6418,7 +6420,7 @@
       '<div style="display:flex;align-items:center;gap:6px">' +
         '<button type="button" class="cm-switch-btn" data-cm-switch="enabled.' + k + '" style="border:0;background:none;padding:0">' + cmSwitch(m.enabled[k]) + '</button>' +
         '<div class="cm-num"><button type="button" data-cm-step="weights.' + k + '" data-delta="-10">−</button>' +
-        '<b data-cm-val="weights.' + k + '">' + m.weights[k] + '%</b>' +
+        '<input class="cm-num-input" type="number" inputmode="numeric" min="0" max="300" step="1" value="' + m.weights[k] + '" data-cm-weight="' + k + '">' +
         '<button type="button" data-cm-step="weights.' + k + '" data-delta="10">＋</button></div>' +
       '</div></div>').join('');
     const maps = localMaps();
@@ -6662,7 +6664,7 @@
         if(!list[i]) return;
         if(act === 'del') list.splice(i, 1);
         else {
-          const step = list[i].type === 'coins' ? 100 : 1;
+          const step = 1;
           list[i].target = Math.max(1, (Number(list[i].target) || 1) + (act === 'inc' ? step : -step));
         }
       }
@@ -8893,13 +8895,25 @@
   let pausedAtMs = 0;
   function isPaused(){ return pausedAtMs > 0; }
   function pauseGame(){
+    try { setHeaderPause(true); } catch(e){}
     if(pausedAtMs || state.phase !== 'playing') return;
     if(state.pouring) stopPour();
     pausedAtMs = performance.now();
     const ov = document.getElementById('pauseOverlay');
     if(ov){ ov.classList.add('show'); ov.setAttribute('aria-hidden','false'); }
   }
+  let pauseToSettings = false;
+  function pauseOpenSettings(){
+    pauseToSettings = true;
+    if(els.pauseOverlay){ els.pauseOverlay.classList.remove('show'); els.pauseOverlay.setAttribute('aria-hidden','true'); }
+    openSettings();
+  }
+  function pauseQuitRun(){
+    if(els.pauseOverlay){ els.pauseOverlay.classList.remove('show'); els.pauseOverlay.setAttribute('aria-hidden','true'); }
+    openConfirm({ title:'确定提前下班？', copy:'结束本局会立刻回到主菜单，今天的进度不保存。', okText:'结束游戏', cancelText:'再想想', onOk:() => { clearRun(); closeConfirm(); goHome(); }, onCancel:() => { if(isPaused() && els.pauseOverlay){ els.pauseOverlay.classList.add('show'); els.pauseOverlay.setAttribute('aria-hidden','false'); } } });
+  }
   function resumeGame(){
+    try { setHeaderPause(true); } catch(e){}
     if(!pausedAtMs) return;
     const delta = performance.now() - pausedAtMs;
     pausedAtMs = 0;
@@ -8913,7 +8927,8 @@
     els.settingsBtn.dataset.mode = 'pause';
     els.settingsBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="5" width="3.6" height="14" rx="1.4" fill="currentColor"/><rect x="13.4" y="5" width="3.6" height="14" rx="1.4" fill="currentColor"/></svg>';
     els.settingsBtn.setAttribute('aria-label', '暂停');
-    els.settingsBtn.style.display = inGame ? '' : 'none';
+    const show = (typeof inGame === 'boolean') ? inGame : (state.phase === 'playing' || isPaused());
+  els.settingsBtn.style.display = show ? '' : 'none';
   }
 
   function tick(now){
