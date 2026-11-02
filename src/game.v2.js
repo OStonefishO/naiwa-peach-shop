@@ -2390,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '工坊与评分开关';
+  const CHANGELOG_SUB = '工坊封面与排序';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -5340,13 +5340,15 @@
     if(!list) return;
     list.innerHTML = '<div class="cm-guest-empty">正在连接工坊…</div>';
     try{
-      const res = await fetch(wsUrl('/rest/v1/' + WS_TABLE + '?select=id,name,author,likes,plays,code&order=likes.desc,created_at.desc&limit=30'), { headers: wsHeaders() });
+      const order = WS_SORT_ORDER[wsSort] || WS_SORT_ORDER.hot;
+      const res = await fetch(wsUrl('/rest/v1/' + WS_TABLE + '?select=id,name,author,likes,plays,code,cover&order=' + order + '&limit=30'), { headers: wsHeaders() });
       if(!res.ok) throw new Error('HTTP ' + res.status);
       const rows = await res.json();
       if(!Array.isArray(rows) || !rows.length){ list.innerHTML = '<div class="cm-guest-empty">工坊里还没有地图，来当第一个上传的人吧。</div>'; return; }
       list.innerHTML = rows.map((m, i) =>
         '<div class="ws-card" data-ws-id="' + m.id + '">' +
           '<div class="ws-rank">' + (i + 1) + '</div>' +
+          '<div class="ws-cover">' + (m.cover ? '<img src="' + m.cover + '" alt="">' : '<span>' + escapeHtml((m.name || '图').slice(0, 1)) + '</span>') + '</div>' +
           '<div class="ws-main"><b>' + escapeHtml(m.name || '未命名') + '</b><small>' + escapeHtml(m.author || '匿名') + ' · 下载 ' + (m.plays || 0) + ' · 点赞 ' + (m.likes || 0) + '</small></div>' +
           '<div class="ws-btns"><button type="button" data-ws-act="like" data-id="' + m.id + '">👍</button><button type="button" class="ws-dl" data-ws-act="dl" data-id="' + m.id + '">下载</button></div>' +
         '</div>').join('');
@@ -5356,6 +5358,8 @@
     }
   }
   let wsCache = [];
+  let wsSort = 'hot';
+  const WS_SORT_ORDER = { hot:'likes.desc,created_at.desc', fresh:'created_at.desc', plays:'plays.desc,created_at.desc' };
   function ensureWsUI(){
     if(document.getElementById('wsOverlay')) return;
     const host = document.body;
@@ -5365,7 +5369,7 @@
     ov.setAttribute('aria-hidden', 'true');
     ov.innerHTML = '<div class="ws-card-box">' +
       '<div class="cm-guest-head"><div><b>创意工坊</b><small>全网玩家上传的地图，下载后直接开一局</small></div><button type="button" class="round-btn" data-ws-act="close" style="width:26px;height:26px">✕</button></div>' +
-      '<div class="ws-toolbar"><span class="cm-guest-count">按点赞排序 · 最多 30 张</span><button type="button" class="cm-secondary" data-ws-act="refresh">刷新</button></div>' +
+      '<div class="ws-toolbar"><div class="ws-sorts"><button type="button" data-ws-act="sort" data-sort="hot" class="' + (wsSort==='hot'?'on':'') + '">热门</button><button type="button" data-ws-act="sort" data-sort="fresh" class="' + (wsSort==='fresh'?'on':'') + '">最新</button><button type="button" data-ws-act="sort" data-sort="plays" class="' + (wsSort==='plays'?'on':'') + '">下载最多</button></div><button type="button" class="cm-secondary" data-ws-act="refresh">刷新</button></div>' +
       '<div class="ws-list" id="wsList"></div>' +
       '<div class="ws-actions"><button type="button" class="cm-secondary" data-ws-act="upload">上传当前地图</button><button type="button" class="primary-btn" data-ws-act="close">关闭</button></div>' +
       '</div>';
@@ -5384,6 +5388,7 @@
     if(act === 'close'){ closeWorkshop(); return; }
     if(act === 'refresh'){ wsReload(); return; }
     if(act === 'upload'){ wsUploadDraft(); return; }
+    if(act === 'sort'){ wsSort = btn.dataset.sort || 'hot'; wsReload(); return; }
     if(act === 'dl'){ wsDownload(btn.dataset.id); return; }
     if(act === 'like'){ wsLike(btn.dataset.id); return; }
   }
@@ -5462,6 +5467,9 @@
       '<div class="cm-sec"><h4>地图信息</h4>' +
         '<div class="cm-row"><label>地图名</label><input class="cm-code" style="min-height:0;width:150px;font-size:10px" data-cm-text="name" value="' + m.name + '"></div>' +
         '<div class="cm-row"><label>作者名</label><input class="cm-code" style="min-height:0;width:150px;font-size:10px" data-cm-text="author" value="' + m.author + '"></div>' +
+        '<div class="cm-row"><label>封面图<small>可选，横图更好看</small></label><button type="button" class="cm-secondary" data-cm-act="cover" style="padding:6px 10px;font-size:10px">' + (m.cover ? '更换封面' : '选择封面') + '</button></div>' +
+        '<div class="cm-cover-prev">' + (m.cover ? '<img src="' + m.cover + '" alt="封面">' : '<span>还没有封面，工坊里会用默认底色</span>') + '</div>' +
+        '<input type="file" id="cmCoverInput" accept="image/*" hidden>' +
       '</div>' +
       '<div class="cm-sec"><h4>客人</h4>' +
         cmNumRow('每天客人数', '1~8 位', 'guestsPerDay', 1, 8) +
@@ -5524,6 +5532,29 @@
       '</div>';
     const box = document.getElementById('cmCodeBox');
     if(box) box.value = customCodeOf(m);
+    const coverInput = document.getElementById('cmCoverInput');
+    if(coverInput && !coverInput.dataset.bound){
+      coverInput.dataset.bound = '1';
+      coverInput.addEventListener('change', () => {
+        const file = coverInput.files && coverInput.files[0];
+        if(!file) return;
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          try{
+            const w = 360, h = Math.max(1, Math.round(w * img.height / img.width));
+            const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+            cv.getContext('2d').drawImage(img, 0, 0, w, h);
+            cmDraft.cover = cv.toDataURL('image/jpeg', 0.78);
+            cmDraft = normalizeCustomMap(cmDraft);
+            renderCustomEditor();
+            toast('封面已选择');
+          }catch(err){ toast('这张图处理失败，换一张试试'); }
+          URL.revokeObjectURL(url);
+        };
+        img.src = url;
+      });
+    }
   }
   function syncDraftFromInputs(){
     const nameInput = document.querySelector('[data-cm-text="name"]');
@@ -5651,6 +5682,7 @@
       return;
     }
     if(a === 'reset'){ cmDraft = normalizeCustomMap(CUSTOM_DEFAULTS); renderCustomEditor(); return; }
+    if(a === 'cover'){ const inp = document.getElementById('cmCoverInput'); if(inp) inp.click(); return; }
     if(a === 'upload'){ wsUploadDraft(); return; }
     if(a === 'workshop'){ openWorkshop(); return; }
     if(a === 'start'){
@@ -8247,7 +8279,7 @@
     
 
 
-  window.__naiwa = { openCustomEditor, customCodeOf, decodeCustomCode, getCustomMap: () => state.customMap, setCustomMap: (m) => { state.customMap = normalizeCustomMap(m); }, normalizeCustomMap, customTasks, customDraft: () => cmDraft, state, renderReview, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, addWallet, spendCoins, handleFurniture, handleClothes, handleSkin, openHome, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, renderRogueShop, makeRogueShopStock, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
+  window.__naiwa = { wsUploadDraft, wsReload, openWorkshop, openCustomEditor, customCodeOf, decodeCustomCode, getCustomMap: () => state.customMap, setCustomMap: (m) => { state.customMap = normalizeCustomMap(m); }, normalizeCustomMap, customTasks, customDraft: () => cmDraft, state, renderReview, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, addWallet, spendCoins, handleFurniture, handleClothes, handleSkin, openHome, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, renderRogueShop, makeRogueShopStock, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
     }
   }
 
