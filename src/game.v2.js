@@ -2390,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '客人过滤与熬糖精度';
+  const CHANGELOG_SUB = '上传失败提示';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -5877,10 +5877,14 @@
         body: JSON.stringify({ id: id, name: map.name, author: map.author, code: code, cover: map.cover, intro: map.intro, gameplay: map.gameplay, owner: wsDeviceId(), code_hash: wsHash(code) })
       });
       if(!res.ok){
+        let dbg = '';
+        try { dbg = (await res.clone().text()).slice(0, 240); } catch(e){}
+        window.__wsErr = 'HTTP ' + res.status + ' ' + dbg;
         // 老库可能缺 owner/code_hash/intro/gameplay：逐级降级，保证仍能上传
         const tries = [
           { id: id, name: map.name, author: map.author, code: code, cover: map.cover, intro: map.intro, gameplay: map.gameplay },
-          { id: id, name: map.name, author: map.author, code: code, cover: map.cover }
+          { id: id, name: map.name, author: map.author, code: code, cover: map.cover },
+          { id: id, name: map.name, author: map.author, code: code }
         ];
         let ok2 = false, last = res.status;
         for(const body2 of tries){
@@ -5888,7 +5892,11 @@
           if(res2.ok){ ok2 = true; break; }
           last = res2.status;
         }
-        if(!ok2) throw new Error('HTTP ' + last);
+        if(!ok2){
+          const body3 = { id: id, name: map.name, author: map.author, code: code };
+          const res3 = await fetch(wsUrl('/rest/v1/' + WS_TABLE), { method: 'POST', headers: wsHeaders({ Prefer: 'return=minimal' }), body: JSON.stringify(body3) });
+          if(!res3.ok) throw new Error('HTTP ' + res3.status);
+        }
         wsNet('上传成功！', true);
       }
       // 同步回本地地图，方便再编辑
@@ -5898,9 +5906,15 @@
       toast('上传成功！');
       openWorkshop();
     }catch(err){
-      window.__wsErr = String(err && err.message || err);
-      wsNet('上传失败！请重试！', true);
-      toast('上传失败！请重试！');
+      const msg = String(err && err.message || err);
+      window.__wsErr = msg;
+      const hc = /HTTP (\d+)/.exec(msg);
+      const schemaGap = /PGRST204|Could not find the '.*' column/i.test(msg);
+      const tip = schemaGap ? '上传失败：数据库还缺字段，先执行 tools/workshop-supabase.sql'
+        : hc ? ('上传失败（HTTP ' + hc[1] + '）请重试')
+        : '上传失败！请检查网络后重试';
+      wsNet(tip, true);
+      toast(tip);
     }finally{
       if(btn){ btn.disabled = false; btn.textContent = '上传地图'; }
     }
