@@ -884,6 +884,16 @@
       {id:'pumpkin', name:'南瓜毛衣', price:65, icon:'🎃'}
     ]
   };
+  const SKIN_VARIANTS = {
+    blob: [
+      {id:'xuexitong', name:'学习通奶蛙', price:1000, img:'char-assets/variant-xuexitong.png'},
+      {id:'laozu', name:'奶蛙老祖', price:2000, img:'char-assets/variant-laozu.png'},
+      {id:'naifen', name:'奶粉', price:666, img:'char-assets/variant-naifen.png'}
+    ]
+  };
+  function skinVariants(skinId){ return SKIN_VARIANTS[skinId] || []; }
+  function variantOwned(skinId, id){ return ((activeProfile.variants || {})[skinId] || []).includes(id); }
+  function variantEquipped(skinId){ return (activeProfile.equippedVariant || {})[skinId] || null; }
   const SKIN_AREAS = {desk:'服务台', work:'工作台', kitchen:'厨房'};
   const SKINS = {
     desk:[
@@ -982,6 +992,8 @@
       bestRogue:0, bestRogueCoins:0, totalRuns:0,
       ownedFurniture:[], placedFurniture:[], furniturePositions:{},
       clothes:{head:['chef'], top:['apron']},
+    variants:{},
+    equippedVariant:{},
       equipped:{head:'chef', top:'apron'},
       skins:{desk:['classic'], work:['classic'], kitchen:['classic']},
       equippedSkins:{desk:'classic', work:'classic', kitchen:'classic'},
@@ -1282,6 +1294,8 @@
       else if(legacyPos[id] && Math.abs(pos.x-legacyPos[id].x) < 1 && Math.abs(pos.y-legacyPos[id].y) < 1) p.furniturePositions[id] = FURN_POS[id];
     });
     p.clothes = p.clothes && typeof p.clothes === 'object' ? p.clothes : {};
+    p.variants = (p.variants && typeof p.variants === 'object') ? p.variants : {};
+    p.equippedVariant = (p.equippedVariant && typeof p.equippedVariant === 'object') ? p.equippedVariant : {};
     p.clothes.head = Array.isArray(p.clothes.head) ? p.clothes.head.filter(id => CLOTHES.head.some(c => c.id === id)) : [];
     p.clothes.top = Array.isArray(p.clothes.top) ? p.clothes.top.filter(id => CLOTHES.top.some(c => c.id === id)) : [];
     ['chef'].forEach(id => { if(!p.clothes.head.includes(id)) p.clothes.head.push(id); });
@@ -2167,6 +2181,10 @@
       </div>`;
     }).join('');
   }
+  function skinAllowsParts(){
+    const skin = activeProfile && activeProfile.skin;
+    return !skin || skin === 'classic';
+  }
   function renderCloset(){
     if(!els.closetGrid || !activeProfile) return;
     const section = (kind,label) => {
@@ -2284,7 +2302,26 @@
     saveProfiles();
     renderHome();
   }
+  function handleVariant(spec){
+    if(!activeProfile) return;
+    const [skinId, id] = String(spec).split(':');
+    const v = skinVariants(skinId).find(x => x.id === id);
+    if(!v) return;
+    if(rogueActive() && !variantOwned(skinId, id)) { toast('肉鸽金币只在本局使用，主菜单商店要用普通金币'); sfx.error(); return; }
+    activeProfile.variants[skinId] = activeProfile.variants[skinId] || [];
+    if(!variantOwned(skinId, id)){
+      if(!spendCoins(v.price, 'global')){ toast('金币不够，先去营业赚一点吧'); sfx.error(); return; }
+      activeProfile.variants[skinId].push(id);
+      sfx.coin();
+    } else sfx.tap();
+    activeProfile.equippedVariant[skinId] = id;
+    if(typeof syncProfile === 'function') syncProfile();
+    saveProfiles();
+    renderDress();
+    toast('已换上「' + v.name + '」');
+  }
   function handleClothes(spec){
+    if(!skinAllowsParts()){ toast('这套皮肤不能穿帽子 / 上衣，先在变体槽里换变体吧'); sfx.error(); return; }
     const [kind,id] = String(spec).split(':');
     if(!CLOTHES[kind] || !activeProfile) return;
     if(rogueActive() && !(activeProfile.clothes[kind] || []).includes(id)) { toast('肉鸽金币只在本局使用，主菜单商店要用普通金币'); sfx.error(); return; }
@@ -2325,7 +2362,11 @@
     els.dressDoll.classList.toggle('is-blob', previewSkin === 'blob');
     els.dressDoll.classList.toggle('has-hat', head !== 'chef');
     els.dressDoll.classList.toggle('has-top', top !== 'apron');
-    els.dressDoll.innerHTML = `${charDollInner(previewSkin)}${hatHTML(head)}${topHTML(top)}`;
+    const vEq = variantEquipped(previewSkin);
+    const vDef = vEq ? skinVariants(previewSkin).find(v => v.id === vEq) : null;
+    els.dressDoll.innerHTML = vDef
+      ? `<img class="variant-doll" src="${vDef.img}" alt="">`
+      : `${charDollInner(previewSkin)}${hatHTML(head)}${topHTML(top)}`;
     const skinGroup = `<div class="dress-section"><h4><span>全套皮肤</span><span>${previewSkin === equippedSkin ? '正在穿' : '预览中'}</span></h4>
       <div class="dress-row skin-row">${CHAR_SKINS.map(s => {
         const active = previewSkin === s.id;
@@ -2333,12 +2374,13 @@
         const thumb = s.id === 'blob'
           ? `<span class="di skin-thumb"><img src="${CHAR_SKIN_ASSETS.blob}" alt=""></span>`
           : '<span class="di skin-thumb"><svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg></span>';
-        return `<button class="dress-item skin-item${active ? ' active' : ''}" type="button" data-dress-skin="${s.id}">
-          ${thumb}${s.id === 'blob' ? '捧腹奶蛙' : '经典奶蛙'}
-          <small>${worn ? '正在穿' : active ? '预览中' : '点击预览'}</small>
+        const ownedSkin = !!s.free || ['desk','work','kitchen'].some(k => (activeProfile.skins[k] || []).includes(s.id));
+        return `<button class="dress-item skin-item${active ? ' active' : ''}${ownedSkin ? '' : ' locked'}" type="button" data-dress-skin="${s.id}">
+          ${thumb}${s.name.replace(' · 全套皮肤','')}
+          <small>${worn ? '正在穿' : active ? '预览中' : (ownedSkin ? '点击预览' : (s.price ? s.price + ' 金币' : '点击预览'))}</small>
         </button>`;
       }).join('')}</div>
-      ${previewSkin !== equippedSkin ? `<button class="dress-apply" type="button" data-dress-skin-apply="${previewSkin}">穿上「${previewSkin === 'blob' ? '捧腹奶蛙' : '经典奶蛙'}」</button>` : ''}
+      ${previewSkin !== equippedSkin ? `<button class="dress-apply" type="button" data-dress-skin-apply="${previewSkin}">穿上「${previewDef.name.replace(' · 全套皮肤','')}」</button>` : ''}
     </div>`;
     const group = (kind,title) => `<div class="dress-section"><h4><span>${title}</span><span>${kind === 'head' ? '帽子 / 眼镜' : '上衣'}</span></h4>
       <div class="dress-row">${CLOTHES[kind].map(item => {
@@ -2349,7 +2391,18 @@
           <small>${active ? '正在穿' : owned ? '点击换上' : item.price + ' 金币'}</small>
         </button>`;
       }).join('')}</div></div>`;
-    els.dressSlots.innerHTML = skinGroup + group('head','帽子 / 眼镜槽') + group('top','上衣槽');
+    const variantsForSkin = skinVariants(previewSkin);
+    const variantGroup = variantsForSkin.length ? `<div class="dress-section"><h4><span>变体槽</span><span>${previewDef.name.replace(' · 全套皮肤','')}</span></h4>
+      <div class="dress-row">${variantsForSkin.map(v => {
+        const vOwned = variantOwned(previewSkin, v.id);
+        const vOn = variantEquipped(previewSkin) === v.id;
+        return `<button class="dress-item variant-item${vOn ? ' active' : ''}${vOwned ? '' : ' locked'}" type="button" data-variant="${previewSkin}:${v.id}">
+          <span class="di"><img src="${v.img}" alt=""></span>${v.name}
+          <small>${vOn ? '正在用' : vOwned ? '点击换上' : v.price + ' 金币'}</small>
+        </button>`;
+      }).join('')}</div></div>` : '';
+    const partsLocked = previewSkin !== 'classic';
+    els.dressSlots.innerHTML = skinGroup + (partsLocked ? variantGroup : (group('head','帽子 / 眼镜槽') + group('top','上衣槽')));
   }
   function openDress(){
     if(!activeProfile) return;
@@ -2390,7 +2443,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '工坊分页与存钱罐';
+  const CHANGELOG_SUB = '更衣室与存钱罐';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -2880,6 +2933,7 @@
 
   /* -------------------- 渲染 -------------------- */
   function setStage(stage, silent=false){
+    requestAnimationFrame(() => { try { applyKnifeSkin(); } catch(e){} });
     if(state.phase !== 'playing' && !silent) return;
     if(state.pouring) stopPour();
     state.stage = stage;
@@ -3917,7 +3971,20 @@
     sfx.tap();
   }
 
+  const KNIFE_COLORS = {wood:'#8A5A32', mint:'#62B79A', sakura:'#E39AAE', gold:'#E8B53A'};
+  function applyKnifeSkin(){
+    let knife = 'wood';
+    try { knife = (shopUpgrades().knife) || 'wood'; } catch(e){}
+    const color = KNIFE_COLORS[knife] || KNIFE_COLORS.wood;
+    document.querySelectorAll('.knife-deco,.mini-knife').forEach(el => {
+      el.style.setProperty('--knife-handle', color);
+      el.style.setProperty('--sw', color);
+      el.classList.remove('knife-mint','knife-sakura','knife-gold');
+      if(knife !== 'wood') el.classList.add('knife-' + knife);
+    });
+  }
   function renderKitchen(){
+    setTimeout(applyKnifeSkin, 0);
     if(!state.order) return;
     const o = state.order;
     els.kitchenOrder.innerHTML = `订单：<b>${SIZES[o.size].name} · ${JARS[o.jar || 'classic'].name}</b> · 黄桃 <b>${peachText(o.peaches)}</b> · ${SUGAR[o.sugar].name}（${o.sugar} 勺） · 糖浆 <b>${syrupText(o)}</b> · 加料 ${toppingText(o.toppings)}`;
@@ -5628,7 +5695,6 @@
       '<div class="ws-filterbar" id="wsFilterBar"></div>' +
       '<div class="ws-list" id="wsList"></div>' +
       '<div class="ws-pager-bar" id="wsPagerBar"></div>' +
-      '<div class="ws-actions"><button type="button" class="cm-secondary" data-ws-act="upload">上传当前地图</button><button type="button" class="primary-btn" data-ws-act="close">关闭</button></div>' +
       '</div>';
     host.appendChild(ov);
     ov.addEventListener('click', e => {
@@ -8739,15 +8805,11 @@
     if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); }
   }
   function setHeaderPause(inGame){
-    const btn = els.settingsBtn;
-    if(!btn) return;
-    if(inGame){
-      btn.innerHTML = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="5" width="3.4" height="14" rx="1.3" fill="currentColor"/><rect x="13.6" y="5" width="3.4" height="14" rx="1.3" fill="currentColor"/></svg>';
-      btn.setAttribute('aria-label','暂停');
-    }else{
-      btn.innerHTML = '<svg class="icon"><use href="#i-gear"></use></svg>';
-      btn.setAttribute('aria-label','设置');
-    }
+    if(!els.settingsBtn) return;
+    els.settingsBtn.dataset.mode = 'pause';
+    els.settingsBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="5" width="3.6" height="14" rx="1.4" fill="currentColor"/><rect x="13.4" y="5" width="3.6" height="14" rx="1.4" fill="currentColor"/></svg>';
+    els.settingsBtn.setAttribute('aria-label', '暂停');
+    els.settingsBtn.style.display = inGame ? '' : 'none';
   }
 
   function tick(now){
@@ -8906,7 +8968,7 @@
     if(els.settingsEntryBtn) els.settingsEntryBtn.addEventListener('click', openSettings);
     [['pauseResume', resumeGame], ['pauseSettings', openSettings],
       ['pauseDemo', () => { saveRunToProfile(); resumeGame(); goHome(); toast('已保存，下次点「继续上一局」回来'); }],
-      ['pauseQuit', () => { clearRun(); resumeGame(); goHome(); toast('提前下班，本局不保留'); }]
+      ['pauseQuit', () => { openConfirm({ iconSvg:'', title:'确定提前下班？', copy:'提前下班会直接结束这一局，本局进度不保留。', okText:'确认下班', cancelText:'再干一会儿', onOk:() => { clearRun(); resumeGame(); goHome(); toast('提前下班，本局不保留'); } }); }]
     ].forEach(([id, fn]) => {
       const b = document.getElementById(id);
       if(b) b.addEventListener('click', fn);
@@ -9322,6 +9384,8 @@
         renderDress();
         return;
       }
+      const vb = e.target.closest('[data-variant]');
+      if(vb){ handleVariant(vb.dataset.variant); return; }
       const b = e.target.closest('[data-dress]');
       if(b) handleClothes(b.dataset.dress);
     });

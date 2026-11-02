@@ -14,7 +14,10 @@ html = html.replace('src="rogue-assets/naishu.png"', () => `src="data:image/png;
 const charAssets = [
   ['char-assets/blob.png', 'image/png'],
   ['char-assets/laugh.png', 'image/png'],
-  ['char-assets/laugh.mp3', 'audio/mpeg']
+  ['char-assets/laugh.mp3', 'audio/mpeg'],
+  ['char-assets/variant-laozu.png', 'image/png'],
+  ['char-assets/variant-naifen.png', 'image/png'],
+  ['char-assets/variant-xuexitong.png', 'image/png']
 ];
 charAssets.forEach(([rel, mime]) => {
   const b64 = fs.readFileSync(path.join(dir, rel)).toString('base64');
