@@ -2390,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '高级自定义客人';
+  const CHANGELOG_SUB = '工坊与评分开关';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -5267,6 +5267,164 @@
     const ov = document.getElementById('customOverlay');
     if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden', 'true'); }
   }
+  function cmGuestTierName(t){ return t === 'boss' ? 'BOSS' : t === 'elite' ? '精英' : '普通'; }
+  function cmGuestPersonaName(p){ return p ? (PERSONALITIES[p] ? PERSONALITIES[p].name : p) : '无性格'; }
+  function cmGuestRowsHtml(){
+    const list = (cmDraft && cmDraft.fixedGuests) || [];
+    if(!list.length) return '<div class="cm-guest-empty">还没有指定客人。点下面的「＋ 指定客人」加一条，最多 12 条。</div>';
+    return list.map((g, i) =>
+      '<div class="cm-guest-row">' +
+        '<div class="cg-day"><button type="button" data-cmg="day-" data-idx="' + i + '">−</button><b>第 ' + g.day + ' 天</b><button type="button" data-cmg="day+" data-idx="' + i + '">＋</button></div>' +
+        '<div class="cg-meta"><span class="cg-tier ' + g.tier + '">' + cmGuestTierName(g.tier) + '</span><span class="cg-persona">' + cmGuestPersonaName(g.personality) + '</span></div>' +
+        '<div class="cg-btns"><button type="button" data-cmg="tier" data-idx="' + i + '">换类型</button><button type="button" data-cmg="persona" data-idx="' + i + '">换性格</button><button type="button" class="cg-del" data-cmg="del" data-idx="' + i + '">×</button></div>' +
+      '</div>').join('');
+  }
+  function renderCmGuestModal(){
+    const list = document.getElementById('cmGuestList');
+    if(list) list.innerHTML = cmGuestRowsHtml();
+    const cnt = document.getElementById('cmGuestCount');
+    if(cnt) cnt.textContent = ((cmDraft && cmDraft.fixedGuests) || []).length + ' / 12';
+  }
+  function ensureCmGuestUI(){
+    if(document.getElementById('cmGuestOverlay')) return;
+    const host = document.body;
+    const ov = document.createElement('div');
+    ov.id = 'cmGuestOverlay';
+    ov.className = 'overlay cm-guest-overlay';
+    ov.setAttribute('aria-hidden', 'true');
+    ov.innerHTML = '<div class="cm-guest-card">' +
+      '<div class="cm-guest-head"><div><b>高级客人</b><small>指定第几天来什么客人；没指定的天按权重随机</small></div><button type="button" class="round-btn" data-cmg="close" style="width:26px;height:26px">✕</button></div>' +
+      '<div class="cm-guest-toolbar"><span class="cm-guest-count" id="cmGuestCount">0 / 12</span><button type="button" class="cm-secondary" data-cmg="add">＋ 指定客人</button></div>' +
+      '<div class="cm-guest-list" id="cmGuestList"></div>' +
+      '<div class="cm-guest-actions"><button type="button" class="primary-btn" data-cmg="done">完成</button></div>' +
+      '</div>';
+    host.appendChild(ov);
+    ov.addEventListener('click', e => {
+      if(e.target === ov){ closeCmGuests(); return; }
+      if(e.target.closest('[data-cmg]')) onCmGuestClick(e);
+    });
+  }
+  function openCmGuests(){ ensureCmGuestUI(); renderCmGuestModal(); const ov = document.getElementById('cmGuestOverlay'); ov.classList.add('show'); ov.setAttribute('aria-hidden','false'); }
+  function closeCmGuests(){ const ov = document.getElementById('cmGuestOverlay'); if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); } }
+  function onCmGuestClick(e){
+    const btn = e.target.closest('[data-cmg]');
+    if(!btn) return;
+    const act = btn.dataset.cmg;
+    if(act === 'close' || act === 'done'){ closeCmGuests(); renderCustomEditor(); return; }
+    if(!Array.isArray(cmDraft.fixedGuests)) cmDraft.fixedGuests = [];
+    const list = cmDraft.fixedGuests;
+    const i = Number(btn.dataset.idx);
+    if(act === 'add'){
+      if(list.length >= 12){ toast('最多 12 个指定客人'); return; }
+      list.push({ day: state.day || 1, tier: 'elite', personality: 'strict' });
+    }else if(list[i]){
+      if(act === 'del') list.splice(i, 1);
+      else if(act === 'day+') list[i].day = Math.min(28, list[i].day + 1);
+      else if(act === 'day-') list[i].day = Math.max(1, list[i].day - 1);
+      else if(act === 'tier') list[i].tier = list[i].tier === 'normal' ? 'elite' : list[i].tier === 'elite' ? 'boss' : 'normal';
+      else if(act === 'persona'){ const order = [''].concat(CM_PERSONAS); list[i].personality = order[(order.indexOf(list[i].personality) + 1) % order.length]; }
+    }
+    cmDraft = normalizeCustomMap(cmDraft);
+    renderCmGuestModal();
+    renderCustomEditor();
+  }
+  const WS_TABLE = 'naiwa_maps';
+  function wsCfg(){ try { return sbCfg(); } catch(e){ return { url: SB_DEFAULT_URL, key: SB_DEFAULT_KEY }; } }
+  function wsUrl(path){ const c = wsCfg(); return c.url.replace(/\/+$/,'') + path; }
+  function wsHeaders(extra){
+    const c = wsCfg();
+    return Object.assign({ apikey: c.key, Authorization: 'Bearer ' + c.key, 'Content-Type': 'application/json' }, extra || {});
+  }
+  async function wsReload(){
+    const list = document.getElementById('wsList');
+    if(!list) return;
+    list.innerHTML = '<div class="cm-guest-empty">正在连接工坊…</div>';
+    try{
+      const res = await fetch(wsUrl('/rest/v1/' + WS_TABLE + '?select=id,name,author,likes,plays,code&order=likes.desc,created_at.desc&limit=30'), { headers: wsHeaders() });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const rows = await res.json();
+      if(!Array.isArray(rows) || !rows.length){ list.innerHTML = '<div class="cm-guest-empty">工坊里还没有地图，来当第一个上传的人吧。</div>'; return; }
+      list.innerHTML = rows.map((m, i) =>
+        '<div class="ws-card" data-ws-id="' + m.id + '">' +
+          '<div class="ws-rank">' + (i + 1) + '</div>' +
+          '<div class="ws-main"><b>' + escapeHtml(m.name || '未命名') + '</b><small>' + escapeHtml(m.author || '匿名') + ' · 下载 ' + (m.plays || 0) + ' · 点赞 ' + (m.likes || 0) + '</small></div>' +
+          '<div class="ws-btns"><button type="button" data-ws-act="like" data-id="' + m.id + '">👍</button><button type="button" class="ws-dl" data-ws-act="dl" data-id="' + m.id + '">下载</button></div>' +
+        '</div>').join('');
+      wsCache = rows;
+    }catch(err){
+      list.innerHTML = '<div class="cm-guest-empty">工坊后端还没开通：先在 Supabase 里跑一次 tools/workshop-supabase.sql，然后刷新。<br><small>' + escapeHtml(String(err.message || err)) + '</small></div>';
+    }
+  }
+  let wsCache = [];
+  function ensureWsUI(){
+    if(document.getElementById('wsOverlay')) return;
+    const host = document.body;
+    const ov = document.createElement('div');
+    ov.id = 'wsOverlay';
+    ov.className = 'overlay ws-overlay';
+    ov.setAttribute('aria-hidden', 'true');
+    ov.innerHTML = '<div class="ws-card-box">' +
+      '<div class="cm-guest-head"><div><b>创意工坊</b><small>全网玩家上传的地图，下载后直接开一局</small></div><button type="button" class="round-btn" data-ws-act="close" style="width:26px;height:26px">✕</button></div>' +
+      '<div class="ws-toolbar"><span class="cm-guest-count">按点赞排序 · 最多 30 张</span><button type="button" class="cm-secondary" data-ws-act="refresh">刷新</button></div>' +
+      '<div class="ws-list" id="wsList"></div>' +
+      '<div class="ws-actions"><button type="button" class="cm-secondary" data-ws-act="upload">上传当前地图</button><button type="button" class="primary-btn" data-ws-act="close">关闭</button></div>' +
+      '</div>';
+    host.appendChild(ov);
+    ov.addEventListener('click', e => {
+      if(e.target === ov){ closeWorkshop(); return; }
+      onWsClick(e);
+    });
+  }
+  function openWorkshop(){ ensureWsUI(); const ov = document.getElementById('wsOverlay'); ov.classList.add('show'); ov.setAttribute('aria-hidden','false'); wsReload(); }
+  function closeWorkshop(){ const ov = document.getElementById('wsOverlay'); if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); } }
+  function onWsClick(e){
+    const btn = e.target.closest('[data-ws-act]');
+    if(!btn) return;
+    const act = btn.dataset.wsAct;
+    if(act === 'close'){ closeWorkshop(); return; }
+    if(act === 'refresh'){ wsReload(); return; }
+    if(act === 'upload'){ wsUploadDraft(); return; }
+    if(act === 'dl'){ wsDownload(btn.dataset.id); return; }
+    if(act === 'like'){ wsLike(btn.dataset.id); return; }
+  }
+  async function wsLike(id){
+    try{
+      const res = await fetch(wsUrl('/rest/v1/rpc/naiwa_map_like'), { method:'POST', headers: wsHeaders(), body: JSON.stringify({ p_id: id }) });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      toast('点赞成功');
+      wsReload();
+    }catch(err){ toast('点赞失败：工坊后端未开通'); }
+  }
+  async function wsDownload(id){
+    const row = (wsCache || []).find(x => String(x.id) === String(id));
+    if(!row) return;
+    try{
+      const map = decodeCustomCode(row.code);
+      activeProfile.customMap = map; saveProfiles();
+      toast('已下载「' + map.name + '」，从继续上一局或自定义模式开一局吧');
+      fetch(wsUrl('/rest/v1/rpc/naiwa_map_play'), { method:'POST', headers: wsHeaders(), body: JSON.stringify({ p_id: id }) }).catch(()=>{});
+      wsReload();
+    }catch(err){ toast('地图解析失败，可能版本太新'); }
+  }
+  async function wsUploadDraft(){
+    if(!cmDraft) return;
+    syncDraftFromInputs();
+    const map = normalizeCustomMap(cmDraft);
+    const id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    try{
+      const res = await fetch(wsUrl('/rest/v1/' + WS_TABLE), {
+        method: 'POST',
+        headers: wsHeaders({ Prefer: 'return=representation' }),
+        body: JSON.stringify({ id: id, name: map.name, author: (map.author || '匿名').slice(0, 16), code: customCodeOf(map), cover: map.cover || '' })
+      });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      toast('已上传到工坊：' + map.name);
+      if(document.getElementById('wsOverlay')) { openWorkshop(); }
+    }catch(err){
+      toast('上传失败：工坊后端未开通（先跑 tools/workshop-supabase.sql）');
+    }
+  }
+  function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function cmSwitch(on){ return '<span class="cm-switch ' + (on ? 'on' : '') + '"><i></i></span>'; }
   function cmNumRow(label, sub, path, min, max, step){
     const v = cmPathGet(cmDraft, path);
@@ -5313,17 +5471,8 @@
         cmNumRow('BOSS 客人权重', '', 'typeWeights.boss', 0, 100, 10) +
         '<div class="cm-row" style="align-items:flex-start"><label>性格池<small>点一下开关，空池=没有性格</small></label></div>' +
         '<div class="cm-tags">' + personas + '</div>' +
-        '<div class="cm-row" style="align-items:flex-start"><label>高级客人<small>指定第几天来什么客人；没有指定的天按权重随机</small></label></div>' +
-        ((m.fixedGuests || []).map((g, i) =>
-          '<div class="cm-row"><label>第 ' + g.day + ' 天 · ' + (g.tier === 'boss' ? 'BOSS' : g.tier === 'elite' ? '精英' : '普通') + ' · ' + (g.personality ? (PERSONALITIES[g.personality] ? PERSONALITIES[g.personality].name : g.personality) : '无性格') + '</label>' +
-          '<div class="cm-num">' +
-          '<button type="button" data-cm-guest="day-" data-idx="' + i + '">−</button>' +
-          '<button type="button" data-cm-guest="day+" data-idx="' + i + '">＋</button>' +
-          '<button type="button" data-cm-guest="tier" data-idx="' + i + '">换类型</button>' +
-          '<button type="button" data-cm-guest="persona" data-idx="' + i + '">换性格</button>' +
-          '<button type="button" data-cm-guest="del" data-idx="' + i + '">×</button>' +
-          '</div></div>').join('')) +
-        '<div class="cm-tags"><button type="button" class="cm-tag" data-cm-guest="add">＋指定客人</button></div>' +
+        '<div class="cm-row"><label>高级客人<small>指定第几天来什么客人</small></label><div class="cm-num"><b>' + ((m.fixedGuests || []).length) + ' 条</b></div></div>' +
+        '<div class="cm-tags"><button type="button" class="cm-tag" data-cm-guest="open">编辑高级客人</button></div>' +
       '</div>' +
       '<div class="cm-sec"><h4>店铺</h4>' +
         cmNumRow('熬糖锅数量', '1~20 口', 'pots', 1, 20) +
@@ -5368,7 +5517,7 @@
       '<div class="cm-sec"><h4>创意工坊</h4>' +
         '<div class="cm-note">本地地图可以直接载入；全网工坊需要服务器，已留好接口（上传会带地图名 / 作者 / 自定义码）。</div>' +
         '<div class="cm-workshop">' + ws + '</div>' +
-        '<div class="cm-actions"><button type="button" class="cm-secondary" data-cm-act="upload">上传到工坊（即将开放）</button></div>' +
+        '<div class="cm-actions"><button type="button" class="cm-secondary" data-cm-act="workshop">打开创意工坊</button><button type="button" class="cm-secondary" data-cm-act="upload">上传当前地图</button></div>' +
       '</div>' +
       '<div class="cm-actions">' +
         '<button type="button" class="primary-btn" data-cm-act="start">开始上帝黄桃营业 →</button>' +
@@ -5412,6 +5561,7 @@
       syncDraftFromInputs();
       if(!Array.isArray(cmDraft.fixedGuests)) cmDraft.fixedGuests = [];
       const act = gBtn.dataset.cmGuest;
+      if(act === 'open' || act === 'add'){ openCmGuests(); return; }
       const i = Number(gBtn.dataset.idx);
       const list = cmDraft.fixedGuests;
       if(act === 'add'){
@@ -5501,7 +5651,8 @@
       return;
     }
     if(a === 'reset'){ cmDraft = normalizeCustomMap(CUSTOM_DEFAULTS); renderCustomEditor(); return; }
-    if(a === 'upload'){ toast('创意工坊联网上传还要配服务器，先用自定义码分享吧'); return; }
+    if(a === 'upload'){ wsUploadDraft(); return; }
+    if(a === 'workshop'){ openWorkshop(); return; }
     if(a === 'start'){
       if(activeProfile) activeProfile.customMap = cloneJSON(cmDraft);
       saveProfiles();
@@ -6649,7 +6800,13 @@
       if(q) els.reviewQueue.innerHTML = `<span>${q > 0 ? '提前服务，客人很满意' : '被插队，客人不太高兴'}</span><b>${q > 0 ? '+' : ''}${q}</b>`;
     }
     els.perfectStamp.style.display = result.perfect ? 'grid' : 'none';
-    els.scoreGrid.innerHTML = result.details.map(d => `
+    let reviewDetails = result.details;
+    if(customActive()){
+      const cm = customMap();
+      const okLabels = new Set(CM_WEIGHT_KEYS.filter(k => cm.enabled[k] !== false).map(k => CM_WEIGHT_LABEL[k]));
+      reviewDetails = reviewDetails.filter(d => okLabels.has(d.label));
+    }
+    els.scoreGrid.innerHTML = reviewDetails.map(d => `
       <div class="score-item ${d.ok ? 'ok' : 'bad'}">
         <span class="status">${icon(d.ok ? 'check' : 'x')}</span>
         <span class="copy"><b>${d.label}</b><small>${d.text}</small></span>
@@ -7316,7 +7473,6 @@
       state.rogue.owlDay = targetDay;
       state.rogue.items.sugarOwl = 1;
       toast(night ? '糖枭已下单：明天开业起，所有小料、糖浆、罐子都能用' : '糖枭生效：今天所有小料、糖浆、罐子都能用，打烊后消失');
-      rogueDropStock(id);
       renderRogueShop();
       renderAll();
       sfx.coin();
@@ -7326,7 +7482,6 @@
       const added = addExtraRogueEventDay();
       toast(added ? '事件日历：本周多安排了一个事件日' : '事件日历：本周事件日已满，下周起每周 +1 天');
     }
-    if(item.permanent) rogueDropStock(id);
     renderRogueShop();
     renderRogueHud();
     sfx.coin();
