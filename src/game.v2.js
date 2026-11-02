@@ -2390,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '自定义商店';
+  const CHANGELOG_SUB = '锅位与速度';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -3982,10 +3982,10 @@
   function renderPots(){
     let html = '';
     const customRun = state.mode === 'custom';
-    const totalSlots = customRun ? Math.max(1, Math.min(20, state.upgrade.pots)) : 4;
+    const totalSlots = customRun ? potCap() : 4;
     for(let i=0;i<totalSlots;i++){
-      if(!customRun && i >= state.upgrade.pots){
-        html += `<div class="pot-empty">锅位 ${i+1}<br>去金币商店解锁</div>`;
+      if(i >= state.upgrade.pots){
+        html += `<div class="pot-empty">锅位 ${i+1}<br>去金币商店买锅</div>`;
         continue;
       }
       const p = state.pots[i];
@@ -5132,6 +5132,7 @@
   // ================= 自定义模式 =================
   const CUSTOM_MAP_VERSION = 1;
   const CUSTOM_DEFAULTS = {
+    boilSpeed:100, pourSpeed:100,
     shop:{reset:true, growth:100, prices:{}},
     version: CUSTOM_MAP_VERSION,
     name: '我的自定义小店',
@@ -5284,6 +5285,8 @@
       ['cut','boil','stir','temp','topping'].forEach(k => { out.steps[k] = raw.steps[k] !== false; });
     }
     out.patienceByPersona = raw.patienceByPersona !== false;
+    out.boilSpeed = Math.round(clampNum(raw.boilSpeed != null ? raw.boilSpeed : out.boilSpeed, 10, 400));
+    out.pourSpeed = Math.round(clampNum(raw.pourSpeed != null ? raw.pourSpeed : out.pourSpeed, 10, 400));
     const rs = (raw.shop && typeof raw.shop === 'object') ? raw.shop : {};
     out.shop = { reset: rs.reset !== false, growth: Math.round(clampNum(rs.growth != null ? rs.growth : 100, 50, 500)), prices: (rs.prices && typeof rs.prices === 'object') ? rs.prices : {} };
     out.endless = raw.endless !== false;
@@ -6213,12 +6216,21 @@
     ov.classList.add('show'); ov.setAttribute('aria-hidden','false');
   }
   function cmSwitch(on){ return '<span class="cm-switch ' + (on ? 'on' : '') + '"><i></i></span>'; }
-  function cmNumRow(label, sub, path, min, max, step){
+  function cmNumRow(label, sub, path, min, max){
     const v = cmPathGet(cmDraft, path);
     return '<div class="cm-row"><label>' + label + (sub ? '<small>' + sub + '</small>' : '') + '</label>' +
-      '<div class="cm-num"><button type="button" data-cm-step="' + path + '" data-delta="-' + (step || 1) + '">−</button>' +
-      '<b data-cm-val="' + path + '">' + v + '</b>' +
-      '<button type="button" data-cm-step="' + path + '" data-delta="' + (step || 1) + '">＋</button></div></div>';
+      '<div class="cm-num"><button type="button" data-cm-step="' + path + '" data-delta="-1">−</button>' +
+      '<input class="cm-num-input" type="number" inputmode="numeric" data-cm-input="' + path + '" value="' + v + '" min="' + min + '" max="' + max + '">' +
+      '<button type="button" data-cm-step="' + path + '" data-delta="1">＋</button></div></div>';
+  }
+  function cmNumSet(path, raw){
+    let v = Math.round(Number(raw));
+    if(!isFinite(v)) return;
+    const keys = path.split('.');
+    let obj = cmDraft;
+    for(let i=0;i<keys.length-1;i++){ if(!obj[keys[i]]) obj[keys[i]] = {}; obj = obj[keys[i]]; }
+    obj[keys[keys.length-1]] = v;
+    cmDraft = normalizeCustomMap(cmDraft);
   }
   function cmSwitchRow(label, sub, path){
     return '<div class="cm-row"><label>' + label + (sub ? '<small>' + sub + '</small>' : '') + '</label>' +
@@ -6226,6 +6238,12 @@
   }
   document.addEventListener('click', ev => {
     if(ev.target.closest('#gpOverlay')) onCmGuestPoolClick(ev);
+  }, true);
+  document.addEventListener('change', ev => {
+    const inp = ev.target.closest('[data-cm-input]');
+    if(!inp) return;
+    cmNumSet(inp.dataset.cmInput, inp.value);
+    renderCustomEditor();
   }, true);
   function renderCustomEditor(){
     const sheet = document.getElementById('cmSheet');
@@ -6279,6 +6297,8 @@
       '<div class="cm-sec"><h4>店铺</h4>' +
         cmNumRow('熬糖锅数量', '1~20 口', 'pots', 1, 20) +
         cmNumRow('糖浆份数上限', '1~6 份，可多份混合', 'syrupMax', 1, 6) +
+        cmNumRow('熬糖速度', '% · 100 = 正常，越大越快', 'boilSpeed', 10, 400) +
+        cmNumRow('倒糖速度', '% · 100 = 正常，越大越快', 'pourSpeed', 10, 400) +
         cmSwitchRow('需要切黄桃', '关掉后黄桃无限供应', 'steps.cut') +
         cmSwitchRow('需要熬糖', '关掉后倒糖处直接有大锅标准糖浆', 'steps.boil') +
         cmSwitchRow('需要搅拌', '关掉后自动搅拌', 'steps.stir') +
@@ -6627,7 +6647,7 @@
     const map = customMap();
     if(customActive() && customShopCfg().reset){
       if(!state.upgrade || !state.upgrade.__custom){
-        state.upgrade = { pots: Math.max(1, Math.min(20, map.pots || 1)), alarms: 0, knives: ['wood'], knife: 'wood', __custom: true };
+        state.upgrade = { pots: 1, alarms: 0, knives: ['wood'], knife: 'wood', __custom: true };
       }
     }
     state.dayGuests = [];
@@ -7029,7 +7049,10 @@
     sfx.tap();
     renderPots();
   }
-  function boilDuration(){ return BOIL_MS / (1 + .05 * (rogueActive() ? shrimpLevel('boilSpeed') : 0)); }
+  function boilDuration(){
+    const customPct = customActive() ? Math.max(10, Math.min(400, customMap().boilSpeed || 100)) / 100 : 1;
+    return BOIL_MS / customPct / (1 + .05 * (rogueActive() ? shrimpLevel('boilSpeed') : 0));
+  }
   function startBoil(potId){
     if(state.phase !== 'playing' || state.stage !== 'kitchen') return;
     const p = state.pots[potId];
@@ -7211,7 +7234,8 @@
     const cap = (rogueActive() && state.rogue.items && state.rogue.items.pourGuard)
       ? Math.min(100, SUGAR[state.order.sugar].target + (state.order.tol || SUGAR[state.order.sugar].tol))
       : 100;
-    const add = Math.max(0, Math.min(POUR_RATE * 16.7, cap - c.syrup));
+    const pourPct = customActive() ? Math.max(10, Math.min(400, customMap().pourSpeed || 100)) / 100 : 1;
+    const add = Math.max(0, Math.min(POUR_RATE * pourPct * 16.7, cap - c.syrup));
     if(add <= 0){ stopPour(); return; }
     types.forEach(id => {
       const share = (ratios[id] != null ? ratios[id] : 100 / types.length) / 100;
@@ -8134,6 +8158,8 @@
     const g = Math.max(50, Math.min(500, Number(cfg.growth) || 100)) / 100;
     return Math.max(0, Math.round(raw * Math.pow(g, Math.max(0, exp || 0))));
   }
+  function potCap(){ return customActive() ? Math.max(1, Math.min(20, (customMap().pots || 1))) : 4; }
+  function alarmCap(){ return customActive() ? potCap() : 4; }
   function shopPrice(base, key, exp){
     if(customActive() && key) return customShopPrice(key, base, exp || 0);
     return rogueActive() ? Math.round(base * 1.5) : base;
@@ -8154,14 +8180,14 @@
     const items = [];
     const u = shopUpgrades();
     items.push({id:'pot', name:'备用熬糖锅', desc: rogueActive()
-        ? `当前 ${u.pots} 口 · 最多 4 口，本局有效（新开一局重置为 1 口）`
+        ? `当前 ${u.pots} 口 · 这个地图最多 ${potCap()} 口（槽位），买了才多一口`
         : `当前 ${u.pots} 口 · 最多 4 口，可以同时熬多锅`, price:potPrice(),
-      owned:u.pots >= 4, label:u.pots >= 4 ? '已满 4 口' : `买 ${potPrice()}`,
+      owned:u.pots >= potCap(), label:u.pots >= potCap() ? `已满 ${potCap()} 口` : `买 ${shopPrice(potPrice(), 'pot', Math.max(0, u.pots - 1))}`,
       icon:`<svg class="icon" style="width:28px;height:28px;color:#B67F1A"><use href="#i-heat"></use></svg>`});
     items.push({id:'alarm', name:'熬糖锅闹钟', desc: rogueActive()
-        ? `买了拖到锅上 · 已有 ${u.alarms}/${Math.max(1, u.pots - 1)} 个，随锅数上限变化`
-        : `买了拖到锅上 · 已有 ${u.alarms}/${Math.max(1, u.pots - 1)} 个，每口锅要单独设`, price:ALARM_PRICE,
-      owned:u.alarms >= Math.max(1, u.pots - 1), label:u.alarms >= Math.max(1, u.pots - 1) ? `已满 ${Math.max(1, u.pots - 1)} 个` : `买 ${shopPrice(ALARM_PRICE, 'alarm', u.alarms)}`,
+        ? `买了拖到锅上 · 已有 ${u.alarms}/${alarmCap()} 个，随锅位数量变化`
+        : `买了拖到锅上 · 已有 ${u.alarms}/${alarmCap()} 个，每口锅要单独设`, price:ALARM_PRICE,
+      owned:u.alarms >= alarmCap(), label:u.alarms >= alarmCap() ? `已满 ${alarmCap()} 个` : `买 ${shopPrice(ALARM_PRICE, 'alarm', u.alarms)}`,
       icon:`<svg class="icon" style="width:28px;height:28px;color:#8A6842"><use href="#i-clock"></use></svg>`});
     Object.keys(KNIVES).forEach(id => {
       if(id === 'wood') return;
@@ -8298,13 +8324,13 @@
     if(!activeProfile && !rogueActive()) return;
     const u = shopUpgrades();
     if(itemId === 'pot'){
-      if(u.pots >= 4) return;
+      if(u.pots >= potCap()) return;
       const price = shopPrice(potPrice(), 'pot', Math.max(0, u.pots - 1));
       if(!spendCoins(price)){ toast('金币不够，再卖几罐吧'); return; }
       u.pots++;
       sfx.coin(); toast('新锅到手！厨房里多了一口熬糖锅');
     }else if(itemId === 'alarm'){
-      if(u.alarms >= Math.max(1, u.pots - 1)){ toast('闹钟数量跟着锅数走：' + Math.max(1, u.pots - 1) + ' 个就够了'); return; }
+      if(u.alarms >= alarmCap()){ toast('闹钟数量跟着锅位走：' + alarmCap() + ' 个就够了'); return; }
       if(!spendCoins(shopPrice(ALARM_PRICE, 'alarm', u.alarms))){ toast('金币不够'); return; }
       u.alarms++;
       sfx.coin(); toast('闹钟到手！在柜台旁边，拖到锅上就能设置');
