@@ -2390,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '订单糖浆与结算修复';
+  const CHANGELOG_SUB = '免熬糖结算修复';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -7298,7 +7298,7 @@
     const matched = wantIds.filter(id => gotIds.includes(id));
     const extra = gotIds.filter(id => !wantIds.includes(id)).length;
     const usedBatches = (c.batchIds || []).map(id => state.batches.find(b => b.id === id)).filter(Boolean);
-    if(!usedBatches.length && c.batchId) usedBatches.push(state.batches.find(b => b.id === c.batchId));
+    if(!usedBatches.length && c.batchId){ const fb = (state.batches || []).find(b => b.id === c.batchId); if(fb) usedBatches.push(fb); }
     const batchTypes = usedBatches.map(b => b.types || ['classic']);
     const styleOk = wantIds.length <= 1
       ? batchTypes.every(t => t.length === 1)
@@ -7549,7 +7549,13 @@
     state.phase = 'reviewing';
     state.pouring = false;
     stopAllHeating();
-    const result = scoreOrder(timedOut);
+    let result;
+    try{
+      result = scoreOrder(timedOut);
+    }catch(e){
+      window.__lastErr = String(e && (e.stack || e.message) || e);
+      result = { score:0, stars:0, coins:0, details:[{ok:false,label:'结算',text:'评分数据缺失，本单按 0 分处理'}], comment:'结算出现异常，本单按 0 分处理', perfect:false, timedOut:!!timedOut, guest:(state.guest||{name:'客人',tier:'normal'}), tipLines:[], death:false };
+    }
     result.comment = commentFor(result);
     const servedDg = (state.dayGuests || [])[state.guestIndex];
     if(servedDg) servedDg.served = true;
@@ -9098,6 +9104,7 @@
 
 
   window.__naiwa = {
+    nextGuest, renderReview, scoreOrder, finishOrder,
     openMapManage, renderMine, localMaps, customPickGuest, setupCustomDay, submitWsUpload, wsCheckDuplicate, openCmHub, openMine, openWsUpload, openCoverCropper, openWsDetail, localMaps, saveLocalMap, wsUploadDraft, wsReload, openWorkshop, openCustomEditor, customCodeOf, decodeCustomCode, getCustomMap: () => state.customMap, setCustomMap: (m) => { state.customMap = normalizeCustomMap(m); }, normalizeCustomMap, customTasks, customDraft: () => cmDraft, state, renderReview, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, addWallet, spendCoins, handleFurniture, handleClothes, handleSkin, openHome, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, renderRogueShop, makeRogueShopStock, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
     }
   }
