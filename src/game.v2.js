@@ -1060,7 +1060,7 @@
     upgrade:{pots:1, alarms:0, knife:'wood', knives:['wood']},
     reviews:[], patience:1, patienceMs:PATIENCE_MS, deadline:0, pouring:false,
     sound:true, lastPourSfx:0, speechTimer:null, toastTimer:null, scoreResult:null,
-    metaAwarded:false, homeTab:'room', skinPreview:{area:'desk', id:'classic'}, shopTab:'run',
+    metaAwarded:false, homeTab:'room', skinPreview:{area:'desk', id:'classic'}, shopTab:'run', shopSkinTab:'full',
     devMode:loadDevMode(),
     rogue:null
   };
@@ -2393,7 +2393,7 @@
           <small>${worn ? '正在穿' : active ? '预览中' : (ownedSkin ? '点击预览' : (s.price ? s.price + ' 金币' : '点击预览'))}</small>
         </button>`;
       }).join('')}</div>
-      ${previewSkin !== equippedSkin ? `<button class="dress-apply" type="button" data-dress-skin-apply="${previewSkin}">穿上「${previewDef.name.replace(' · 全套皮肤','')}」</button>` : ''}
+      ${previewSkin !== equippedSkin ? `<button class="dress-apply" type="button" data-dress-skin-apply="${previewSkin}">${skinOwnedFull(previewSkin) ? '穿上' : '前往购买'}「${previewDef.name.replace(' · 全套皮肤','')}」${skinOwnedFull(previewSkin) ? '' : ' · ' + (previewDef.price || 0) + ' 金币'}</button>` : ''}
     </div>`;
     const group = (kind,title) => `<div class="dress-section"><h4><span>${title}</span><span>${kind === 'head' ? '帽子 / 眼镜' : '上衣'}</span></h4>
       <div class="dress-row">${CLOTHES[kind].map(item => {
@@ -2456,7 +2456,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '新皮肤与购买';
+  const CHANGELOG_SUB = '商店皮肤页';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -2599,7 +2599,7 @@
       'leaderboardOverlay','leaderboardList','leaderboardClose','leaderboardTitle','leaderboardSub','leaderboardFoot','rankTabs',
       'reviewEarlyBtn','summaryEarlyBtn','shopEarlyBtn','settingsEarlyBtn','confirmOverlay','confirmCancel','confirmOk',
       'jarSwitchBtn','toppingChips','toppingQtyRow','toppingMinus','toppingQtyVal','toppingPlus',
-      'shopTabs','shopWallet','shopExpandGrid','shopSyrupGrid','shopFurnGrid','itemShopEntryBtn','shopTitle','shopSub',
+      'shopTabs','shopWallet','shopExpandGrid','shopSyrupGrid','shopFurnGrid','shopSkinGrid','shopSkinSub','itemShopEntryBtn','shopTitle','shopSub',
       'syrupComposition','pourSeq','stirBtn','alarmTray','alarmTrayItems','discardBtn',
       'dressEntryBtn','dressOverlay','dressCoins','dressDoll','dressSlots','introVersion',
       'dressClose','dressDoneBtn','frogWear','orderRod',
@@ -8426,13 +8426,61 @@
     return items;
   }
   function setShopTab(tab){
-    const valid = ['run','syrup','furniture','expand'];
+    const valid = ['run','syrup','furniture','expand','skin'];
     state.shopTab = valid.includes(tab) ? tab : 'run';
     if(els.shopTabs) els.shopTabs.querySelectorAll('[data-shoptab]').forEach(b => b.classList.toggle('active', b.dataset.shoptab === state.shopTab));
-    [['shopGrid','run'],['shopSyrupGrid','syrup'],['shopFurnGrid','furniture'],['shopExpandGrid','expand']].forEach(([key,id]) => {
+    [['shopGrid','run'],['shopSyrupGrid','syrup'],['shopFurnGrid','furniture'],['shopExpandGrid','expand'],['shopSkinGrid','skin']].forEach(([key,id]) => {
       if(els[key]){ els[key].hidden = state.shopTab !== id; els[key].style.display = state.shopTab === id ? 'grid' : 'none'; }
     });
+    if(els.shopSkinSub) els.shopSkinSub.hidden = state.shopTab !== 'skin';
     if(els.shopWallet){ els.shopWallet.hidden = false; els.shopWallet.style.display = 'flex'; }
+  }
+  function skinOwnedFull(id){
+    const d = CHAR_SKINS.find(x => x.id === id);
+    if(!d) return false;
+    if(d.free) return true;
+    return !!(activeProfile.skins && activeProfile.skins.skin && activeProfile.skins.skin.includes(id));
+  }
+  function renderShopSkin(){
+    const grid = els.shopSkinGrid;
+    if(!grid || !activeProfile) return;
+    const tab = state.shopSkinTab || 'full';
+    if(els.shopSkinSub) els.shopSkinSub.querySelectorAll('[data-skinsub]').forEach(b => b.classList.toggle('active', b.dataset.skinsub === tab));
+    let rows = [];
+    if(tab === 'full'){
+      rows = CHAR_SKINS.map(d => {
+        const owned = skinOwnedFull(d.id);
+        const on = charSkinId() === d.id;
+        const art = skinArt(d.id);
+        return { key:'skin:' + d.id, name:d.name, desc:d.desc, price:d.price || 0, owned, on,
+          icon: art ? '<img src="' + art.img + '" alt="">' : '🐸' };
+      });
+    } else if(tab === 'variant'){
+      rows = skinVariants('blob').map(v => {
+        const owned = variantOwned('blob', v.id);
+        const on = variantEquipped('blob') === v.id;
+        return { key:'variant:blob:' + v.id, name:v.name, desc:'捧腹奶蛙的变体皮肤', price:v.price, owned, on,
+          icon: '<img src="' + v.img + '" alt="">' };
+      });
+    } else {
+      const kind = tab === 'top' ? 'top' : 'head';
+      rows = CLOTHES[kind].filter(it => tab === 'glasses' ? it.id === 'glasses' : it.id !== 'glasses').map(it => ({
+        key:'cloth:' + kind + ':' + it.id, name:it.name, desc:kind === 'top' ? '上衣' : '帽子 / 眼镜',
+        price:it.price, owned:activeProfile.clothes[kind].includes(it.id),
+        on:activeProfile.equipped[kind] === it.id, icon: it.icon
+      }));
+    }
+    if(!rows.length){ grid.innerHTML = '<div class="shop-empty">这一栏还没有东西</div>'; return; }
+    grid.innerHTML = rows.map(r => {
+      const price = r.price || 0;
+      const disabled = r.on || (!r.owned && !canAfford(price));
+      const label = r.on ? '正在使用' : r.owned ? '换上' : (price ? (state.devMode ? '免费领取' : '购买 ' + price) : '购买');
+      return '<div class="shop-item">' +
+        '<div class="shop-icon">' + r.icon + '</div>' +
+        '<div class="shop-copy"><b>' + r.name + '</b><small>' + (r.desc || '') + '</small></div>' +
+        '<button class="buy-btn ' + (r.on ? 'equipped' : '') + '" type="button" data-skinbuy="' + r.key + '" ' + (disabled ? 'disabled' : '') + '>' + label + '</button>' +
+      '</div>';
+    }).join('');
   }
   function renderShop(){
     if(!activeProfile) return;
@@ -8445,7 +8493,7 @@
     if(rogueActive() && state.shopTab === 'furniture') state.shopTab = 'run';
     els.shopCoins.textContent = coinText();
     if(els.shopWallet) els.shopWallet.innerHTML = `<svg class="icon"><use href="#i-coin"></use></svg>${rogueActive() ? '肉鸽金币' : '金币'} <b>${coinText()}</b><small>${rogueActive() ? '本局购买 · 结束后重置' : '全局购买，永久生效'}</small>`;
-    if(els.shopTitle) els.shopTitle.textContent = rogueActive() ? '肉鸽金币商店' : main ? '道具商店' : '打烊后的金币商店';
+    if(els.shopTitle) els.shopTitle.textContent = rogueActive() ? '肉鸽金币商店' : main ? '商店' : '打烊后的金币商店';
     if(els.shopSub) els.shopSub.textContent = rogueActive() ? '本局有效，肉鸽金币每局清零、不进主菜单钱包' : main ? '家具、升级、糖浆，买了就永久生效' : '买口锅、换把刀，让明天更快一点';
     if(els.shopStartBtn) els.shopStartBtn.style.display = main ? 'none' : '';
     if(els.shopEarlyBtn) els.shopEarlyBtn.style.display = main ? 'none' : '';
@@ -8475,6 +8523,7 @@
       }).join('');
     }
     renderShopFurniture();
+    if(state.shopTab === 'skin') renderShopSkin();
     if(!main){
       els.shopStartBtn.innerHTML = state.summaryKind === 'weekPass'
         ? `开始第 ${state.week + 1} 周${icon('arrow')}`
@@ -9278,7 +9327,20 @@
     });
     if(els.shopTabs) els.shopTabs.addEventListener('click', e => {
       const b = e.target.closest('[data-shoptab]');
-      if(b) setShopTab(b.dataset.shoptab);
+      if(b){ setShopTab(b.dataset.shoptab); if(state.shopTab === 'skin') renderShopSkin(); }
+    });
+    if(els.shopSkinSub) els.shopSkinSub.addEventListener('click', e => {
+      const b = e.target.closest('[data-skinsub]');
+      if(b){ state.shopSkinTab = b.dataset.skinsub; renderShopSkin(); }
+    });
+    if(els.shopSkinGrid) els.shopSkinGrid.addEventListener('click', e => {
+      const b = e.target.closest('[data-skinbuy]');
+      if(!b || b.disabled) return;
+      const key = b.dataset.skinbuy;
+      if(key.indexOf('skin:') === 0) handleCharSkin(key.slice(5));
+      else if(key.indexOf('variant:') === 0){ const p = key.split(':'); handleVariant(p[1] + ':' + p[2]); }
+      else if(key.indexOf('cloth:') === 0){ const p = key.split(':'); handleClothes(p[1], p[2]); }
+      renderShopSkin();
     });
     if(els.shopExpandGrid) els.shopExpandGrid.addEventListener('click', e => {
       const b = e.target.closest('[data-expand]');
