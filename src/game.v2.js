@@ -2390,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '锅位与速度';
+  const CHANGELOG_SUB = '暂停与挂牌';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -4668,6 +4668,8 @@
     sfx.tap();
   }
   function startGame(){
+    resumeGame();
+    setHeaderPause(true);
     if(state.phase !== 'intro') return;
     if(state.introMode === 'custom'){ openCmHub(); return; }
     const run = activeProfile ? activeProfile.run : null;
@@ -6755,6 +6757,7 @@
   }
 
   function beginRun(mode){
+    setHeaderPause(true);
     ensureAudio();
     resetDevBag();
     if(activeProfile) activeProfile.run = null;
@@ -6819,6 +6822,8 @@
     saveRunToProfile();
   }
   function goHome(){
+    resumeGame();
+    setHeaderPause(false);
     state.phase = 'intro';
     syncVersionUI();
     state.stage = 'desk';
@@ -8629,10 +8634,42 @@
 
   /* -------------------- 主循环 -------------------- */
   let lastFrame = 0;
+  /* -------------------- 暂停 -------------------- */
+  let pausedAtMs = 0;
+  function isPaused(){ return pausedAtMs > 0; }
+  function pauseGame(){
+    if(pausedAtMs || state.phase !== 'playing') return;
+    if(state.pouring) stopPour();
+    pausedAtMs = performance.now();
+    const ov = document.getElementById('pauseOverlay');
+    if(ov){ ov.classList.add('show'); ov.setAttribute('aria-hidden','false'); }
+  }
+  function resumeGame(){
+    if(!pausedAtMs) return;
+    const delta = performance.now() - pausedAtMs;
+    pausedAtMs = 0;
+    state.deadline += delta;
+    (state.pots || []).forEach(pt => { if(pt.status === 'heating') pt.startedAt += delta; });
+    const ov = document.getElementById('pauseOverlay');
+    if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); }
+  }
+  function setHeaderPause(inGame){
+    const btn = els.settingsBtn;
+    if(!btn) return;
+    if(inGame){
+      btn.innerHTML = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="5" width="3.4" height="14" rx="1.3" fill="currentColor"/><rect x="13.6" y="5" width="3.4" height="14" rx="1.3" fill="currentColor"/></svg>';
+      btn.setAttribute('aria-label','暂停');
+    }else{
+      btn.innerHTML = '<svg class="icon"><use href="#i-gear"></use></svg>';
+      btn.setAttribute('aria-label','设置');
+    }
+  }
+
   function tick(now){
     requestAnimationFrame(tick);
     const dt = Math.min(now - lastFrame, 120);
     lastFrame = now;
+    if(isPaused()) return;
     if(state.phase === 'playing'){
       const remain = Math.max(0, state.deadline - now);
       state.patience = remain / state.patienceMs;
@@ -8773,8 +8810,13 @@
     });
     if(els.modeToggle) els.modeToggle.addEventListener('click', () => toggleMenuGroup(els.modeToggle, els.modePanel));
     if(els.shopToggle) els.shopToggle.addEventListener('click', () => toggleMenuGroup(els.shopToggle, els.shopPanel));
-    [els.settingsBtn, els.settingsEntryBtn].forEach(btn => {
-      if(btn) btn.addEventListener('click', openSettings);
+    if(els.settingsBtn) els.settingsBtn.addEventListener('click', () => {
+      if(state.phase === 'playing') pauseGame(); else openSettings();
+    });
+    if(els.settingsEntryBtn) els.settingsEntryBtn.addEventListener('click', openSettings);
+    [['pauseResume', resumeGame], ['pauseSettings', openSettings], ['pauseHome', () => { resumeGame(); goHome(); }]].forEach(([id, fn]) => {
+      const b = document.getElementById(id);
+      if(b) b.addEventListener('click', fn);
     });
     [els.settingsClose, els.settingsDone].forEach(btn => {
       if(btn) btn.addEventListener('click', closeSettings);
@@ -9315,6 +9357,7 @@
 
 
   window.__naiwa = {
+  pauseGame, resumeGame, isPaused,
     nextGuest, renderReview, scoreOrder, finishOrder,
     openMapManage, renderMine, localMaps, customPickGuest, setupCustomDay, submitWsUpload, wsCheckDuplicate, openCmHub, openMine, openWsUpload, openCoverCropper, openWsDetail, localMaps, saveLocalMap, wsUploadDraft, wsReload, openWorkshop, openCustomEditor, customCodeOf, decodeCustomCode, getCustomMap: () => state.customMap, setCustomMap: (m) => { state.customMap = normalizeCustomMap(m); }, normalizeCustomMap, customTasks, customDraft: () => cmDraft, state, renderReview, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, addWallet, spendCoins, handleFurniture, handleClothes, handleSkin, openHome, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, renderRogueShop, makeRogueShopStock, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
     }
