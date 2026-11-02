@@ -99,7 +99,7 @@
     color:#9C7446;white-space:nowrap;
   }
   .hud{display:flex;align-items:center;gap:6px;flex:0 0 auto}
-  .game[data-mode="custom"] .coin-chip{display:none}
+  .game .coin-chip{display:none}
   .brand-badge img{width:100%;height:100%;object-fit:cover;display:block}
   .brand-sub.big{font-size:9.5px;letter-spacing:.4px}
   .brand-sub.center{text-align:center}
@@ -137,6 +137,9 @@
   .review-piggy.bounce>svg{animation:piggyBounce .42s ease 4}
   @keyframes coinFall{0%{opacity:1;transform:translate(-50%,-6px) scale(.9)}80%{opacity:1;transform:translate(-50%,58px) scale(1)}100%{opacity:0;transform:translate(-50%,64px) scale(.85)}}
   .review-piggy .piggy-tip{font-size:13px}
+  .scene-piggy{bottom:2px !important}
+  .scene-piggy .piggy-label{position:absolute;left:50%;transform:translateX(-50%);bottom:-4px;background:#FFFDF6;border:1.5px solid #E6D2B6;border-radius:9px;padding:1px 7px;font-size:8.5px;font-weight:800;color:#8A6A45;white-space:nowrap;box-shadow:0 1px 0 #EBD9C0}
+  .game:not([data-stage="desk"]) .scene-piggy{display:none !important}
   /* ---------- 场景 ---------- */
   .scene{
     position:relative;
@@ -2733,6 +2736,7 @@
     <button class="piggy scene-piggy" id="tipPiggy" type="button" aria-label="小费罐">
       <svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-piggy"></use></svg>
       <span class="piggy-tip" id="tipPiggyText"></span>
+      <span class="piggy-label">小费罐</span>
     </button>
 
     <div class="counter" aria-hidden="true">
