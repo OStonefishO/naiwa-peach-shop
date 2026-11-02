@@ -2468,7 +2468,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '输入与暂停面板';
+  const CHANGELOG_SUB = '暂停层级与立绘';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -2490,7 +2490,7 @@
     const useLaugh = useArt && host.classList.contains('summary-frog');
     const src = useLaugh ? ((art && art.laugh) || CHAR_SKIN_ASSETS.laugh) : ((art && art.img) || CHAR_SKIN_ASSETS.blob);
     let img = host.querySelector(':scope > img.char-img');
-    if(!useArt){ if(img) img.remove(); return; }
+    if(!useArt){ if(img) img.remove(); host.classList.remove('has-art'); return; }
     if(!img){
       img = document.createElement('img');
       img.className = 'char-img';
@@ -2498,6 +2498,7 @@
       img.draggable = false;
       host.appendChild(img);
     }
+    host.classList.add('has-art');
     if(img.getAttribute('src') !== src) img.src = src;
     img.classList.toggle('is-laugh', useLaugh);
   }
@@ -3024,6 +3025,7 @@
 
     function updateHud(){
     try { paintBrand(); } catch(e){}
+    try { if(els.settingsBtn) setHeaderPause(state.phase === 'playing' || state.phase === 'event' || isPaused()); } catch(e){}
     if(els.game) els.game.dataset.mode = state.mode || 'normal';
     if(els.coins) els.coins.textContent = coinText();
     if(els.devEndDayBtn) els.devEndDayBtn.hidden = !state.devMode || (state.phase !== 'playing' && state.phase !== 'event');
@@ -9085,9 +9087,9 @@
       if(state.phase === 'playing') pauseGame(); else openSettings();
     });
     if(els.settingsEntryBtn) els.settingsEntryBtn.addEventListener('click', openSettings);
-    [['pauseResume', resumeGame], ['pauseSettings', openSettings],
-      ['pauseDemo', () => { saveRunToProfile(); resumeGame(); goHome(); toast('已保存，下次点「继续上一局」回来'); }],
-      ['pauseQuit', () => { openConfirm({ iconSvg:'', title:'确定提前下班？', copy:'提前下班会直接结束这一局，本局进度不保留。', okText:'确认下班', cancelText:'再干一会儿', onOk:() => { clearRun(); resumeGame(); goHome(); toast('提前下班，本局不保留'); } }); }]
+    [['pauseResume', resumeGame], ['pauseSettings', pauseOpenSettings],
+      ['pauseDemo', () => { if(els.pauseOverlay){ els.pauseOverlay.classList.remove('show'); els.pauseOverlay.setAttribute('aria-hidden','true'); } saveRunToProfile(); resumeGame(); goHome(); toast('已保存，下次点「继续上一局」回来'); }],
+      ['pauseQuit', pauseQuitRun], ['__oldPauseQuit', () => { openConfirm({ iconSvg:'', title:'确定提前下班？', copy:'提前下班会直接结束这一局，本局进度不保留。', okText:'确认下班', cancelText:'再干一会儿', onOk:() => { clearRun(); resumeGame(); goHome(); toast('提前下班，本局不保留'); } }); }]
     ].forEach(([id, fn]) => {
       const b = document.getElementById(id);
       if(b) b.addEventListener('click', fn);
