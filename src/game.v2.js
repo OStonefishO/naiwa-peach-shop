@@ -2390,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '死亡之糖流程修正';
+  const CHANGELOG_SUB = '封面与工坊体验';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -5360,70 +5360,97 @@
           '<button type="button" class="ws-mini' + (likeSet.includes(m.id) ? ' on' : '') + '" data-ws-act="like" data-id="' + m.id + '">👍</button>' +
           '<button type="button" class="ws-mini' + (favSet.includes(m.id) ? ' on' : '') + '" data-ws-act="fav" data-id="' + m.id + '">★</button>' +
           '<button type="button" class="ws-mini" data-ws-act="detail" data-id="' + m.id + '">详情</button>' +
-          '<button type="button" class="ws-mini ws-dl" data-ws-act="dl" data-id="' + m.id + '">下载</button>' +
-          (state.devMode ? '<button type="button" class="ws-mini ws-del" data-ws-act="del" data-id="' + m.id + '">删</button>' : '') +
+          (wsDownloadedIds().includes(String(m.id))
+            ? '<button type="button" class="ws-mini ws-dl done" disabled>已下载</button>'
+            : '<button type="button" class="ws-mini ws-dl" data-ws-act="dl" data-id="' + m.id + '">下载</button>') +
+          ((state.devMode || (m.owner && m.owner === wsDeviceId())) ? '<button type="button" class="ws-mini ws-del" data-ws-act="del" data-id="' + m.id + '">删</button>' : '') +
         '</div>' +
       '</div>').join('');
   }
   function wsRenderDelete(){ }
   async function wsDelete(id){
-    if(!state.devMode) return;
+    const mine = (wsCache || []).find(x => String(x.id) === String(id));
+    if(!state.devMode && !(mine && mine.owner && mine.owner === wsDeviceId())) return toast('只能删除自己上传的地图');
     try{
       const res = await fetch(wsUrl('/rest/v1/' + WS_TABLE + '?id=eq.' + encodeURIComponent(id)), { method: 'DELETE', headers: wsHeaders({ Prefer: 'return=minimal' }) });
       if(!res.ok) throw new Error('HTTP ' + res.status);
+      wsCache = (wsCache || []).filter(x => String(x.id) !== String(id));
+      const card = document.querySelector('.ws-card[data-ws-id="' + id + '"]');
+      if(card){ card.style.transition = 'opacity .18s, transform .18s'; card.style.opacity = '0'; card.style.transform = 'scale(.98)'; setTimeout(() => card.remove(), 200); }
       toast('已从工坊删除这张地图');
-      wsReload();
     }catch(err){ toast('删除失败：' + (String(err.message||err).indexOf('401') >= 0 ? '需要先跑删除策略 SQL' : String(err.message || err))); }
   }
   async function wsReload(){
     const list = document.getElementById('wsList');
     if(!list) return;
     list.innerHTML = '<div class="cm-guest-empty">正在连接工坊…</div>';
-    try{
-      const order = WS_SORT_ORDER[wsSort] || WS_SORT_ORDER.hot;
-      let res = await fetch(wsUrl('/rest/v1/' + WS_TABLE + '?select=id,name,author,likes,plays,code,cover,intro,gameplay&order=' + order + '&limit=30'), { headers: wsHeaders() });
-      if(!res.ok){
-        // 老库没有 intro/gameplay 字段时退回基础字段
-        res = await fetch(wsUrl('/rest/v1/' + WS_TABLE + '?select=id,name,author,likes,plays,code,cover&order=' + order + '&limit=30'), { headers: wsHeaders() });
-      }
-      if(!res.ok) throw new Error('HTTP ' + res.status);
-      let rows = await res.json();
-      if(!Array.isArray(rows)) rows = [];
-      if(!rows.length){ list.innerHTML = '<div class="cm-guest-empty">工坊里还没有地图，来当第一个上传的人吧。</div>'; wsCache = []; renderWsFilterBar(); return; }
-      wsCache = rows;
-      wsRenderList();
-      return;
-      const favSet = wsFavIds(), likeSet = wsLikeIds();
-      list.innerHTML = rows.map((m, i) =>
-        '<div class="ws-card" data-ws-id="' + m.id + '">' +
-          '<div class="ws-rank">' + (i + 1) + '</div>' +
-          '<div class="ws-cover">' + (m.cover ? '<img src="' + m.cover + '" alt="">' : '<span>' + escapeHtml((m.name || '图').slice(0, 1)) + '</span>') + '</div>' +
-          '<div class="ws-main"><b>' + escapeHtml(m.name || '未命名') + '</b><small class="ws-author">' + escapeHtml(m.author || '匿名') + '</small><em class="ws-play">' + escapeHtml((m.gameplay || '作者还没写玩法介绍').slice(0, 40)) + '</em>' +
-            '<div class="ws-stats">👍 ' + (m.likes || 0) + ' · ⬇ ' + (m.plays || 0) + (favSet.includes(m.id) ? ' · ★ 已收藏' : '') + '</div></div>' +
-          '<div class="ws-btns2">' +
-            '<button type="button" class="ws-mini' + (likeSet.includes(m.id) ? ' on' : '') + '" data-ws-act="like" data-id="' + m.id + '">👍</button>' +
-            '<button type="button" class="ws-mini' + (favSet.includes(m.id) ? ' on' : '') + '" data-ws-act="fav" data-id="' + m.id + '">★</button>' +
-            '<button type="button" class="ws-mini" data-ws-act="detail" data-id="' + m.id + '">详情</button>' +
-            '<button type="button" class="ws-mini ws-dl" data-ws-act="dl" data-id="' + m.id + '">下载</button>' +
-          '</div>' +
-        '</div>').join('');
-      wsCache = rows;
-    }catch(err){
-      list.innerHTML = '<div class="cm-guest-empty">工坊后端还没开通：先在 Supabase 里跑一次 tools/workshop-supabase.sql，然后刷新。<br><small>' + escapeHtml(String(err.message || err)) + '</small></div>';
+    const order = WS_SORT_ORDER[wsSort] || WS_SORT_ORDER.hot;
+    const base = '/rest/v1/' + WS_TABLE + '?order=' + order + '&limit=30&select=';
+    const attempts = [
+      'id,name,author,likes,plays,code,cover,intro,gameplay,owner',
+      'id,name,author,likes,plays,code,cover,intro,gameplay',
+      'id,name,author,likes,plays,code,cover'
+    ];
+    let lastErr = null;
+    for(const sel of attempts){
+      try{
+        const res = await fetch(wsUrl(base + sel), { headers: wsHeaders() });
+        if(!res.ok) throw new Error('HTTP ' + res.status);
+        let rows = await res.json();
+        if(!Array.isArray(rows)) rows = [];
+        wsCache = rows;
+        if(!rows.length){ list.innerHTML = '<div class="cm-guest-empty">工坊里还没有地图，来当第一个上传的人吧。</div>'; renderWsFilterBar(); return; }
+        wsRenderList();
+        return;
+      }catch(err){ lastErr = err; }
     }
+    list.innerHTML = '<div class="cm-guest-empty">工坊后端还没开通：先在 Supabase 里跑一次 tools/workshop-supabase.sql，然后刷新。<br><small>' + escapeHtml(String((lastErr && lastErr.message) || lastErr || '')) + '</small></div>';
   }
   let wsCache = [];
   let wsSort = 'hot';
   let wsQuery = '';
   let wsFilter = 'all';
   const WS_SORT_ORDER = { hot:'likes.desc,created_at.desc', fresh:'created_at.desc', plays:'plays.desc,created_at.desc' };
+  let wsNetTimer = null;
+  function wsNet(text, done){
+    let el = document.getElementById('wsNet');
+    if(!el){ el = document.createElement('div'); el.id = 'wsNet'; el.className = 'ws-net'; document.body.appendChild(el); }
+    el.textContent = text;
+    el.classList.add('show');
+    el.classList.toggle('ok', !!done && /成功/.test(text));
+    el.classList.toggle('bad', !!done && /失败/.test(text));
+    clearTimeout(wsNetTimer);
+    if(done) wsNetTimer = setTimeout(() => el.classList.remove('show'), 1200);
+  }
+  function wsPatchCard(id, fn){
+    const card = document.querySelector('.ws-card[data-ws-id="' + id + '"]');
+    if(!card) return;
+    const m = (wsCache || []).find(x => String(x.id) === String(id));
+    if(fn) fn(card, m);
+    if(m){
+      const fav = wsFavIds().includes(String(m.id));
+      const st = card.querySelector('.ws-stats');
+      if(st) st.textContent = '👍 ' + (m.likes || 0) + ' · ⬇ ' + (m.plays || 0) + (fav ? ' · ★ 已收藏' : '');
+    }
+  }
+  function wsDownloadedIds(){ try{ return JSON.parse(localStorage.getItem('naiwa_ws_dl') || '[]'); }catch(e){ return []; } }
+  function wsMarkDownloaded(id){ const a = wsDownloadedIds(); if(!a.includes(String(id))){ a.push(String(id)); localStorage.setItem('naiwa_ws_dl', JSON.stringify(a)); } }
+  function wsDoSearch(){
+    const si = document.getElementById('wsSearch');
+    wsQuery = si ? (si.value || '') : '';
+    wsRenderList();
+    const n = document.querySelectorAll('#wsList .ws-card').length;
+    toast(n ? ('搜索成功！找到 ' + n + ' 张地图') : '没有搜到相关地图');
+  }
   function wsFavIds(){ try{ return JSON.parse(localStorage.getItem('naiwa_ws_fav') || '[]'); }catch(e){ return []; } }
   function wsLikeIds(){ try{ return JSON.parse(localStorage.getItem('naiwa_ws_like') || '[]'); }catch(e){ return []; } }
   function wsToggleLocal(key, id){
     const arr = key === 'naiwa_ws_fav' ? wsFavIds() : wsLikeIds();
     const i = arr.indexOf(id);
-    if(i >= 0) arr.splice(i, 1); else arr.push(id);
+    const on = i < 0;
+    if(on) arr.push(id); else arr.splice(i, 1);
     localStorage.setItem(key, JSON.stringify(arr));
+    return on;
   }
   function renderWsFilterBar(){
     const bar = document.getElementById('wsFilterBar');
@@ -5442,7 +5469,7 @@
     ov.innerHTML = '<div class="ws-card-box">' +
       '<div class="cm-guest-head"><div><b>创意工坊</b><small>全网玩家上传的地图，下载后直接开一局</small></div><button type="button" class="round-btn" data-ws-act="close" style="width:26px;height:26px">✕</button></div>' +
       '<div class="ws-toolbar"><div class="ws-sorts"><button type="button" data-ws-act="sort" data-sort="hot" class="' + (wsSort==='hot'?'on':'') + '">热门</button><button type="button" data-ws-act="sort" data-sort="fresh" class="' + (wsSort==='fresh'?'on':'') + '">最新</button><button type="button" data-ws-act="sort" data-sort="plays" class="' + (wsSort==='plays'?'on':'') + '">下载最多</button></div><button type="button" class="cm-secondary" data-ws-act="refresh">刷新</button></div>' +
-      '<div class="ws-search"><input id="wsSearch" placeholder="搜索地图名 / 作者 / 玩法" maxlength="24"></div>' +
+      '<div class="ws-search"><span class="ws-lens" data-ws-act="search">🔍</span><input id="wsSearch" placeholder="搜索地图名 / 作者 / 玩法" maxlength="24"><button type="button" class="ws-search-btn" data-ws-act="search">搜索</button></div>' +
       '<div class="ws-filterbar" id="wsFilterBar"></div>' +
       '<div class="ws-list" id="wsList"></div>' +
       '<div class="ws-actions"><button type="button" class="cm-secondary" data-ws-act="upload">上传当前地图</button><button type="button" class="primary-btn" data-ws-act="close">关闭</button></div>' +
@@ -5453,7 +5480,10 @@
       onWsClick(e);
     });
     const si = document.getElementById('wsSearch');
-    if(si) si.addEventListener('input', () => { wsQuery = si.value || ''; wsRenderList(); });
+    if(si){
+      si.addEventListener('input', () => { wsQuery = si.value || ''; wsRenderList(); });
+      si.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); wsDoSearch(); } });
+    }
   }
   function openWorkshop(){ ensureWsUI(); const ov = document.getElementById('wsOverlay'); ov.classList.add('show'); ov.setAttribute('aria-hidden','false'); wsReload(); }
   function closeWorkshop(){ const ov = document.getElementById('wsOverlay'); if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); } }
@@ -5465,21 +5495,33 @@
     const act = btn.dataset.wsAct;
     if(act === 'close'){ closeWorkshop(); return; }
     if(act === 'refresh'){ wsReload(); return; }
+    if(act === 'search'){ wsDoSearch(); return; }
     if(act === 'upload'){ wsUploadDraft(); return; }
     if(act === 'sort'){ wsSort = btn.dataset.sort || 'hot'; wsReload(); return; }
-    if(act === 'fav'){ const id = btn.dataset.id; wsToggleLocal('naiwa_ws_fav', id); toast(wsFavIds().includes(id) ? '已收藏，可在左上角「收藏过的」里找到' : '已取消收藏'); wsReload(); return; }
+    if(act === 'fav'){ const id = btn.dataset.id; const on = wsToggleLocal('naiwa_ws_fav', id); wsPatchCard(id, card => { const b = card.querySelector('[data-ws-act="fav"]'); if(b) b.classList.toggle('on', on); }); toast(on ? '已收藏，可在「★ 收藏过的」里找到' : '已取消收藏'); return; }
     if(act === 'detail'){ openWsDetail(btn.dataset.id); return; }
     if(act === 'dl'){ wsDownload(btn.dataset.id); return; }
     if(act === 'like'){ wsLike(btn.dataset.id); return; }
     if(act === 'del'){ wsDelete(btn.dataset.id); return; }
   }
   async function wsLike(id){
+    if(wsLikeIds().includes(String(id))) return toast('已经点过赞了');
+    const m = (wsCache || []).find(x => String(x.id) === String(id));
+    if(!m) return;
+    m.likes = (m.likes || 0) + 1;
+    wsToggleLocal('naiwa_ws_like', String(id));
+    wsPatchCard(id, card => { const b = card.querySelector('[data-ws-act="like"]'); if(b) b.classList.add('on'); });
+    wsNet('正在连接创意工坊…');
     try{
       const res = await fetch(wsUrl('/rest/v1/rpc/naiwa_map_like'), { method:'POST', headers: wsHeaders(), body: JSON.stringify({ p_id: id }) });
       if(!res.ok) throw new Error('HTTP ' + res.status);
-      toast('点赞成功');
-      wsReload();
-    }catch(err){ toast('点赞失败：工坊后端未开通'); }
+      wsNet('连接成功', true);
+    }catch(err){
+      m.likes = Math.max(0, (m.likes || 1) - 1);
+      wsToggleLocal('naiwa_ws_like', String(id));
+      wsPatchCard(id, card => { const b = card.querySelector('[data-ws-act="like"]'); if(b) b.classList.remove('on'); });
+      wsNet('连接失败', true);
+    }
   }
   async function wsDownload(id){
     const row = (wsCache || []).find(x => String(x.id) === String(id));
@@ -5495,10 +5537,11 @@
       while(list.some(x => x.name === name)){ name = (map.name || '工坊地图') + ' (' + n + ')'; n++; }
       map.name = name;
       saveLocalMap(map);
+      wsMarkDownloaded(id);
+      row.plays = (row.plays || 0) + 1;
+      wsPatchCard(id, card => { const b = card.querySelector('[data-ws-act="dl"]'); if(b){ b.textContent = '已下载'; b.disabled = true; b.classList.add('done'); } });
       toast('已下载「' + map.name + '」到我的地图');
       fetch(wsUrl('/rest/v1/rpc/naiwa_map_play'), { method:'POST', headers: wsHeaders(), body: JSON.stringify({ p_id: id }) }).catch(()=>{});
-      renderWsFilterBar();
-      wsReload();
     }catch(err){ toast('地图解析失败，可能版本太新'); }
   }
   async function wsUploadDraft(){
