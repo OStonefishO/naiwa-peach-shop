@@ -2390,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '地图编辑与下架';
+  const CHANGELOG_SUB = '订单糖浆与结算修复';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -6529,7 +6529,7 @@
       const pick = pool.splice(randInt(0, pool.length-1), 1)[0];
       tops.push({id:pick, qty:randInt(1,3)});
     }
-    const poolS = availableSyrups().filter(id => id !== 'death');
+    const poolS = customStepOn('boil') ? availableSyrups().filter(id => id !== 'death') : ['classic'];
     const sMax = Math.min(map.syrupMax || 2, poolS.length);
     const sCount = clamp(randInt(Math.min(map.order.syrupMin || 1, sMax), sMax), 1, sMax);
     const picked = poolS.slice().sort(() => Math.random() - .5).slice(0, sCount);
@@ -7153,6 +7153,33 @@
     return state.activeOrderId != null && state.rackOrderId === state.activeOrderId;
   }
 
+
+  // 结算兜底：任何异常都不让界面卡死
+  window.__reviewGuard = function(){
+    try{
+      if(state.phase === 'reviewing'){
+        const ov = document.getElementById('reviewOverlay');
+        if(ov && !ov.classList.contains('show')){
+          if(state.scoreResult) { try { renderReview(state.scoreResult); } catch(e){} }
+          ov.classList.add('show'); ov.setAttribute('aria-hidden','false');
+          toast('结算出现异常，已为你打开结算页' + (window.__lastErr ? '：' + window.__lastErr : ''));
+        }
+      }
+    }catch(e){}
+  };
+  window.addEventListener('error', function(ev){
+    try{
+      window.__lastErr = String((ev && ev.message) || '');
+      window.__reviewGuard();
+    }catch(e){}
+  });
+  window.addEventListener('unhandledrejection', function(ev){
+    try{
+      window.__lastErr = String((ev && ev.reason && ev.reason.message) || ev.reason || '');
+      window.__reviewGuard();
+    }catch(e){}
+  });
+
   function submitActive(){
     if(state.phase !== 'playing') return;
     if(!state.can.sealed){ toast('还没有封盖，封好后再放到订单架'); setStage('work'); return; }
@@ -7191,14 +7218,19 @@
     }
     if(!state.can.sealed){ toast('罐头还没封好，先去工作台'); setStage('work'); return; }
     if(!orderOnRack()){ toast('先把订单拖到下面的「订单架」，再交给客人'); return; }
-    computeQueue();
-    state.phase = 'serving';
-    state.pouring = false;
-    stopAllHeating();
-    setGuestMood('happy');
-    sfx.serve();
-    els.canWrap.classList.add('serving');
-    setTimeout(() => finishOrder(false), 680);
+    try{
+      computeQueue();
+      state.phase = 'serving';
+      state.pouring = false;
+      stopAllHeating();
+      setGuestMood('happy');
+      sfx.serve();
+      if(els.canWrap) els.canWrap.classList.add('serving');
+      setTimeout(() => { try { finishOrder(false); } catch(e){ window.__lastErr = String(e && (e.stack || e.message) || e); window.__reviewGuard(); } }, 680);
+    }catch(e){
+      window.__lastErr = String(e && (e.stack || e.message) || e);
+      try { finishOrder(false); } catch(e2){ window.__reviewGuard(); }
+    }
   }
   function stopAllHeating(){
     state.pots.forEach(p => { if(p.status === 'heating'){ p.status = 'idle'; p.progress = 0; p.sugar = 0; p.alarmFired = false; } });
@@ -7212,7 +7244,7 @@
     stopAllHeating();
     setGuestMood('sad');
     sfx.sad();
-    setTimeout(() => finishOrder(true), 420);
+    setTimeout(() => { try { finishOrder(true); } catch(e){ window.__lastErr = String(e && (e.stack || e.message) || e); window.__reviewGuard(); } }, 420);
   }
 
   function orderTip(o){
@@ -7609,9 +7641,11 @@
     els.perfectStamp.style.display = result.perfect ? 'grid' : 'none';
     let reviewDetails = result.details;
     if(customActive()){
+      try{
       const cm = customMap();
       const okLabels = new Set(CM_WEIGHT_KEYS.filter(k => cm.enabled[k] !== false).map(k => CM_WEIGHT_LABEL[k]));
       reviewDetails = reviewDetails.filter(d => okLabels.has(d.label));
+      }catch(e){ window.__lastErr = String(e && e.message || e); }
     }
     els.scoreGrid.innerHTML = reviewDetails.map(d => `
       <div class="score-item ${d.ok ? 'ok' : 'bad'}">
