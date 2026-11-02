@@ -2036,6 +2036,7 @@
     }
   }
   let confirmAction = null;
+  let confirmCancelAction = null;
   function openConfirm(opts={}){
     if(els.confirmIcon){
       if(opts.iconSvg) els.confirmIcon.innerHTML = icon(opts.iconSvg);
@@ -2055,6 +2056,7 @@
       els.confirmCancel.style.display = noCancel ? 'none' : '';
     }
     confirmAction = typeof opts.onOk === 'function' ? opts.onOk : null;
+    confirmCancelAction = typeof opts.onCancel === 'function' ? opts.onCancel : null;
     els.confirmOverlay.classList.add('show');
     els.confirmOverlay.setAttribute('aria-hidden','false');
     sfx.tap();
@@ -2069,10 +2071,13 @@
       onOk:doEarlyLeave
     });
   }
-  function closeConfirm(){
+  function closeConfirm(fireCancel){
     els.confirmOverlay.classList.remove('show');
     els.confirmOverlay.setAttribute('aria-hidden','true');
+    const cb = confirmCancelAction;
     confirmAction = null;
+    confirmCancelAction = null;
+    if(fireCancel !== false && typeof cb === 'function'){ try { cb(); } catch(e){} }
   }
   function doEarlyLeave(){
     clearRun();
@@ -2468,7 +2473,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '小费罐位置';
+  const CHANGELOG_SUB = '暂停确认框修正';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -8943,7 +8948,9 @@
   }
   function pauseQuitRun(){
     hidePausePanel();
-    openConfirm({ title:'确定提前下班？', copy:'结束本局会立刻回到主菜单，今天的进度不保存。', okText:'结束游戏', cancelText:'再想想', onOk:() => { clearRun(); closeConfirm(); goHome(); }, onCancel:() => { if(isPaused() && els.pauseOverlay){ els.pauseOverlay.classList.add('show'); els.pauseOverlay.setAttribute('aria-hidden','false'); } } });
+    const co = document.getElementById('confirmOverlay');
+    if(co && co.classList.contains('show')) return;
+    openConfirm({ title:'确定提前下班？', copy:'结束本局会立刻回到主菜单，今天的进度不保存。', okText:'结束游戏', cancelText:'再想想', onOk:() => { clearRun(); closeConfirm(); goHome(); }, onCancel:() => { if(isPaused()) showPausePanel(); } });
   }
   function resumeGame(){
     try { setHeaderPause(true); } catch(e){}
@@ -9115,6 +9122,7 @@
       else toast('小费罐还是空的，先出一单吧');
     });
     if(els.settingsBtn) els.settingsBtn.addEventListener('click', () => {
+      if(typeof isPaused === 'function' && isPaused()){ showPausePanel(); return; }
       if(state.phase === 'playing') pauseGame(); else openSettings();
     });
     if(els.settingsEntryBtn) els.settingsEntryBtn.addEventListener('click', openSettings);
@@ -9585,7 +9593,7 @@
     });
     if(els.settingsPauseBtn) els.settingsPauseBtn.addEventListener('click', pauseRun);
     if(els.continueBtn) els.continueBtn.addEventListener('click', resumeRun);
-    if(els.confirmCancel) els.confirmCancel.addEventListener('click', closeConfirm);
+    if(els.confirmCancel) els.confirmCancel.addEventListener('click', () => closeConfirm(true));
     if(els.confirmOk) els.confirmOk.addEventListener('click', () => {
       const action = confirmAction;
       if(action) action();
