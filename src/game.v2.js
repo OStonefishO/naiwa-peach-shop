@@ -2390,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '上传失败提示';
+  const CHANGELOG_SUB = '地图编辑与下架';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -2817,7 +2817,7 @@
       }
       const tolBase = SUGAR[sugar].tol + (guest && guest.tolDelta || 0) + (p && p.id === 'strict' ? -1 : p && p.id === 'petty' ? -1 : p && p.id === 'generous' ? 1 : 0);
       const tol = Math.max(3, tolBase);
-      const poolS = availableSyrups().filter(id => id !== 'death');
+      const poolS = customStepOn('boil') ? availableSyrups().filter(id => id !== 'death') : ['classic'];
       const twoSyrupChance = complex ? .82 : simple ? .24 : .58;
       const sCount = poolS.length > 1 && Math.random() < twoSyrupChance ? 2 : 1;
       const picked = poolS.slice().sort(() => Math.random() - .5).slice(0, sCount);
@@ -5475,7 +5475,7 @@
           (wsDownloadedIds().includes(String(m.id))
             ? '<button type="button" class="ws-mini ws-dl done" disabled>已下载</button>'
             : '<button type="button" class="ws-mini ws-dl" data-ws-act="dl" data-id="' + m.id + '">下载</button>') +
-          ((state.devMode || (m.owner && m.owner === wsDeviceId())) ? '<button type="button" class="ws-mini ws-del" data-ws-act="del" data-id="' + m.id + '">删</button>' : '') +
+          ((state.devMode || (m.owner && m.owner === wsDeviceId())) ? '<button type="button" class="ws-mini ws-del" data-ws-act="del" data-id="' + m.id + '">'+((m.owner && m.owner === wsDeviceId()) ? '下架' : '删')+'</button>' : '') +
         '</div>' +
       '</div>').join('');
   }
@@ -5745,6 +5745,122 @@
       if(act){ onMapRowClick(act); return; }
     });
   }
+
+  // ---- 我的地图：已上传地图的管理（更新 / 下架）----
+  let manageIdx = -1;
+  function ensureMapManageUI(){
+    let ov = document.getElementById('cmMapEditOverlay');
+    if(ov) return ov;
+    ov = document.createElement('div');
+    ov.id = 'cmMapEditOverlay';
+    ov.className = 'overlay cm-guest-overlay';
+    ov.setAttribute('aria-hidden', 'true');
+    ov.innerHTML = '<div class="cm-guest-card cm-manage-card" id="cmManageBody"></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e => {
+      const b = e.target.closest('[data-manage]');
+      if(b){ onManageClick(b.dataset.manage); return; }
+      if(e.target === ov) closeMapManage();
+    });
+    return ov;
+  }
+  function openMapManage(idx){
+    manageIdx = idx;
+    const ov = ensureMapManageUI();
+    renderMapManage();
+    ov.classList.add('show'); ov.setAttribute('aria-hidden', 'false');
+  }
+  function closeMapManage(){
+    const ov = document.getElementById('cmMapEditOverlay');
+    if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden', 'true'); }
+    manageIdx = -1;
+  }
+  function renderMapManage(){
+    const body = document.getElementById('cmManageBody');
+    if(!body) return;
+    const m = localMaps()[manageIdx];
+    if(!m){ body.innerHTML = ''; return; }
+    const synced = !!m.remoteId;
+    body.innerHTML =
+      '<div class="cm-hub-head"><div><b>' + escapeHtml(m.name || '未命名地图') + '</b>' +
+      '<small>' + (synced ? '已上架创意工坊' : '还没上架') + ' · 作者 ' + escapeHtml(m.author || '匿名') + '</small></div>' +
+      '<button type="button" class="round-btn" data-manage="close" style="width:26px;height:26px">✕</button></div>' +
+      '<div class="cm-manage-info">修改地图属性后不会自动同步到工坊，要点「更新地图」才会生效；同一张地图不会重复上架。</div>' +
+      '<div class="cm-manage-acts">' +
+        '<button type="button" class="primary-btn" data-manage="update">' + (synced ? '更新地图' : '上传到创意工坊') + '</button>' +
+        (synced ? '<button type="button" class="cm-secondary ws-del" data-manage="unpublish">下架地图</button>' : '') +
+      '</div>' +
+      '<div class="ws-up-actions"><button type="button" class="cm-secondary" data-manage="close">关闭</button>' +
+      '<button type="button" class="cm-secondary" data-manage="reopen">重新编辑属性</button></div>';
+  }
+  async function updateRemoteMap(){
+    const m = localMaps()[manageIdx];
+    if(!m) return;
+    const map = normalizeCustomMap(m);
+    map.name = m.name; map.author = m.author || '匿名';
+    map.cover = m.cover || ''; map.intro = m.intro || ''; map.gameplay = m.gameplay || '';
+    const code = customCodeOf(map);
+    wsNet('正在同步…');
+    try{
+      if(!m.remoteId){
+        const id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        const res = await fetch(wsUrl('/rest/v1/' + WS_TABLE), { method:'POST', headers: wsHeaders({ Prefer:'return=representation' }), body: JSON.stringify({ id, name: map.name, author: map.author, code, cover: map.cover, intro: map.intro, gameplay: map.gameplay, owner: wsDeviceId(), code_hash: wsHash(code) }) });
+        if(!res.ok) throw new Error('HTTP ' + res.status);
+        m.remoteId = id;
+      } else {
+        const base = { name: map.name, author: map.author, code, cover: map.cover };
+        const tries = [
+          Object.assign({}, base, { intro: map.intro, gameplay: map.gameplay, code_hash: wsHash(code) }),
+          Object.assign({}, base, { intro: map.intro, gameplay: map.gameplay }),
+          base
+        ];
+        let lastStatus = 0, okPatch = false;
+        for(const body2 of tries){
+          const r2 = await fetch(wsUrl('/rest/v1/' + WS_TABLE + '?id=eq.' + encodeURIComponent(m.remoteId)), { method:'PATCH', headers: wsHeaders({ Prefer:'return=minimal' }), body: JSON.stringify(body2) });
+          lastStatus = r2.status;
+          if(r2.ok){ okPatch = true; break; }
+        }
+        if(!okPatch) throw new Error('HTTP ' + lastStatus);
+      }
+      saveLocalMap(m);
+      window.__wsErr = null;
+      wsNet(m.remoteId ? '已更新到工坊' : '上传成功！', true);
+      toast(m.remoteId ? '已更新到工坊' : '上传成功！');
+      renderMapManage();
+      renderMine();
+    }catch(err){
+      const msg = String(err && err.message || err);
+      window.__wsErr = msg;
+      const hc = /HTTP (\d+)/.exec(msg);
+      wsNet(hc ? ('同步失败（HTTP ' + hc[1] + '）') : '同步失败！请检查网络', true);
+      toast(hc ? ('同步失败（HTTP ' + hc[1] + '）') : '同步失败，请检查网络');
+    }
+  }
+  async function unpublishMap(){
+    const m = localMaps()[manageIdx];
+    if(!m || !m.remoteId) return;
+    wsNet('正在下架…');
+    try{
+      const res = await fetch(wsUrl('/rest/v1/' + WS_TABLE + '?id=eq.' + encodeURIComponent(m.remoteId)), { method:'DELETE', headers: wsHeaders() });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      delete m.remoteId;
+      saveLocalMap(m);
+      wsNet('已下架', true); toast('已下架，本地地图还留着');
+      renderMapManage(); renderMine();
+    }catch(err){
+      const msg = String(err && err.message || err);
+      window.__wsErr = msg;
+      const hc = /HTTP (\d+)/.exec(msg);
+      wsNet(hc ? ('下架失败（HTTP ' + hc[1] + '）') : '下架失败！请检查网络', true);
+    }
+  }
+  function onManageClick(k){
+    if(k === 'close') return closeMapManage();
+    if(k === 'reopen'){ const i = manageIdx; closeMapManage(); openCustomEditor(localMaps()[i]); return; }
+    if(k === 'update') return updateRemoteMap();
+    if(k === 'unpublish') return unpublishMap();
+  }
+
   function openMine(){ ensureMineUI(); renderMine(); const ov = document.getElementById('cmMineOverlay'); ov.classList.add('show'); ov.setAttribute('aria-hidden','false'); }
   function closeMine(){ const ov = document.getElementById('cmMineOverlay'); if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); } }
   function renderMine(){
@@ -5759,7 +5875,7 @@
         '<div class="cm-mine-btns">' +
           '<button type="button" class="ws-mini ws-dl" data-map-act="play" data-idx="' + i + '">直接开玩</button>' +
           '<button type="button" class="ws-mini" data-map-act="edit" data-idx="' + i + '">改属性</button>' +
-          '<button type="button" class="ws-mini" data-map-act="upload" data-idx="' + i + '">上传</button>' +
+          ((m.remoteId ? '<button type="button" class="ws-mini ws-edit" data-map-act="manage" data-idx="' + i + '">编辑</button>' : '<button type="button" class="ws-mini" data-map-act="upload" data-idx="' + i + '">上传</button>')) +
           '<button type="button" class="ws-mini ws-del" data-map-act="del" data-idx="' + i + '">删</button>' +
         '</div>' +
       '</div>').join('');
@@ -5770,6 +5886,7 @@
     const map = maps[idx];
     if(!map) return;
     const a = btn.dataset.mapAct;
+    if(a === 'manage'){ openMapManage(idx); return; }
     if(a === 'edit'){ activeProfile.customMap = cloneJSON(map); saveProfiles(); closeMine(); openCustomEditor(); return; }
     if(a === 'upload'){ openWsUpload(map); return; }
     if(a === 'del'){ maps.splice(idx, 1); saveProfiles(); renderMine(); toast('已删除本地地图'); return; }
@@ -5887,19 +6004,24 @@
           { id: id, name: map.name, author: map.author, code: code }
         ];
         let ok2 = false, last = res.status;
+        window.__wsDbg = window.__wsDbg || [];
+        window.__wsDbg.push('first:' + res.status);
         for(const body2 of tries){
           const res2 = await fetch(wsUrl('/rest/v1/' + WS_TABLE), { method: 'POST', headers: wsHeaders({ Prefer: 'return=representation' }), body: JSON.stringify(body2) });
+          window.__wsDbg.push('retry:' + res2.status);
           if(res2.ok){ ok2 = true; break; }
           last = res2.status;
         }
         if(!ok2){
           const body3 = { id: id, name: map.name, author: map.author, code: code };
           const res3 = await fetch(wsUrl('/rest/v1/' + WS_TABLE), { method: 'POST', headers: wsHeaders({ Prefer: 'return=minimal' }), body: JSON.stringify(body3) });
+          window.__wsDbg.push('minimal:' + res3.status);
           if(!res3.ok) throw new Error('HTTP ' + res3.status);
         }
         wsNet('上传成功！', true);
       }
       // 同步回本地地图，方便再编辑
+      map.remoteId = id;
       saveLocalMap(map);
       closeWsUpload();
       wsNet('上传成功！', true);
@@ -8941,7 +9063,8 @@
     
 
 
-  window.__naiwa = { customPickGuest, setupCustomDay, submitWsUpload, wsCheckDuplicate, openCmHub, openMine, openWsUpload, openCoverCropper, openWsDetail, localMaps, saveLocalMap, wsUploadDraft, wsReload, openWorkshop, openCustomEditor, customCodeOf, decodeCustomCode, getCustomMap: () => state.customMap, setCustomMap: (m) => { state.customMap = normalizeCustomMap(m); }, normalizeCustomMap, customTasks, customDraft: () => cmDraft, state, renderReview, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, addWallet, spendCoins, handleFurniture, handleClothes, handleSkin, openHome, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, renderRogueShop, makeRogueShopStock, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
+  window.__naiwa = {
+    openMapManage, renderMine, localMaps, customPickGuest, setupCustomDay, submitWsUpload, wsCheckDuplicate, openCmHub, openMine, openWsUpload, openCoverCropper, openWsDetail, localMaps, saveLocalMap, wsUploadDraft, wsReload, openWorkshop, openCustomEditor, customCodeOf, decodeCustomCode, getCustomMap: () => state.customMap, setCustomMap: (m) => { state.customMap = normalizeCustomMap(m); }, normalizeCustomMap, customTasks, customDraft: () => cmDraft, state, renderReview, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, addWallet, spendCoins, handleFurniture, handleClothes, handleSkin, openHome, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, renderRogueShop, makeRogueShopStock, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
     }
   }
 
