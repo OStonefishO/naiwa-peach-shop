@@ -2390,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '经营规则与上传修复';
+  const CHANGELOG_SUB = '上传反馈浮窗';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -5853,7 +5853,8 @@
     const author = (document.getElementById('wsUpAuthor') || {}).value || '匿名';
     const intro = (document.getElementById('wsUpIntro') || {}).value || '';
     const gameplay = (document.getElementById('wsUpGameplay') || {}).value || '';
-    if(!name.trim()){ toast('给地图起个名字吧'); return; }
+    if(!name.trim()){ wsNet('给地图起个名字吧', true); toast('给地图起个名字吧'); return; }
+    wsNet('正在上传…');
     const map = normalizeCustomMap(wsUp.map);
     map.name = name.trim().slice(0, 24);
     map.author = author.trim().slice(0, 16) || '匿名';
@@ -5863,6 +5864,7 @@
     const id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const code = customCodeOf(map);
     if(await wsCheckDuplicate(code)){
+      wsNet('这张地图已经上传过了，改点参数再传吧', true);
       toast('这张地图你已经上传过了，改点参数再传吧');
       return;
     }
@@ -5887,15 +5889,17 @@
           last = res2.status;
         }
         if(!ok2) throw new Error('HTTP ' + last);
-        toast('上传成功！');
+        wsNet('上传成功！', true);
       }
       // 同步回本地地图，方便再编辑
       saveLocalMap(map);
       closeWsUpload();
+      wsNet('上传成功！', true);
       toast('上传成功！');
       openWorkshop();
     }catch(err){
       window.__wsErr = String(err && err.message || err);
+      wsNet('上传失败！请重试！', true);
       toast('上传失败！请重试！');
     }finally{
       if(btn){ btn.disabled = false; btn.textContent = '上传地图'; }
