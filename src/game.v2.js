@@ -2390,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '客人名单与免熬糖';
+  const CHANGELOG_SUB = '经营规则与上传修复';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -2924,7 +2924,9 @@
       }else if(state.mode === 'tutorial'){
         els.daySub.textContent = `新手 DAY ${state.day}/${TUTORIAL_DAYS} · ${label}`;
       }else if(state.mode === 'custom'){
-        els.daySub.textContent = `自定义 · DAY ${state.day}/${NORMAL_DAYS}${mark} · ${label}`;
+        const cmMapNow = customMap();
+        const cmTotal = cmMapNow.endless === false ? customTotalDays() : NORMAL_DAYS;
+        els.daySub.textContent = `自定义 · DAY ${state.day}/${cmTotal}${mark} · ${label}`;
       }else{
         els.daySub.textContent = `普通 · DAY ${state.day}/${NORMAL_DAYS}${mark} · ${label}`;
       }
@@ -2939,7 +2941,8 @@
     const show = (state.mode === 'endless' || state.mode === 'rogue' || cmShow) && state.phase !== 'intro';
     els.weekBanner.hidden = !show;
     if(!show) return;
-    const left = WEEK_DAYS - ((state.day - 1) % WEEK_DAYS);
+    const wdNow = state.mode === 'custom' ? customWeekDays() : WEEK_DAYS;
+    const left = wdNow - ((state.day - 1) % wdNow);
     if(state.mode === 'custom'){
       const list = customTasks();
       if(list.length){
@@ -5141,6 +5144,11 @@
     syrupMax: 2,
     steps: { cut: true, boil: true, stir: true, temp: true, topping: true },
     patienceByPersona: true,
+    endless: true,
+    weeks: 4,
+    weekDays: 7,
+    eliteDay: true,
+    bossDay: true,
     guestOff: { normal: [], elite: [], boss: [] },
     order: { complexChance: 35, syrupMin: 1, syrupMax: 2, toppingMin: 0, toppingMax: 2, forceJar: false },
     weeklyOn: true,
@@ -5182,6 +5190,12 @@
   function clampNum(v, min, max){ v = Number(v); if(!isFinite(v)) v = min; return Math.max(min, Math.min(max, v)); }
 
   let gpTab = 'normal';
+  function guestThumb(g, gi){
+    const html = guestSVG(g, gi) || '';
+    if(html.trim().startsWith('<img')) return html;
+    const withNs = html.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+    return '<img class="gp-img" alt="" src="data:image/svg+xml;charset=utf-8,' + encodeURIComponent(withNs) + '">';
+  }
   function gpPoolOf(tier){
     if(tier === 'elite') return ELITE_GUESTS;
     if(tier === 'boss') return BOSS_GUESTS;
@@ -5201,10 +5215,10 @@
     if(!card || !cmDraft) return;
     const off = ((cmDraft.guestOff || {})[gpTab] || []);
     const pool = gpPoolOf(gpTab);
-    const rows = pool.map(g => {
+    const rows = pool.map((g, gi) => {
       const on = !off.includes(g.name);
       return '<div class="gp-row ' + (on ? '' : 'off') + '">' +
-        '<div class="gp-thumb">' + guestSVG(g) + '</div>' +
+        '<div class="gp-thumb">' + guestThumb(g, gi) + '</div>' +
         '<div class="gp-info"><b>' + escapeHtml(g.name) + (g.personalityTag ? ' · ' + escapeHtml(String(g.personalityTag)) : '') + '</b>' +
         '<small>' + escapeHtml((g.greet || g.desc || '').slice(0, 40)) + '</small></div>' +
         '<button type="button" class="cm-switch-btn" data-gp-toggle="' + escapeHtml(g.name) + '" style="border:0;background:none;padding:0">' + cmSwitch(on) + '</button>' +
@@ -5269,6 +5283,11 @@
       ['cut','boil','stir','temp','topping'].forEach(k => { out.steps[k] = raw.steps[k] !== false; });
     }
     out.patienceByPersona = raw.patienceByPersona !== false;
+    out.endless = raw.endless !== false;
+    out.weeks = Math.round(clampNum(raw.weeks != null ? raw.weeks : out.weeks, 1, 12));
+    out.weekDays = Math.round(clampNum(raw.weekDays != null ? raw.weekDays : out.weekDays, 1, 14));
+    out.eliteDay = raw.eliteDay !== false;
+    out.bossDay = raw.bossDay !== false;
     if(raw.guestOff && typeof raw.guestOff === 'object'){
       ['normal','elite','boss'].forEach(t => {
         out.guestOff[t] = Array.isArray(raw.guestOff[t]) ? raw.guestOff[t].filter(n => typeof n === 'string').slice(0, 40) : [];
@@ -5308,6 +5327,8 @@
   }
   function customActive(){ return state.mode === 'custom' && !!state.customMap; }
   function customMap(){ return state.customMap || CUSTOM_DEFAULTS; }
+  function customWeekDays(){ return Math.round(clampNum(customActive() ? (customMap().weekDays || 7) : 7, 1, 14)); }
+  function customTotalDays(){ const m = customMap(); return Math.max(1, (m.weeks || 4) * customWeekDays()); }
 
   let cmDraft = null;
   function customCodeOf(map){
@@ -6056,6 +6077,13 @@
         '<div class="cm-row"><label>高级客人<small>指定第几天来什么客人</small></label><div class="cm-num"><b>' + ((m.fixedGuests || []).length) + ' 条</b></div></div>' +
         '<div class="cm-tags"><button type="button" class="cm-tag" data-cm-guest="open">编辑高级客人</button></div>' +
       '</div>' +
+      '<div class="cm-sec"><h4>经营</h4>' +
+        cmSwitchRow('无尽模式', '关掉后按周数经营，到期自动结算', 'endless') +
+        (cmDraft.endless === false ? cmNumRow('经营周数', '每周按下面的天数算', 'weeks', 1, 12) : '') +
+        cmNumRow('一周几天', '1~14 天', 'weekDays', 1, 14) +
+        cmSwitchRow('精英日', '每周第 5 天来一位精英客人', 'eliteDay') +
+        cmSwitchRow('BOSS 日', '每周最后一天来一位 BOSS', 'bossDay') +
+      '</div>' +
       '<div class="cm-sec"><h4>店铺</h4>' +
         cmNumRow('熬糖锅数量', '1~20 口', 'pots', 1, 20) +
         cmNumRow('糖浆份数上限', '1~6 份，可多份混合', 'syrupMax', 1, 6) +
@@ -6304,6 +6332,12 @@
       if((r -= map.typeWeights.normal || 0) < 0) tier = 'normal';
       else if((r -= map.typeWeights.elite || 0) < 0) tier = 'elite';
       else tier = 'boss';
+      const cmWd = customWeekDays();
+      const cmDow = ((state.day - 1) % cmWd) + 1;
+      if(i === 0){
+        if(map.bossDay !== false && cmDow === cmWd) tier = 'boss';
+        else if(map.eliteDay !== false && cmDow === 5) tier = 'elite';
+      }
       let forcedPersona = '';
       if(fixed[i]){ tier = fixed[i].tier; forcedPersona = fixed[i].personality || ''; }
       const offNames = ((map.guestOff || {})[tier] || []);
@@ -7572,7 +7606,7 @@
     }
 
 
-    if(state.mode === 'custom' && (state.day % WEEK_DAYS) === 0){
+    if(state.mode === 'custom' && (state.day % customWeekDays()) === 0){
       const list = customTasks();
       if(list.length){
         const doneCnt = list.filter(t => t.check()).length;
@@ -7673,8 +7707,8 @@
       state.weekEarned = 0;
       state.weekTarget = weekTargetFor(state.week);
     }
-    if(state.mode === 'custom' && (state.day - 1) % WEEK_DAYS === 0){
-      state.week = Math.ceil(state.day / WEEK_DAYS);
+    if(state.mode === 'custom' && (state.day - 1) % customWeekDays() === 0){
+      state.week = Math.floor((state.day - 1) / customWeekDays()) + 1;
       state.weekEarned = 0;
       state.customStats = { coins: 0, wideJar: 0, honey: 0, mint: 0, perfect: 0, served: 0 };
     }
@@ -7702,6 +7736,14 @@
     els.shopOverlay.classList.remove('show');
     els.shopOverlay.setAttribute('aria-hidden','true');
     els.canWrap.classList.remove('serving');
+    if(state.mode === 'custom'){
+      const cmRunMap = customMap();
+      if(cmRunMap.endless === false && state.day > customTotalDays()){
+        state.day = customTotalDays();
+        showSummary('gameOver');
+        return;
+      }
+    }
     newCustomer(0);
     saveGame();
     if(state.mode === 'normal' && state.day === WEEK_DAYS * 2 + 1 && activeProfile && !activeProfile.rogueUnlocked){
