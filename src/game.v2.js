@@ -2390,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '免熬糖结算修复';
+  const CHANGELOG_SUB = '免熬糖与地图编辑';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -5775,6 +5775,25 @@
     if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden', 'true'); }
     manageIdx = -1;
   }
+  function manageCoverHtml(m){
+    return m.cover ? '<img src="' + m.cover + '" alt="">' : '<span>默认封面</span>';
+  }
+  function renderManageCover(){
+    const m = localMaps()[manageIdx];
+    const box = document.getElementById('cmManageCover');
+    if(box && m) box.innerHTML = manageCoverHtml(m);
+  }
+  function manageCollect(){
+    const m = localMaps()[manageIdx];
+    if(!m) return null;
+    const g = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+    m.name = g('cmManageName') || m.name || '未命名地图';
+    m.author = g('cmManageAuthor') || '匿名';
+    m.intro = g('cmManageIntro');
+    m.gameplay = g('cmManageGameplay');
+    saveLocalMap(m);
+    return m;
+  }
   function renderMapManage(){
     const body = document.getElementById('cmManageBody');
     if(!body) return;
@@ -5782,17 +5801,40 @@
     if(!m){ body.innerHTML = ''; return; }
     const synced = !!m.remoteId;
     body.innerHTML =
-      '<div class="cm-hub-head"><div><b>' + escapeHtml(m.name || '未命名地图') + '</b>' +
-      '<small>' + (synced ? '已上架创意工坊' : '还没上架') + ' · 作者 ' + escapeHtml(m.author || '匿名') + '</small></div>' +
-      '<button type="button" class="round-btn" data-manage="close" style="width:26px;height:26px">✕</button></div>' +
-      '<div class="cm-manage-info">修改地图属性后不会自动同步到工坊，要点「更新地图」才会生效；同一张地图不会重复上架。</div>' +
+      '<div class="cm-hub-head"><div><b>编辑地图</b>' +
+        '<small>' + (synced ? '已上架创意工坊 · 改完点「更新地图」才会同步' : '本地地图 · 还没上架') + '</small></div>' +
+        '<button type="button" class="round-btn" data-manage="close" style="width:26px;height:26px">✕</button></div>' +
+      '<div class="ws-up-cover-row">' +
+        '<div class="ws-up-cover" id="cmManageCover">' + manageCoverHtml(m) + '</div>' +
+        '<div class="ws-up-cover-btns">' +
+          '<button type="button" class="cm-secondary" data-manage="pick">选择封面</button>' +
+          '<button type="button" class="cm-secondary" data-manage="crop">重新裁切</button>' +
+          '<button type="button" class="cm-secondary" data-manage="clear">用默认封面</button>' +
+        '</div>' +
+      '</div>' +
+      '<label class="ws-up-label">地图名<input id="cmManageName" value="' + escapeHtml(m.name || '') + '"></label>' +
+      '<label class="ws-up-label">作者<input id="cmManageAuthor" value="' + escapeHtml(m.author || '') + '"></label>' +
+      '<label class="ws-up-label">简介<textarea id="cmManageIntro" rows="2" placeholder="一句话介绍这张地图（可空）">' + escapeHtml(m.intro || '') + '</textarea></label>' +
+      '<label class="ws-up-label">主要玩法<textarea id="cmManageGameplay" rows="2" placeholder="比如：8 位客人、20 口锅、混合糖浆（可空）">' + escapeHtml(m.gameplay || '') + '</textarea></label>' +
       '<div class="cm-manage-acts">' +
         '<button type="button" class="primary-btn" data-manage="update">' + (synced ? '更新地图' : '上传到创意工坊') + '</button>' +
         (synced ? '<button type="button" class="cm-secondary ws-del" data-manage="unpublish">下架地图</button>' : '') +
       '</div>' +
-      '<div class="ws-up-actions"><button type="button" class="cm-secondary" data-manage="close">关闭</button>' +
-      '<button type="button" class="cm-secondary" data-manage="reopen">重新编辑属性</button></div>';
+      '<div class="ws-up-actions">' +
+        '<button type="button" class="cm-secondary" data-manage="reopen">重新编辑属性</button>' +
+        '<button type="button" class="cm-secondary" data-manage="close">关闭</button>' +
+      '</div>' +
+      '<input type="file" id="cmManageFile" accept="image/*" hidden>';
+    const f = document.getElementById('cmManageFile');
+    if(f) f.onchange = () => {
+      const file = f.files && f.files[0]; if(!file) return;
+      const rd = new FileReader();
+      rd.onload = () => { const mm = localMaps()[manageIdx]; if(!mm) return; openCoverCropper(String(rd.result), d => { mm.cover = d; saveLocalMap(mm); renderManageCover(); }); };
+      rd.readAsDataURL(file);
+      f.value = '';
+    };
   }
+  
   async function updateRemoteMap(){
     const m = localMaps()[manageIdx];
     if(!m) return;
@@ -5855,12 +5897,19 @@
     }
   }
   function onManageClick(k){
-    if(k === 'close') return closeMapManage();
-    if(k === 'reopen'){ const i = manageIdx; closeMapManage(); openCustomEditor(localMaps()[i]); return; }
-    if(k === 'update') return updateRemoteMap();
+    const m = localMaps()[manageIdx];
+    if(k === 'close'){ if(m) manageCollect(); return closeMapManage(); }
+    if(k === 'reopen'){ if(m) manageCollect(); const i = manageIdx; closeMapManage(); openCustomEditor(localMaps()[i]); return; }
+    if(k === 'pick'){ const f = document.getElementById('cmManageFile'); if(f) f.click(); return; }
+    if(k === 'crop'){
+      if(!m || !m.cover){ toast('先选一张封面'); return; }
+      openCoverCropper(m.cover, d => { m.cover = d; saveLocalMap(m); renderManageCover(); });
+      return;
+    }
+    if(k === 'clear'){ if(!m) return; m.cover = ''; saveLocalMap(m); renderManageCover(); return; }
+    if(k === 'update'){ if(!manageCollect()) return; return updateRemoteMap(); }
     if(k === 'unpublish') return unpublishMap();
   }
-
   function openMine(){ ensureMineUI(); renderMine(); const ov = document.getElementById('cmMineOverlay'); ov.classList.add('show'); ov.setAttribute('aria-hidden','false'); }
   function closeMine(){ const ov = document.getElementById('cmMineOverlay'); if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); } }
   function renderMine(){
@@ -7323,7 +7372,8 @@
     const ratioScoreRaw = maxRatioDiff <= tol ? 14 : Math.max(0, 14 - (maxRatioDiff - tol) * 1.15);
     const qualityPts = usedBatches.map(b => b.quality === 'perfect' ? 15 : b.quality === 'thin' ? 7 : 0);
     const batch = usedBatches[0] || null;
-    const boilScoreRaw = qualityPts.length ? qualityPts.reduce((a,b) => a+b, 0) / qualityPts.length : 0;
+    const boilSkipped = customActive() && customMap().steps && customMap().steps.boil === false;
+    const boilScoreRaw = boilSkipped ? 15 : (qualityPts.length ? qualityPts.reduce((a,b) => a+b, 0) / qualityPts.length : 0);
 
     const pourDiff = Math.abs(c.syrup - target);
     const pourScoreRaw = c.syrup <= 0 ? 0 : pourDiff <= tol ? 13 : Math.max(0, 13 - (pourDiff - tol) * 1);
@@ -7512,7 +7562,7 @@
       ? (gotDeath ? `死亡之糖 ${Math.round(c.components.death || 0)}/${Math.round(target)}% · 得分×2` : '客人不满足你的选择')
       : wantSyrups.map(s => `${SYRUPS[s.id].name} ${Math.round(c.components[s.id] || 0)}/${Math.round(target * s.ratio / 100)}%`).join(' · ');
     details.push({ok:ratioScore>=13, label:'糖浆比例', text: ratioText});
-    const boilText = usedBatches.length ? usedBatches.map(b => `${(b.types||['classic']).map(id=>SYRUPS[id].name).join('+')}：${b.quality === 'perfect' ? '完美' : b.quality === 'thin' ? '偏生' : '焦苦'}`).join(' / ') : '没有可用糖水';
+    const boilText = boilSkipped ? '无需熬糖 ✓（大锅标准糖浆）' : (usedBatches.length ? usedBatches.map(b => `${(b.types||['classic']).map(id=>SYRUPS[id].name).join('+')}：${b.quality === 'perfect' ? '完美' : b.quality === 'thin' ? '偏生' : '焦苦'}`).join(' / ') : '没有可用糖水');
     details.push({ok:boilScore>=14, label:'熬糖火候', text: needsDeathOnly ? '客人不满足你的选择' : boilText});
     details.push({ok:pourScore>=12, label:'倒糖量', text: needsDeathOnly ? '客人不满足你的选择' : `总 ${Math.round(c.syrup)}% / 目标 ${Math.round(target)}%`});
     details.push({ok:stirScore===3, label:'搅拌', text: wantIds.length > 1 ? (c.stirred ? '已搅拌 ✓' : '分层') + (o.stirred === !!c.stirred ? ' ✓' : o.stirred ? ' / 要搅拌' : ' / 要分层') : '单糖浆 ✓'});
