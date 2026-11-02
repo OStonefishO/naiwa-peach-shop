@@ -2390,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '暂停与挂牌';
+  const CHANGELOG_SUB = '工坊分页与存钱罐';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -2906,7 +2906,27 @@
     try { syncDevBagUI(); } catch(e){}
   }
 
-  function updateHud(){
+  function paintBrand(){
+    const badge = document.querySelector('.brand-badge');
+    const title = document.querySelector('.brand-title');
+    const sub = document.getElementById('daySub');
+    if(!badge || !title) return;
+    const cm = state.mode === 'custom' ? customMap() : null;
+    if(cm && cm.cover){
+      if(!badge.querySelector('img')) badge.innerHTML = '<img alt="">';
+      const img = badge.querySelector('img');
+      if(img.getAttribute('src') !== cm.cover) img.src = cm.cover;
+      badge.querySelectorAll('svg').forEach(x => x.remove());
+    }else if(!badge.querySelector('svg')){
+      badge.innerHTML = '<svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>';
+    }
+    title.textContent = (cm && (cm.name || '').trim()) ? cm.name.trim() : '奶蛙黄桃罐头店';
+    if(sub) sub.classList.toggle('big', !!cm);
+    if(sub) sub.classList.toggle('center', !!cm);
+  }
+
+    function updateHud(){
+    try { paintBrand(); } catch(e){}
     if(els.game) els.game.dataset.mode = state.mode || 'normal';
     if(els.coins) els.coins.textContent = coinText();
     if(els.devEndDayBtn) els.devEndDayBtn.hidden = !state.devMode || (state.phase !== 'playing' && state.phase !== 'event');
@@ -2926,7 +2946,7 @@
       }else if(state.mode === 'custom'){
         const cmMapNow = customMap();
         const cmTotal = cmMapNow.endless === false ? customTotalDays() : NORMAL_DAYS;
-        els.daySub.textContent = `自定义 · DAY ${state.day}/${cmTotal}${mark} · ${label}`;
+        els.daySub.textContent = `DAY ${state.day}/${cmTotal}${mark} · ${label}`;
       }else{
         els.daySub.textContent = `普通 · DAY ${state.day}/${NORMAL_DAYS}${mark} · ${label}`;
       }
@@ -3905,8 +3925,8 @@
     els.bowlLarge.textContent = state.bowl.large;
     els.bowlSmall.textContent = state.bowl.small;
     els.cutStage.classList.remove('knife-mint','knife-sakura','knife-gold');
-    if(state.upgrade.knife !== 'wood') els.cutStage.classList.add('knife-' + state.upgrade.knife);
-    const alarms = state.upgrade.alarms || 0;
+    const kNow = shopUpgrades().knife || 'wood'; if(kNow !== 'wood') els.cutStage.classList.add('knife-' + kNow);
+    const alarms = (shopUpgrades().alarms || 0);
     const assigned = state.pots.filter(p => p.alarm).length;
     els.alarmNote.textContent = alarms > 0
       ? `闹钟 ${alarms} 个 · 已设置 ${assigned} 个：把闹钟拖到锅上，进入火候区前会响铃。`
@@ -3918,7 +3938,7 @@
 
   function renderAlarmTray(){
     if(!els.alarmTray || !els.alarmTrayItems) return;
-    const total = state.upgrade.alarms || 0;
+    const total = (shopUpgrades().alarms || 0);
     const assigned = state.pots.filter(p => p.alarm).length;
     const free = Math.max(0, total - assigned);
     els.alarmTray.hidden = state.stage !== 'kitchen' || total <= 0;
@@ -3936,7 +3956,7 @@
     const p = state.pots[potId];
     if(!p || p.alarm) return;
     const assigned = state.pots.filter(x => x.alarm).length;
-    if(assigned >= (state.upgrade.alarms || 0)){ toast('没有空闲闹钟了，去道具商店再买一个'); return; }
+    if(assigned >= ((shopUpgrades().alarms || 0))){ toast('没有空闲闹钟了，去道具商店再买一个'); return; }
     p.alarm = true;
     p.alarmFired = false;
     tutFlag('alarm');
@@ -3982,9 +4002,10 @@
   function renderPots(){
     let html = '';
     const customRun = state.mode === 'custom';
+    const up = shopUpgrades();
     const totalSlots = customRun ? potCap() : 4;
     for(let i=0;i<totalSlots;i++){
-      if(i >= state.upgrade.pots){
+      if(i >= up.pots){
         html += `<div class="pot-empty">锅位 ${i+1}<br>去金币商店买锅</div>`;
         continue;
       }
@@ -5470,9 +5491,12 @@
       return;
     }
     const favSet = wsFavIds(), likeSet = wsLikeIds();
-    list.innerHTML = rows.map((m, i) =>
+    const pages = Math.max(1, Math.ceil(rows.length / WS_PAGE_SIZE));
+    wsPage = Math.min(Math.max(0, wsPage), pages - 1);
+    const pageRows = rows.slice(wsPage * WS_PAGE_SIZE, wsPage * WS_PAGE_SIZE + WS_PAGE_SIZE);
+    list.innerHTML = pageRows.map((m, i) =>
       '<div class="ws-card" data-ws-id="' + m.id + '">' +
-        '<div class="ws-rank">' + (i + 1) + '</div>' +
+        '<div class="ws-rank">' + (wsPage * WS_PAGE_SIZE + i + 1) + '</div>' +
         '<div class="ws-cover">' + (m.cover ? '<img src="' + m.cover + '" alt="">' : '<span>' + escapeHtml((m.name || '图').slice(0, 1)) + '</span>') + '</div>' +
         '<div class="ws-main"><b>' + escapeHtml(m.name || '未命名') + '</b><small class="ws-author">' + escapeHtml(m.author || '匿名') + '</small><em class="ws-play">' + escapeHtml((m.gameplay || '作者还没写玩法介绍').slice(0, 40)) + '</em>' +
           '<div class="ws-stats">👍 ' + (m.likes || 0) + ' · ⬇ ' + (m.plays || 0) + (favSet.includes(m.id) ? ' · ★ 已收藏' : '') + '</div></div>' +
@@ -5486,6 +5510,14 @@
           ((state.devMode || (m.owner && m.owner === wsDeviceId())) ? '<button type="button" class="ws-mini ws-del" data-ws-act="del" data-id="' + m.id + '">'+((m.owner && m.owner === wsDeviceId()) ? '下架' : '删')+'</button>' : '') +
         '</div>' +
       '</div>').join('');
+    const bar = document.getElementById('wsPagerBar');
+    if(bar){
+      bar.innerHTML = pages > 1
+        ? '<button type="button" class="ws-page-btn" data-ws-page="prev" ' + (wsPage <= 0 ? 'disabled' : '') + '>‹ 上一页</button>' +
+          '<span>' + (wsPage + 1) + ' / ' + pages + '</span>' +
+          '<button type="button" class="ws-page-btn" data-ws-page="next" ' + (wsPage >= pages - 1 ? 'disabled' : '') + '>下一页 ›</button>'
+        : '';
+    }
   }
   function wsRenderDelete(){ }
   async function wsDelete(id){
@@ -5496,7 +5528,8 @@
       if(!res.ok) throw new Error('HTTP ' + res.status);
       wsCache = (wsCache || []).filter(x => String(x.id) !== String(id));
       const card = document.querySelector('.ws-card[data-ws-id="' + id + '"]');
-      if(card){ card.style.transition = 'opacity .18s, transform .18s'; card.style.opacity = '0'; card.style.transform = 'scale(.98)'; setTimeout(() => card.remove(), 200); }
+      if(card){ card.style.transition = 'opacity .18s, transform .18s'; card.style.opacity = '0'; card.style.transform = 'scale(.98)'; setTimeout(() => { if(card.parentNode) card.remove(); wsRenderList(); }, 200); }
+      else wsRenderList();
       toast('已从工坊删除这张地图');
     }catch(err){ toast('删除失败：' + (String(err.message||err).indexOf('401') >= 0 ? '需要先跑删除策略 SQL' : String(err.message || err))); }
   }
@@ -5529,6 +5562,8 @@
   let wsCache = [];
   let wsSort = 'hot';
   let wsQuery = '';
+  let wsPage = 0;
+  const WS_PAGE_SIZE = 10;
   let wsFilter = 'all';
   const WS_SORT_ORDER = { hot:'likes.desc,created_at.desc', fresh:'created_at.desc', plays:'plays.desc,created_at.desc' };
   let wsNetTimer = null;
@@ -5592,6 +5627,7 @@
       '<div class="ws-search"><span class="ws-lens" data-ws-act="search">🔍</span><input id="wsSearch" placeholder="搜索地图名 / 作者 / 玩法" maxlength="24"><button type="button" class="ws-search-btn" data-ws-act="search">搜索</button></div>' +
       '<div class="ws-filterbar" id="wsFilterBar"></div>' +
       '<div class="ws-list" id="wsList"></div>' +
+      '<div class="ws-pager-bar" id="wsPagerBar"></div>' +
       '<div class="ws-actions"><button type="button" class="cm-secondary" data-ws-act="upload">上传当前地图</button><button type="button" class="primary-btn" data-ws-act="close">关闭</button></div>' +
       '</div>';
     host.appendChild(ov);
@@ -5608,6 +5644,8 @@
   function openWorkshop(){ ensureWsUI(); const ov = document.getElementById('wsOverlay'); ov.classList.add('show'); ov.setAttribute('aria-hidden','false'); wsReload(); }
   function closeWorkshop(){ const ov = document.getElementById('wsOverlay'); if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); } }
   function onWsClick(e){
+    const pager = e.target.closest('[data-ws-page]');
+    if(pager){ wsPage += (pager.getAttribute('data-ws-page') === 'next' ? 1 : -1); wsRenderList(); return; }
     const fb = e.target.closest('[data-ws-filter]');
     if(fb){ wsFilter = fb.dataset.wsFilter; wsReload(); return; }
     const btn = e.target.closest('[data-ws-act]');
@@ -6234,6 +6272,14 @@
     obj[keys[keys.length-1]] = v;
     cmDraft = normalizeCustomMap(cmDraft);
   }
+  function cmMissionSet(idx, raw){
+    const m = cmDraft && cmDraft.missions;
+    if(!m || !m[idx]) return;
+    const v = Math.max(1, Math.round(Number(raw) || 1));
+    m[idx].target = v;
+    renderCustomEditor();
+  }
+
   function cmSwitchRow(label, sub, path){
     return '<div class="cm-row"><label>' + label + (sub ? '<small>' + sub + '</small>' : '') + '</label>' +
       '<button type="button" class="cm-switch-btn" data-cm-switch="' + path + '" style="border:0;background:none;padding:0">' + cmSwitch(cmPathGet(cmDraft, path)) + '</button></div>';
@@ -6242,6 +6288,8 @@
     if(ev.target.closest('#gpOverlay')) onCmGuestPoolClick(ev);
   }, true);
   document.addEventListener('change', ev => {
+    const mi = ev.target.closest('[data-cm-mission="set"]');
+    if(mi){ cmMissionSet(Number(mi.dataset.idx), mi.value); return; }
     const inp = ev.target.closest('[data-cm-input]');
     if(!inp) return;
     cmNumSet(inp.dataset.cmInput, inp.value);
@@ -6328,7 +6376,7 @@
         (m.missionsOn !== false ? '<div class="cm-row"><label>周任务<small>最多 6 条，按周结算</small></label></div>' + (m.missions || []).map((x, i) =>
           '<div class="cm-row"><label>' + (CM_MISSION_LABEL[x.type] || x.type).replace('X', '<b>' + x.target + '</b>') + '</label>' +
           '<div class="cm-num"><button type="button" data-cm-mission="dec" data-idx="' + i + '">−</button>' +
-          '<b>' + x.target + '</b>' +
+          '<input class="cm-num-input" type="number" inputmode="numeric" min="1" step="1" value="' + x.target + '" data-cm-mission="set" data-idx="' + i + '">' +
           '<button type="button" data-cm-mission="inc" data-idx="' + i + '">＋</button>' +
           '<button type="button" data-cm-mission="del" data-idx="' + i + '" aria-label="删除任务">×</button></div></div>').join('') +
           '<div class="cm-tags">' + CM_MISSION_TEMPLATES.map(tp => '<button type="button" class="cm-tag" data-cm-template="' + tp.key + '">模板：' + tp.name + '</button>').join('') + '</div>' +
@@ -7790,7 +7838,44 @@
     }
   }
 
-  function renderReview(result){
+  let lastTipShown = 0;
+  function piggySay(el, amount){
+    if(!el) return;
+    el.classList.remove('bounce');
+    void el.offsetWidth;
+    el.classList.add('bounce');
+    const tip = el.querySelector('.piggy-tip');
+    if(tip){
+      tip.textContent = '+' + amount;
+      tip.classList.add('show');
+      clearTimeout(el.__tipTimer);
+      el.__tipTimer = setTimeout(() => tip.classList.remove('show'), 3000);
+    }
+  }
+  function tipPiggyShow(amount){
+    const el = document.getElementById('tipPiggy');
+    if(!el) return;
+    lastTipShown = amount;
+    piggySay(el, amount);
+  }
+  function reviewPiggyPlay(coins){
+    const el = document.getElementById('reviewPiggy');
+    if(!el) return;
+    el.classList.remove('drop');
+    void el.offsetWidth;
+    el.classList.add('drop');
+    const tip = el.querySelector('.piggy-tip');
+    if(tip){
+      tip.textContent = '+' + coins;
+      tip.classList.add('show');
+      clearTimeout(el.__tipTimer);
+      el.__tipTimer = setTimeout(() => tip.classList.remove('show'), 2600);
+    }
+    setTimeout(() => piggySay(el, coins), 430);
+  }
+
+    function renderReview(result){
+    try { reviewPiggyPlay(result.coins || 0); lastTipShown = result.coins || 0; } catch(e){}
     const starsHtml = [0,1,2].map(i => `<svg class="icon star ${i < result.stars ? 'on' : ''}" style="transition-delay:${i*.08}s"><use href="#i-star"></use></svg>`).join('');
     els.reviewStars.innerHTML = starsHtml;
     els.reviewTitle.textContent = result.death ? '客人被死亡之糖吞噬了'
@@ -8152,7 +8237,7 @@
   }
 
   /* -------------------- 商店 -------------------- */
-  function potPrice(){ return POT_PRICES[state.upgrade.pots] || 999; }
+  function potPrice(){ const u = shopUpgrades(); return POT_PRICES[u.pots] || 999; }
   function customShopCfg(){
     const m = customMap();
     return (m && m.shop) || { reset:true, growth:100, prices:{} };
@@ -8810,11 +8895,19 @@
     });
     if(els.modeToggle) els.modeToggle.addEventListener('click', () => toggleMenuGroup(els.modeToggle, els.modePanel));
     if(els.shopToggle) els.shopToggle.addEventListener('click', () => toggleMenuGroup(els.shopToggle, els.shopPanel));
+    const piggyBtn = document.getElementById('tipPiggy');
+    if(piggyBtn) piggyBtn.addEventListener('click', () => {
+      if(lastTipShown > 0) tipPiggyShow(lastTipShown);
+      else toast('小费罐还是空的，先出一单吧');
+    });
     if(els.settingsBtn) els.settingsBtn.addEventListener('click', () => {
       if(state.phase === 'playing') pauseGame(); else openSettings();
     });
     if(els.settingsEntryBtn) els.settingsEntryBtn.addEventListener('click', openSettings);
-    [['pauseResume', resumeGame], ['pauseSettings', openSettings], ['pauseHome', () => { resumeGame(); goHome(); }]].forEach(([id, fn]) => {
+    [['pauseResume', resumeGame], ['pauseSettings', openSettings],
+      ['pauseDemo', () => { saveRunToProfile(); resumeGame(); goHome(); toast('已保存，下次点「继续上一局」回来'); }],
+      ['pauseQuit', () => { clearRun(); resumeGame(); goHome(); toast('提前下班，本局不保留'); }]
+    ].forEach(([id, fn]) => {
       const b = document.getElementById(id);
       if(b) b.addEventListener('click', fn);
     });
@@ -9357,6 +9450,7 @@
 
 
   window.__naiwa = {
+    wsRenderList, setWsCache: (a) => { wsCache = a || []; }, getWsPage: () => wsPage,
   pauseGame, resumeGame, isPaused,
     nextGuest, renderReview, scoreOrder, finishOrder,
     openMapManage, renderMine, localMaps, customPickGuest, setupCustomDay, submitWsUpload, wsCheckDuplicate, openCmHub, openMine, openWsUpload, openCoverCropper, openWsDetail, localMaps, saveLocalMap, wsUploadDraft, wsReload, openWorkshop, openCustomEditor, customCodeOf, decodeCustomCode, getCustomMap: () => state.customMap, setCustomMap: (m) => { state.customMap = normalizeCustomMap(m); }, normalizeCustomMap, customTasks, customDraft: () => cmDraft, state, renderReview, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, addWallet, spendCoins, handleFurniture, handleClothes, handleSkin, openHome, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, renderRogueShop, makeRogueShopStock, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
