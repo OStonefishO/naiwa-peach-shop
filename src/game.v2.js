@@ -2390,7 +2390,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '工坊封面与排序';
+  const CHANGELOG_SUB = '自定义中心与工坊';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -4660,7 +4660,7 @@
   }
   function startGame(){
     if(state.phase !== 'intro') return;
-    if(state.introMode === 'custom'){ openCustomEditor(); return; }
+    if(state.introMode === 'custom'){ openCmHub(); return; }
     const run = activeProfile ? activeProfile.run : null;
     if(run){
       openConfirm({
@@ -5335,22 +5335,77 @@
     const c = wsCfg();
     return Object.assign({ apikey: c.key, Authorization: 'Bearer ' + c.key, 'Content-Type': 'application/json' }, extra || {});
   }
+
+  function wsRenderList(){
+    const list = document.getElementById('wsList');
+    if(!list) return;
+    let rows = wsCache || [];
+    const q = String(wsQuery || '').trim().toLowerCase();
+    if(wsFilter === 'fav'){ const fav = wsFavIds(); rows = rows.filter(m => fav.includes(m.id)); }
+    if(wsFilter === 'liked'){ const liked = wsLikeIds(); rows = rows.filter(m => liked.includes(m.id)); }
+    if(q) rows = rows.filter(m => ((m.name||'') + ' ' + (m.author||'') + ' ' + (m.gameplay||'') + ' ' + (m.intro||'')).toLowerCase().includes(q));
+    renderWsFilterBar();
+    if(!rows.length){
+      list.innerHTML = '<div class="cm-guest-empty">' + (q ? '没有搜到「' + escapeHtml(q) + '」相关的地图。' : (wsFilter === 'all' ? '工坊里还没有地图，来当第一个上传的人吧。' : '这里还没有内容。')) + '</div>';
+      return;
+    }
+    const favSet = wsFavIds(), likeSet = wsLikeIds();
+    list.innerHTML = rows.map((m, i) =>
+      '<div class="ws-card" data-ws-id="' + m.id + '">' +
+        '<div class="ws-rank">' + (i + 1) + '</div>' +
+        '<div class="ws-cover">' + (m.cover ? '<img src="' + m.cover + '" alt="">' : '<span>' + escapeHtml((m.name || '图').slice(0, 1)) + '</span>') + '</div>' +
+        '<div class="ws-main"><b>' + escapeHtml(m.name || '未命名') + '</b><small class="ws-author">' + escapeHtml(m.author || '匿名') + '</small><em class="ws-play">' + escapeHtml((m.gameplay || '作者还没写玩法介绍').slice(0, 40)) + '</em>' +
+          '<div class="ws-stats">👍 ' + (m.likes || 0) + ' · ⬇ ' + (m.plays || 0) + (favSet.includes(m.id) ? ' · ★ 已收藏' : '') + '</div></div>' +
+        '<div class="ws-btns2">' +
+          '<button type="button" class="ws-mini' + (likeSet.includes(m.id) ? ' on' : '') + '" data-ws-act="like" data-id="' + m.id + '">👍</button>' +
+          '<button type="button" class="ws-mini' + (favSet.includes(m.id) ? ' on' : '') + '" data-ws-act="fav" data-id="' + m.id + '">★</button>' +
+          '<button type="button" class="ws-mini" data-ws-act="detail" data-id="' + m.id + '">详情</button>' +
+          '<button type="button" class="ws-mini ws-dl" data-ws-act="dl" data-id="' + m.id + '">下载</button>' +
+          (state.devMode ? '<button type="button" class="ws-mini ws-del" data-ws-act="del" data-id="' + m.id + '">删</button>' : '') +
+        '</div>' +
+      '</div>').join('');
+  }
+  function wsRenderDelete(){ }
+  async function wsDelete(id){
+    if(!state.devMode) return;
+    try{
+      const res = await fetch(wsUrl('/rest/v1/' + WS_TABLE + '?id=eq.' + encodeURIComponent(id)), { method: 'DELETE', headers: wsHeaders({ Prefer: 'return=minimal' }) });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      toast('已从工坊删除这张地图');
+      wsReload();
+    }catch(err){ toast('删除失败：' + (String(err.message||err).indexOf('401') >= 0 ? '需要先跑删除策略 SQL' : String(err.message || err))); }
+  }
   async function wsReload(){
     const list = document.getElementById('wsList');
     if(!list) return;
     list.innerHTML = '<div class="cm-guest-empty">正在连接工坊…</div>';
     try{
       const order = WS_SORT_ORDER[wsSort] || WS_SORT_ORDER.hot;
-      const res = await fetch(wsUrl('/rest/v1/' + WS_TABLE + '?select=id,name,author,likes,plays,code,cover&order=' + order + '&limit=30'), { headers: wsHeaders() });
+      let res = await fetch(wsUrl('/rest/v1/' + WS_TABLE + '?select=id,name,author,likes,plays,code,cover,intro,gameplay&order=' + order + '&limit=30'), { headers: wsHeaders() });
+      if(!res.ok){
+        // 老库没有 intro/gameplay 字段时退回基础字段
+        res = await fetch(wsUrl('/rest/v1/' + WS_TABLE + '?select=id,name,author,likes,plays,code,cover&order=' + order + '&limit=30'), { headers: wsHeaders() });
+      }
       if(!res.ok) throw new Error('HTTP ' + res.status);
-      const rows = await res.json();
-      if(!Array.isArray(rows) || !rows.length){ list.innerHTML = '<div class="cm-guest-empty">工坊里还没有地图，来当第一个上传的人吧。</div>'; return; }
+      let rows = await res.json();
+      if(!Array.isArray(rows)) rows = [];
+      if(!rows.length){ list.innerHTML = '<div class="cm-guest-empty">工坊里还没有地图，来当第一个上传的人吧。</div>'; wsCache = []; renderWsFilterBar(); return; }
+      wsCache = rows;
+      wsRenderList();
+      return;
+      const favSet = wsFavIds(), likeSet = wsLikeIds();
       list.innerHTML = rows.map((m, i) =>
         '<div class="ws-card" data-ws-id="' + m.id + '">' +
           '<div class="ws-rank">' + (i + 1) + '</div>' +
           '<div class="ws-cover">' + (m.cover ? '<img src="' + m.cover + '" alt="">' : '<span>' + escapeHtml((m.name || '图').slice(0, 1)) + '</span>') + '</div>' +
-          '<div class="ws-main"><b>' + escapeHtml(m.name || '未命名') + '</b><small>' + escapeHtml(m.author || '匿名') + ' · 下载 ' + (m.plays || 0) + ' · 点赞 ' + (m.likes || 0) + '</small></div>' +
-          '<div class="ws-btns"><button type="button" data-ws-act="like" data-id="' + m.id + '">👍</button><button type="button" class="ws-dl" data-ws-act="dl" data-id="' + m.id + '">下载</button></div>' +
+          '<div class="ws-main"><b>' + escapeHtml(m.name || '未命名') + '</b><small class="ws-author">' + escapeHtml(m.author || '匿名') + '</small><em class="ws-play">' + escapeHtml((m.gameplay || '作者还没写玩法介绍').slice(0, 40)) + '</em>' +
+            '<div class="ws-stats">👍 ' + (m.likes || 0) + ' · ⬇ ' + (m.plays || 0) + (favSet.includes(m.id) ? ' · ★ 已收藏' : '') + '</div></div>' +
+          '<div class="ws-btns2">' +
+            '<button type="button" class="ws-mini' + (likeSet.includes(m.id) ? ' on' : '') + '" data-ws-act="like" data-id="' + m.id + '">👍</button>' +
+            '<button type="button" class="ws-mini' + (favSet.includes(m.id) ? ' on' : '') + '" data-ws-act="fav" data-id="' + m.id + '">★</button>' +
+            '<button type="button" class="ws-mini" data-ws-act="detail" data-id="' + m.id + '">详情</button>' +
+            '<button type="button" class="ws-mini ws-dl" data-ws-act="dl" data-id="' + m.id + '">下载</button>' +
+          '</div>' +
         '</div>').join('');
       wsCache = rows;
     }catch(err){
@@ -5359,7 +5414,24 @@
   }
   let wsCache = [];
   let wsSort = 'hot';
+  let wsQuery = '';
+  let wsFilter = 'all';
   const WS_SORT_ORDER = { hot:'likes.desc,created_at.desc', fresh:'created_at.desc', plays:'plays.desc,created_at.desc' };
+  function wsFavIds(){ try{ return JSON.parse(localStorage.getItem('naiwa_ws_fav') || '[]'); }catch(e){ return []; } }
+  function wsLikeIds(){ try{ return JSON.parse(localStorage.getItem('naiwa_ws_like') || '[]'); }catch(e){ return []; } }
+  function wsToggleLocal(key, id){
+    const arr = key === 'naiwa_ws_fav' ? wsFavIds() : wsLikeIds();
+    const i = arr.indexOf(id);
+    if(i >= 0) arr.splice(i, 1); else arr.push(id);
+    localStorage.setItem(key, JSON.stringify(arr));
+  }
+  function renderWsFilterBar(){
+    const bar = document.getElementById('wsFilterBar');
+    if(!bar) return;
+    bar.innerHTML = '<button type="button" data-ws-filter="all" class="' + (wsFilter === 'all' ? 'on' : '') + '">全部</button>' +
+      '<button type="button" data-ws-filter="fav" class="' + (wsFilter === 'fav' ? 'on' : '') + '">★ 收藏过的</button>' +
+      '<button type="button" data-ws-filter="liked" class="' + (wsFilter === 'liked' ? 'on' : '') + '">👍 点赞过的</button>';
+  }
   function ensureWsUI(){
     if(document.getElementById('wsOverlay')) return;
     const host = document.body;
@@ -5370,6 +5442,8 @@
     ov.innerHTML = '<div class="ws-card-box">' +
       '<div class="cm-guest-head"><div><b>创意工坊</b><small>全网玩家上传的地图，下载后直接开一局</small></div><button type="button" class="round-btn" data-ws-act="close" style="width:26px;height:26px">✕</button></div>' +
       '<div class="ws-toolbar"><div class="ws-sorts"><button type="button" data-ws-act="sort" data-sort="hot" class="' + (wsSort==='hot'?'on':'') + '">热门</button><button type="button" data-ws-act="sort" data-sort="fresh" class="' + (wsSort==='fresh'?'on':'') + '">最新</button><button type="button" data-ws-act="sort" data-sort="plays" class="' + (wsSort==='plays'?'on':'') + '">下载最多</button></div><button type="button" class="cm-secondary" data-ws-act="refresh">刷新</button></div>' +
+      '<div class="ws-search"><input id="wsSearch" placeholder="搜索地图名 / 作者 / 玩法" maxlength="24"></div>' +
+      '<div class="ws-filterbar" id="wsFilterBar"></div>' +
       '<div class="ws-list" id="wsList"></div>' +
       '<div class="ws-actions"><button type="button" class="cm-secondary" data-ws-act="upload">上传当前地图</button><button type="button" class="primary-btn" data-ws-act="close">关闭</button></div>' +
       '</div>';
@@ -5378,10 +5452,14 @@
       if(e.target === ov){ closeWorkshop(); return; }
       onWsClick(e);
     });
+    const si = document.getElementById('wsSearch');
+    if(si) si.addEventListener('input', () => { wsQuery = si.value || ''; wsRenderList(); });
   }
   function openWorkshop(){ ensureWsUI(); const ov = document.getElementById('wsOverlay'); ov.classList.add('show'); ov.setAttribute('aria-hidden','false'); wsReload(); }
   function closeWorkshop(){ const ov = document.getElementById('wsOverlay'); if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); } }
   function onWsClick(e){
+    const fb = e.target.closest('[data-ws-filter]');
+    if(fb){ wsFilter = fb.dataset.wsFilter; wsReload(); return; }
     const btn = e.target.closest('[data-ws-act]');
     if(!btn) return;
     const act = btn.dataset.wsAct;
@@ -5389,8 +5467,11 @@
     if(act === 'refresh'){ wsReload(); return; }
     if(act === 'upload'){ wsUploadDraft(); return; }
     if(act === 'sort'){ wsSort = btn.dataset.sort || 'hot'; wsReload(); return; }
+    if(act === 'fav'){ const id = btn.dataset.id; wsToggleLocal('naiwa_ws_fav', id); toast(wsFavIds().includes(id) ? '已收藏，可在左上角「收藏过的」里找到' : '已取消收藏'); wsReload(); return; }
+    if(act === 'detail'){ openWsDetail(btn.dataset.id); return; }
     if(act === 'dl'){ wsDownload(btn.dataset.id); return; }
     if(act === 'like'){ wsLike(btn.dataset.id); return; }
+    if(act === 'del'){ wsDelete(btn.dataset.id); return; }
   }
   async function wsLike(id){
     try{
@@ -5405,31 +5486,385 @@
     if(!row) return;
     try{
       const map = decodeCustomCode(row.code);
-      activeProfile.customMap = map; saveProfiles();
-      toast('已下载「' + map.name + '」，从继续上一局或自定义模式开一局吧');
+      if(row.intro) map.intro = row.intro;
+      if(row.gameplay) map.gameplay = row.gameplay;
+      map.author = map.author || row.author || '匿名';
+      const list = localMaps();
+      let name = map.name || '工坊地图';
+      let n = 2;
+      while(list.some(x => x.name === name)){ name = (map.name || '工坊地图') + ' (' + n + ')'; n++; }
+      map.name = name;
+      saveLocalMap(map);
+      toast('已下载「' + map.name + '」到我的地图');
       fetch(wsUrl('/rest/v1/rpc/naiwa_map_play'), { method:'POST', headers: wsHeaders(), body: JSON.stringify({ p_id: id }) }).catch(()=>{});
+      renderWsFilterBar();
       wsReload();
     }catch(err){ toast('地图解析失败，可能版本太新'); }
   }
   async function wsUploadDraft(){
     if(!cmDraft) return;
     syncDraftFromInputs();
-    const map = normalizeCustomMap(cmDraft);
+    openWsUpload(normalizeCustomMap(cmDraft));
+  }
+  function wsDeviceId(){
+    try{
+      let v = localStorage.getItem('naiwa_device');
+      if(!v){ v = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); localStorage.setItem('naiwa_device', v); }
+      return v;
+    }catch(e){ return 'local'; }
+  }
+  function wsHash(str){
+    let h = 5381;
+    for(let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+    return 'h' + (h >>> 0).toString(36);
+  }
+  async function wsCheckDuplicate(code, exceptId){
+    try{
+      const h = wsHash(code), d = wsDeviceId();
+      const q = '/rest/v1/' + WS_TABLE + '?select=id&owner=eq.' + encodeURIComponent(d) + '&code_hash=eq.' + encodeURIComponent(h);
+      const res = await fetch(wsUrl(q), { headers: wsHeaders() });
+      if(!res.ok) return false;
+      const rows = await res.json();
+      if(!Array.isArray(rows)) return false;
+      return rows.some(r => r.id !== exceptId);
+    }catch(e){ return false; }
+  }
+  function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  // ================= 自定义中心 / 我的地图 / 上传向导 / 封面裁切 =================
+  let cmHubBuilt = false;
+  function ensureCmHubUI(){
+    if(cmHubBuilt) return;
+    cmHubBuilt = true;
+    const ov = document.createElement('div');
+    ov.id = 'cmHubOverlay';
+    ov.className = 'overlay cm-hub-overlay';
+    ov.setAttribute('aria-hidden', 'true');
+    ov.innerHTML = '<div class="cm-hub-card">' +
+      '<div class="cm-hub-head"><div><b>自定义模式</b><small>上帝黄桃营业 · 你的客人你定规矩</small></div><button type="button" class="round-btn" data-hub="close" style="width:26px;height:26px">✕</button></div>' +
+      '<div class="cm-hub-list">' +
+        '<button type="button" class="cm-hub-item" data-hub="new"><b>创作新地图</b><small>从零调参数：客人、锅、订单、评分</small></button>' +
+        '<button type="button" class="cm-hub-item" data-hub="mine"><b>我的地图</b><small>本地保存的地图：开玩 / 改属性 / 上传</small></button>' +
+        '<button type="button" class="cm-hub-item" data-hub="ws"><b>创意工坊</b><small>全网地图：收藏、点赞、看详情、下载</small></button>' +
+      '</div>' +
+      '<div class="cm-note" id="cmHubHint"></div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e => {
+      if(e.target === ov){ closeCmHub(); return; }
+      const b = e.target.closest('[data-hub]');
+      if(!b) return;
+      const a = b.dataset.hub;
+      if(a === 'close') return closeCmHub();
+      if(a === 'new'){ closeCmHub(); openCustomEditor(); return; }
+      if(a === 'mine'){ closeCmHub(); openMine(); return; }
+      if(a === 'ws'){ closeCmHub(); openWorkshop(); return; }
+    });
+  }
+  function openCmHub(){
+    ensureCmHubUI();
+    const ov = document.getElementById('cmHubOverlay');
+    const hint = document.getElementById('cmHubHint');
+    const maps = localMaps();
+    if(hint) hint.textContent = maps.length ? ('本地已有 ' + maps.length + ' 张地图') : '还没有本地地图，先「创作新地图」吧';
+    ov.classList.add('show'); ov.setAttribute('aria-hidden', 'false');
+  }
+  function closeCmHub(){ const ov = document.getElementById('cmHubOverlay'); if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden', 'true'); } }
+
+  function ensureMineUI(){
+    if(document.getElementById('cmMineOverlay')) return;
+    const ov = document.createElement('div');
+    ov.id = 'cmMineOverlay';
+    ov.className = 'overlay cm-mine-overlay';
+    ov.setAttribute('aria-hidden', 'true');
+    ov.innerHTML = '<div class="cm-mine-card">' +
+      '<div class="cm-hub-head"><div><b>我的地图</b><small>本地保存 · 可以直接开玩，也可以编辑或上传</small></div><button type="button" class="round-btn" data-mine="close" style="width:26px;height:26px">✕</button></div>' +
+      '<div class="cm-mine-list" id="cmMineList"></div>' +
+      '<div class="cm-mine-actions"><button type="button" class="cm-secondary" data-mine="new">＋ 创作新地图</button><button type="button" class="primary-btn" data-mine="close">完成</button></div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e => {
+      if(e.target === ov){ closeMine(); return; }
+      const b = e.target.closest('[data-mine]');
+      if(b){ onMineClick(b); return; }
+      const act = e.target.closest('[data-map-act]');
+      if(act){ onMapRowClick(act); return; }
+    });
+  }
+  function openMine(){ ensureMineUI(); renderMine(); const ov = document.getElementById('cmMineOverlay'); ov.classList.add('show'); ov.setAttribute('aria-hidden','false'); }
+  function closeMine(){ const ov = document.getElementById('cmMineOverlay'); if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); } }
+  function renderMine(){
+    const list = document.getElementById('cmMineList');
+    if(!list) return;
+    const maps = localMaps();
+    if(!maps.length){ list.innerHTML = '<div class="cm-guest-empty">还没有本地地图。点下面的「＋ 创作新地图」开始，调好参数后点「保存地图」就会出现在这里。</div>'; return; }
+    list.innerHTML = maps.map((m, i) =>
+      '<div class="cm-mine-row">' +
+        '<div class="ws-cover cm-mine-cover">' + (m.cover ? '<img src="' + m.cover + '" alt="">' : '<span>' + escapeHtml((m.name || '图').slice(0, 1)) + '</span>') + '</div>' +
+        '<div class="cm-mine-main"><b>' + escapeHtml(m.name || '未命名地图') + '</b><small>' + escapeHtml(m.author || '匿名') + ' · ' + (m.guestsPerDay || 3) + ' 位客人 · ' + (m.pots || 1) + ' 口锅 · 目标 ' + (m.weeklyTarget || 0) + '</small></div>' +
+        '<div class="cm-mine-btns">' +
+          '<button type="button" class="ws-mini ws-dl" data-map-act="play" data-idx="' + i + '">直接开玩</button>' +
+          '<button type="button" class="ws-mini" data-map-act="edit" data-idx="' + i + '">改属性</button>' +
+          '<button type="button" class="ws-mini" data-map-act="upload" data-idx="' + i + '">上传</button>' +
+          '<button type="button" class="ws-mini ws-del" data-map-act="del" data-idx="' + i + '">删</button>' +
+        '</div>' +
+      '</div>').join('');
+  }
+  function onMapRowClick(btn){
+    const idx = Number(btn.dataset.idx);
+    const maps = localMaps();
+    const map = maps[idx];
+    if(!map) return;
+    const a = btn.dataset.mapAct;
+    if(a === 'edit'){ activeProfile.customMap = cloneJSON(map); saveProfiles(); closeMine(); openCustomEditor(); return; }
+    if(a === 'upload'){ openWsUpload(map); return; }
+    if(a === 'del'){ maps.splice(idx, 1); saveProfiles(); renderMine(); toast('已删除本地地图'); return; }
+    if(a === 'play'){
+      closeMine();
+      const go = () => { if(activeProfile) { activeProfile.customMap = cloneJSON(map); saveProfiles(); } beginRun('custom'); };
+      if(activeProfile && activeProfile.run){
+        openConfirm({ title:'要新开一局吗？', copy:'开始这张地图会覆盖当前未完成的对局。', okText:'开始', cancelText:'取消', onOk:() => { clearRun(); go(); } });
+        return;
+      }
+      go();
+    }
+  }
+  function onMineClick(b){
+    const a = b.dataset.mine;
+    if(a === 'close') return closeMine();
+    if(a === 'new'){ closeMine(); openCustomEditor(); return; }
+  }
+
+  // ---- 上传向导 ----
+  let wsUp = null;
+  function ensureWsUploadUI(){
+    if(document.getElementById('wsUploadOverlay')) return;
+    const ov = document.createElement('div');
+    ov.id = 'wsUploadOverlay';
+    ov.className = 'overlay ws-up-overlay';
+    ov.setAttribute('aria-hidden', 'true');
+    ov.innerHTML = '<div class="ws-up-card">' +
+      '<div class="cm-hub-head"><div><b>上传到创意工坊</b><small>封面 1:1，可拖动裁切；简介和玩法可以留空</small></div><button type="button" class="round-btn" data-up="close" style="width:26px;height:26px">✕</button></div>' +
+      '<div class="ws-up-cover-row"><div class="ws-up-cover" id="wsUpCover"></div><div class="ws-up-cover-btns"><button type="button" class="cm-secondary" data-up="pick">选择封面</button><button type="button" class="cm-secondary" data-up="crop">重新裁切</button><button type="button" class="cm-secondary" data-up="clear">用默认封面</button><input type="file" id="wsUpFile" accept="image/*" hidden></div></div>' +
+      '<label class="ws-up-label">地图名<input class="cm-code" id="wsUpName" maxlength="24" style="min-height:0;font-size:11px"></label>' +
+      '<label class="ws-up-label">作者<input class="cm-code" id="wsUpAuthor" maxlength="16" style="min-height:0;font-size:11px"></label>' +
+      '<label class="ws-up-label">简介<textarea class="cm-code" id="wsUpIntro" rows="2" style="font-size:11px" placeholder="一句话介绍这张地图（可空）"></textarea></label>' +
+      '<label class="ws-up-label">主要玩法<textarea class="cm-code" id="wsUpGameplay" rows="2" style="font-size:11px" placeholder="比如：8 位客人、20 口锅、混合糖浆（可空）"></textarea></label>' +
+      '<div class="ws-up-actions"><button type="button" class="cm-secondary" data-up="close">取消</button><button type="button" class="primary-btn" data-up="submit">上传地图</button></div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e => {
+      if(e.target === ov){ closeWsUpload(); return; }
+      const b = e.target.closest('[data-up]');
+      if(b) onWsUploadClick(b);
+    });
+    const file = document.getElementById('wsUpFile');
+    file.addEventListener('change', () => {
+      const f = file.files && file.files[0];
+      if(!f || !wsUp) return;
+      file.value = '';
+      const url = URL.createObjectURL(f);
+      const img = new Image();
+      img.onload = () => { const src = url; if(wsUp) wsUp.raw = img; URL.revokeObjectURL(src); openCoverCropper(img, d => { if(wsUp){ wsUp.cover = d; renderWsUpCover(); } }); };
+      img.src = url;
+    });
+  }
+  function openWsUpload(map){
+    ensureWsUploadUI();
+    wsUp = { map: cloneJSON(map), cover: map.cover || '', raw: null };
+    const n = document.getElementById('wsUpName'); if(n) n.value = map.name || '';
+    const a = document.getElementById('wsUpAuthor'); if(a) a.value = map.author || '';
+    const i = document.getElementById('wsUpIntro'); if(i) i.value = map.intro || '';
+    const p = document.getElementById('wsUpGameplay'); if(p) p.value = map.gameplay || '';
+    renderWsUpCover();
+    const ov = document.getElementById('wsUploadOverlay'); ov.classList.add('show'); ov.setAttribute('aria-hidden','false');
+  }
+  function renderWsUpCover(){
+    const box = document.getElementById('wsUpCover');
+    if(!box || !wsUp) return;
+    box.innerHTML = wsUp.cover ? '<img src="' + wsUp.cover + '" alt="">' : '<span>默认封面</span>';
+  }
+  function closeWsUpload(){ const ov = document.getElementById('wsUploadOverlay'); if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); } }
+  function onWsUploadClick(b){
+    const a = b.dataset.up;
+    if(a === 'close') return closeWsUpload();
+    if(a === 'pick'){ const f = document.getElementById('wsUpFile'); if(f) f.click(); return; }
+    if(a === 'crop'){ if(wsUp && wsUp.raw) openCoverCropper(wsUp.raw, d => { if(wsUp){ wsUp.cover = d; renderWsUpCover(); } }); else toast('先选一张封面'); return; }
+    if(a === 'clear'){ if(wsUp){ wsUp.cover = ''; renderWsUpCover(); } return; }
+    if(a === 'submit'){ submitWsUpload(); return; }
+  }
+  async function submitWsUpload(){
+    if(!wsUp) return;
+    const name = (document.getElementById('wsUpName') || {}).value || '';
+    const author = (document.getElementById('wsUpAuthor') || {}).value || '匿名';
+    const intro = (document.getElementById('wsUpIntro') || {}).value || '';
+    const gameplay = (document.getElementById('wsUpGameplay') || {}).value || '';
+    if(!name.trim()){ toast('给地图起个名字吧'); return; }
+    const map = normalizeCustomMap(wsUp.map);
+    map.name = name.trim().slice(0, 24);
+    map.author = author.trim().slice(0, 16) || '匿名';
+    map.cover = wsUp.cover || '';
+    map.intro = intro.slice(0, 120);
+    map.gameplay = gameplay.slice(0, 120);
     const id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const code = customCodeOf(map);
+    if(await wsCheckDuplicate(code)){
+      toast('这张地图你已经上传过了，改点参数再传吧');
+      return;
+    }
+    const btn = document.querySelector('[data-up="submit"]');
+    if(btn){ btn.disabled = true; btn.textContent = '上传中…'; }
     try{
       const res = await fetch(wsUrl('/rest/v1/' + WS_TABLE), {
         method: 'POST',
         headers: wsHeaders({ Prefer: 'return=representation' }),
-        body: JSON.stringify({ id: id, name: map.name, author: (map.author || '匿名').slice(0, 16), code: customCodeOf(map), cover: map.cover || '' })
+        body: JSON.stringify({ id: id, name: map.name, author: map.author, code: code, cover: map.cover, intro: map.intro, gameplay: map.gameplay, owner: wsDeviceId(), code_hash: wsHash(code) })
       });
-      if(!res.ok) throw new Error('HTTP ' + res.status);
-      toast('已上传到工坊：' + map.name);
-      if(document.getElementById('wsOverlay')) { openWorkshop(); }
+      if(!res.ok){
+        // 老库可能缺 owner/code_hash/intro/gameplay：逐级降级，保证仍能上传
+        const tries = [
+          { id: id, name: map.name, author: map.author, code: code, cover: map.cover, intro: map.intro, gameplay: map.gameplay },
+          { id: id, name: map.name, author: map.author, code: code, cover: map.cover }
+        ];
+        let ok2 = false, last = res.status;
+        for(const body2 of tries){
+          const res2 = await fetch(wsUrl('/rest/v1/' + WS_TABLE), { method: 'POST', headers: wsHeaders({ Prefer: 'return=representation' }), body: JSON.stringify(body2) });
+          if(res2.ok){ ok2 = true; break; }
+          last = res2.status;
+        }
+        if(!ok2) throw new Error('HTTP ' + last);
+        toast('已上传（老库未升级：去重/简介暂不生效）');
+      }
+      // 同步回本地地图，方便再编辑
+      saveLocalMap(map);
+      closeWsUpload();
+      toast('上传成功，已出现在创意工坊');
+      openWorkshop();
     }catch(err){
-      toast('上传失败：工坊后端未开通（先跑 tools/workshop-supabase.sql）');
+      window.__wsErr = String(err && err.message || err);
+      toast('上传失败：' + (String(err.message || err).indexOf('404') >= 0 ? '缺少封面/简介字段，先跑一次工坊升级 SQL' : String(err.message || err)));
+    }finally{
+      if(btn){ btn.disabled = false; btn.textContent = '上传地图'; }
     }
   }
-  function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  // ---- 封面 1:1 裁切 ----
+  let crop = null;
+  function openCoverCropper(img, cb){
+    let ov = document.getElementById('cropOverlay');
+    if(!ov){
+      ov = document.createElement('div');
+      ov.id = 'cropOverlay';
+      ov.className = 'overlay crop-overlay';
+      ov.setAttribute('aria-hidden', 'true');
+      ov.innerHTML = '<div class="crop-card">' +
+        '<div class="cm-hub-head"><div><b>裁切封面</b><small>拖动图片调整位置，滑块缩放，确认后按 1:1 保存</small></div><button type="button" class="round-btn" data-crop="cancel" style="width:26px;height:26px">✕</button></div>' +
+        '<div class="crop-stage" id="cropStage"><canvas id="cropCanvas" width="300" height="300"></canvas><div class="crop-mask"></div></div>' +
+        '<input type="range" id="cropZoom" min="100" max="300" value="100" class="crop-zoom">' +
+        '<div class="ws-up-actions"><button type="button" class="cm-secondary" data-crop="cancel">取消</button><button type="button" class="primary-btn" data-crop="ok">确定封面</button></div>' +
+        '</div>';
+      document.body.appendChild(ov);
+      ov.addEventListener('click', e => {
+        if(e.target === ov){ closeCropper(); return; }
+        const b = e.target.closest('[data-crop]');
+        if(!b) return;
+        if(b.dataset.crop === 'cancel') return closeCropper();
+        if(b.dataset.crop === 'ok') confirmCrop();
+      });
+      bindCropDrag(ov);
+    }
+    crop = { img: img, scale: 1, x: 0, y: 0, cb: cb };
+    const zoom = document.getElementById('cropZoom'); if(zoom) zoom.value = 100;
+    ov.classList.add('show'); ov.setAttribute('aria-hidden','false');
+    drawCrop();
+  }
+  function closeCropper(){ const ov = document.getElementById('cropOverlay'); if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); } crop = null; }
+  function drawCrop(){
+    if(!crop) return;
+    const cv = document.getElementById('cropCanvas'); if(!cv) return;
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#FFF6E2'; ctx.fillRect(0, 0, W, H);
+    const base = Math.max(W / crop.img.width, H / crop.img.height);
+    const s = base * crop.scale;
+    const w = crop.img.width * s, h = crop.img.height * s;
+    const x = (W - w) / 2 + crop.x, y = (H - h) / 2 + crop.y;
+    ctx.drawImage(crop.img, x, y, w, h);
+  }
+  function bindCropDrag(ov){
+    const stage = document.getElementById('cropStage');
+    if(!stage) return;
+    let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
+    const zoom = document.getElementById('cropZoom');
+    if(zoom) zoom.addEventListener('input', () => { if(!crop) return; crop.scale = Number(zoom.value) / 100; clampCrop(); drawCrop(); });
+    stage.addEventListener('pointerdown', e => { if(!crop) return; dragging = true; sx = e.clientX; sy = e.clientY; ox = crop.x; oy = crop.y; stage.setPointerCapture(e.pointerId); });
+    stage.addEventListener('pointermove', e => { if(!dragging || !crop) return; crop.x = ox + (e.clientX - sx); crop.y = oy + (e.clientY - sy); clampCrop(); drawCrop(); });
+    stage.addEventListener('pointerup', () => { dragging = false; });
+    stage.addEventListener('pointercancel', () => { dragging = false; });
+  }
+  function clampCrop(){
+    if(!crop) return;
+    const cv = document.getElementById('cropCanvas'); if(!cv) return;
+    const W = cv.width, H = cv.height;
+    const base = Math.max(W / crop.img.width, H / crop.img.height);
+    const s = base * crop.scale;
+    const w = crop.img.width * s, h = crop.img.height * s;
+    const maxX = Math.max(0, (w - W) / 2), maxY = Math.max(0, (h - H) / 2);
+    crop.x = Math.max(-maxX, Math.min(maxX, crop.x));
+    crop.y = Math.max(-maxY, Math.min(maxY, crop.y));
+  }
+  function confirmCrop(){
+    if(!crop) return;
+    clampCrop();
+    const out = document.createElement('canvas'); out.width = 360; out.height = 360;
+    const ctx = out.getContext('2d');
+    const cv = document.getElementById('cropCanvas');
+    const base = Math.max(out.width / crop.img.width, out.height / crop.img.height);
+    const s = base * crop.scale;
+    const w = crop.img.width * s, h = crop.img.height * s;
+    const scaleFactor = out.width / cv.width;
+    const x = (out.width - w) / 2 + crop.x * scaleFactor;
+    const y = (out.height - h) / 2 + crop.y * scaleFactor;
+    ctx.drawImage(crop.img, x, y, w, h);
+    const data = out.toDataURL('image/jpeg', 0.82);
+    const cb = crop.cb;
+    closeCropper();
+    if(cb) cb(data);
+  }
+  function openWsDetail(id){
+    const m = (wsCache || []).find(x => x.id === id);
+    if(!m) return;
+    let ov = document.getElementById('wsDetailOverlay');
+    if(!ov){
+      ov = document.createElement('div');
+      ov.id = 'wsDetailOverlay';
+      ov.className = 'overlay ws-overlay ws-detail-overlay';
+      ov.setAttribute('aria-hidden', 'true');
+      ov.innerHTML = '<div class="ws-card-box"><div class="cm-hub-head"><div><b id="wsdName"></b><small id="wsdAuthor"></small></div><button type="button" class="round-btn" data-wsd="close" style="width:26px;height:26px">✕</button></div>' +
+        '<div class="ws-detail-cover" id="wsdCover"></div>' +
+        '<div class="ws-detail-sec"><b>简介</b><p id="wsdIntro"></p></div>' +
+        '<div class="ws-detail-sec"><b>主要玩法</b><p id="wsdPlay"></p></div>' +
+        '<div class="ws-detail-sec"><b>参数</b><p id="wsdParams"></p></div>' +
+        '<div class="ws-up-actions"><button type="button" class="cm-secondary" data-wsd="close">关闭</button><button type="button" class="primary-btn" data-wsd="dl">下载并加入我的地图</button></div></div>';
+      document.body.appendChild(ov);
+      ov.addEventListener('click', e => {
+        if(e.target === ov){ ov.classList.remove('show'); return; }
+        const b = e.target.closest('[data-wsd]');
+        if(!b) return;
+        if(b.dataset.wsd === 'close'){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); return; }
+        if(b.dataset.wsd === 'dl'){ wsDownload(id); ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); return; }
+      });
+    }
+    const d = (x) => document.getElementById(x);
+    const map = (() => { try{ return decodeCustomCode(m.code); }catch(e){ return null; } })();
+    d('wsdName').textContent = m.name || '未命名地图';
+    d('wsdAuthor').textContent = '作者 ' + (m.author || '匿名') + ' · 👍 ' + (m.likes || 0) + ' · ⬇ ' + (m.plays || 0);
+    d('wsdCover').innerHTML = m.cover ? '<img src="' + m.cover + '" alt="">' : '<span>默认封面</span>';
+    d('wsdIntro').textContent = m.intro || '作者还没写简介。';
+    d('wsdPlay').textContent = m.gameplay || '作者还没写玩法介绍。';
+    d('wsdParams').textContent = map ? ('每天 ' + map.guestsPerDay + ' 位客人 · ' + map.pots + ' 口锅 · 耐心 ' + map.patience + ' 秒 · 糖浆 ' + map.syrupMin + '~' + map.syrupMax + ' 份 · 复杂订单 ' + map.complexPct + '%') : '地图数据解析失败';
+    ov.classList.add('show'); ov.setAttribute('aria-hidden','false');
+  }
   function cmSwitch(on){ return '<span class="cm-switch ' + (on ? 'on' : '') + '"><i></i></span>'; }
   function cmNumRow(label, sub, path, min, max, step){
     const v = cmPathGet(cmDraft, path);
@@ -5528,6 +5963,7 @@
         '<div class="cm-actions"><button type="button" class="cm-secondary" data-cm-act="workshop">打开创意工坊</button><button type="button" class="cm-secondary" data-cm-act="upload">上传当前地图</button></div>' +
       '</div>' +
       '<div class="cm-actions">' +
+        '<button type="button" class="cm-secondary" data-cm-act="savemap">保存地图</button>' +
         '<button type="button" class="primary-btn" data-cm-act="start">开始上帝黄桃营业 →</button>' +
       '</div>';
     const box = document.getElementById('cmCodeBox');
@@ -5541,16 +5977,16 @@
         const img = new Image();
         const url = URL.createObjectURL(file);
         img.onload = () => {
-          try{
-            const w = 360, h = Math.max(1, Math.round(w * img.height / img.width));
-            const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-            cv.getContext('2d').drawImage(img, 0, 0, w, h);
-            cmDraft.cover = cv.toDataURL('image/jpeg', 0.78);
-            cmDraft = normalizeCustomMap(cmDraft);
-            renderCustomEditor();
-            toast('封面已选择');
-          }catch(err){ toast('这张图处理失败，换一张试试'); }
+          const src = img;
           URL.revokeObjectURL(url);
+          openCoverCropper(src, data => {
+            try{
+              cmDraft.cover = data;
+              cmDraft = normalizeCustomMap(cmDraft);
+              renderCustomEditor();
+              toast('封面已裁好（1:1）');
+            }catch(err){ toast('这张图处理失败，换一张试试'); }
+          });
         };
         img.src = url;
       });
@@ -5685,6 +6121,16 @@
     if(a === 'cover'){ const inp = document.getElementById('cmCoverInput'); if(inp) inp.click(); return; }
     if(a === 'upload'){ wsUploadDraft(); return; }
     if(a === 'workshop'){ openWorkshop(); return; }
+    if(a === 'savemap'){
+      const m = normalizeCustomMap(cmDraft);
+      saveLocalMap(m);
+      if(activeProfile) activeProfile.customMap = cloneJSON(m);
+      saveProfiles();
+      closeCustomEditor();
+      toast('已保存到「我的地图」');
+      openMine();
+      return;
+    }
     if(a === 'start'){
       if(activeProfile) activeProfile.customMap = cloneJSON(cmDraft);
       saveProfiles();
@@ -8279,7 +8725,7 @@
     
 
 
-  window.__naiwa = { wsUploadDraft, wsReload, openWorkshop, openCustomEditor, customCodeOf, decodeCustomCode, getCustomMap: () => state.customMap, setCustomMap: (m) => { state.customMap = normalizeCustomMap(m); }, normalizeCustomMap, customTasks, customDraft: () => cmDraft, state, renderReview, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, addWallet, spendCoins, handleFurniture, handleClothes, handleSkin, openHome, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, renderRogueShop, makeRogueShopStock, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
+  window.__naiwa = { submitWsUpload, wsCheckDuplicate, openCmHub, openMine, openWsUpload, openCoverCropper, openWsDetail, localMaps, saveLocalMap, wsUploadDraft, wsReload, openWorkshop, openCustomEditor, customCodeOf, decodeCustomCode, getCustomMap: () => state.customMap, setCustomMap: (m) => { state.customMap = normalizeCustomMap(m); }, normalizeCustomMap, customTasks, customDraft: () => cmDraft, state, renderReview, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, addWallet, spendCoins, handleFurniture, handleClothes, handleSkin, openHome, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, renderRogueShop, makeRogueShopStock, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
     }
   }
 
