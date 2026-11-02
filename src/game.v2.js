@@ -917,9 +917,19 @@
     laugh:'char-assets/laugh.png',
     laughAudio:'char-assets/laugh.mp3'
   };
+  const CHAR_SKIN_ART = {
+    blob: { img:'char-assets/blob.png', laugh:'char-assets/laugh.png' },
+    xiaonaiwa: { img:'char-assets/skin-xiaonaiwa.png', laugh:'char-assets/laugh-xiaonaiwa.png' },
+    naiba: { img:'char-assets/skin-naiba.png', laugh:'char-assets/laugh-naiba.png' },
+    naidan: { img:'char-assets/skin-naidan.png', laugh:'char-assets/laugh-naidan.png' }
+  };
+  function skinArt(id){ return CHAR_SKIN_ART[id] || null; }
   const CHAR_SKINS = [
     {id:'classic', name:'奶蛙 · 经典套装', free:true, desc:'原来的奶蛙，戴厨师帽、系小围裙'},
-    {id:'blob', name:'捧腹奶蛙 · 全套皮肤', free:true, desc:'整只换成捧腹奶蛙；每天结算时会捧腹大笑'}
+    {id:'blob', name:'捧腹奶蛙 · 全套皮肤', free:true, desc:'整只换成捧腹奶蛙；每天结算时会捧腹大笑'},
+    {id:'xiaonaiwa', name:'小奶蛙 · 全套皮肤', price:1000, desc:'笑起来眯成一条缝的小奶蛙；结算会大笑'},
+    {id:'naiba', name:'奶霸 · 全套皮肤', price:2000, desc:'肌肉奶霸，结算会捧腹大笑'},
+    {id:'naidan', name:'奶蛋 · 全套皮肤', price:5000, desc:'圆滚滚的奶蛋，结算会笑到打滚'}
   ];
   const ROGUE_BASE_TARGET = 400;
   // 肉鸽周目标成长：每周线性随机 +40%~+100%（400 → 560~800 → …），不再指数爆炸
@@ -2080,8 +2090,10 @@
     return `<div class="wear-top ${id}"></div>`;
   }
   function charDollInner(skin){
-    if((skin || charSkinId()) === 'blob'){
-      return `<img class="char-img" src="${CHAR_SKIN_ASSETS.blob}" alt="" draggable="false">`;
+    const id = skin || charSkinId();
+    const art = skinArt(id);
+    if(art){
+      return `<img class="char-img" src="${art.img}" alt="" draggable="false">`;
     }
     return '<svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>';
   }
@@ -2371,8 +2383,9 @@
       <div class="dress-row skin-row">${CHAR_SKINS.map(s => {
         const active = previewSkin === s.id;
         const worn = equippedSkin === s.id;
-        const thumb = s.id === 'blob'
-          ? `<span class="di skin-thumb"><img src="${CHAR_SKIN_ASSETS.blob}" alt=""></span>`
+        const art0 = skinArt(s.id);
+        const thumb = art0
+          ? `<span class="di skin-thumb"><img src="${art0.img}" alt=""></span>`
           : '<span class="di skin-thumb"><svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg></span>';
         const ownedSkin = !!s.free || ['desk','work','kitchen'].some(k => (activeProfile.skins[k] || []).includes(s.id));
         return `<button class="dress-item skin-item${active ? ' active' : ''}${ownedSkin ? '' : ' locked'}" type="button" data-dress-skin="${s.id}">
@@ -2443,7 +2456,7 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '更衣室与存钱罐';
+  const CHANGELOG_SUB = '新皮肤与购买';
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
@@ -2456,7 +2469,8 @@
   function renderCharImg(host, blob){
     if(!host) return;
     const useLaugh = blob && host.classList.contains('summary-frog');
-    const src = useLaugh ? CHAR_SKIN_ASSETS.laugh : CHAR_SKIN_ASSETS.blob;
+    const art = skinArt(charSkinId());
+    const src = useLaugh ? ((art && art.laugh) || CHAR_SKIN_ASSETS.laugh) : ((art && art.img) || CHAR_SKIN_ASSETS.blob);
     let img = host.querySelector(':scope > img.char-img');
     if(!blob){ if(img) img.remove(); return; }
     if(!img){
@@ -2535,26 +2549,34 @@
   }
   function handleCharSkin(id){
     if(!activeProfile) return;
-    if(!CHAR_SKINS.some(s => s.id === id)) return;
+    const def = CHAR_SKINS.find(s => s.id === id);
+    if(!def) return;
+    if(!def.free && !(activeProfile.skins && activeProfile.skins.skin && activeProfile.skins.skin.includes(id))){
+      if(!spendCoins(def.price || 0, 'global')){ toast('金币不够，再攒攒吧'); return; }
+      activeProfile.skins = activeProfile.skins || {};
+      activeProfile.skins.skin = (activeProfile.skins.skin || []).concat(id);
+    }
     activeProfile.charSkin = id;
     saveProfiles();
     applyCharSkin();
     renderHome();
     sfx.tap();
-    toast(id === 'blob' ? '换上了捧腹奶蛙 · 结算时会捧腹大笑' : '换回奶蛙经典套装');
+    toast(id === 'classic' ? '换回奶蛙经典套装' : ('换上了「' + (CHAR_SKINS.find(s => s.id === id) || {}).name + '」'));
   }
   function renderCharSkins(){
     if(!els.charSkinRow || !activeProfile) return;
     const cur = charSkinId();
     els.charSkinRow.innerHTML = CHAR_SKINS.map(s => {
       const active = cur === s.id;
-      const thumb = s.id === 'blob'
-        ? `<img src="${CHAR_SKIN_ASSETS.blob}" alt="">`
+      const art = skinArt(s.id);
+      const owned = !!s.free || !!(activeProfile.skins && activeProfile.skins.skin && activeProfile.skins.skin.includes(s.id));
+      const thumb = art
+        ? `<img src="${art.img}" alt="">`
         : `<svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>`;
       return `<button class="char-skin-card${active ? ' active' : ''}" type="button" data-char-skin="${s.id}">
         <span class="cs-thumb">${thumb}</span>
         <span class="cs-copy"><b>${s.name}</b><small>${s.desc}</small></span>
-        <em>${active ? '使用中' : '装备'}</em>
+        <em>${active ? '使用中' : (owned ? '装备' : ((s.price || 0) + ' 金币'))}</em>
       </button>`;
     }).join('');
   }
@@ -9528,7 +9550,7 @@
     wsRenderList, setWsCache: (a) => { wsCache = a || []; }, getWsPage: () => wsPage,
   pauseGame, resumeGame, isPaused,
     nextGuest, renderReview, scoreOrder, finishOrder,
-    openMapManage, renderMine, localMaps, customPickGuest, setupCustomDay, submitWsUpload, wsCheckDuplicate, openCmHub, openMine, openWsUpload, openCoverCropper, openWsDetail, localMaps, saveLocalMap, wsUploadDraft, wsReload, openWorkshop, openCustomEditor, customCodeOf, decodeCustomCode, getCustomMap: () => state.customMap, setCustomMap: (m) => { state.customMap = normalizeCustomMap(m); }, normalizeCustomMap, customTasks, customDraft: () => cmDraft, state, renderReview, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, addWallet, spendCoins, handleFurniture, handleClothes, handleSkin, openHome, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, renderRogueShop, makeRogueShopStock, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
+    openDress, openMapManage, renderMine, localMaps, customPickGuest, setupCustomDay, submitWsUpload, wsCheckDuplicate, openCmHub, openMine, openWsUpload, openCoverCropper, openWsDetail, localMaps, saveLocalMap, wsUploadDraft, wsReload, openWorkshop, openCustomEditor, customCodeOf, decodeCustomCode, getCustomMap: () => state.customMap, setCustomMap: (m) => { state.customMap = normalizeCustomMap(m); }, normalizeCustomMap, customTasks, customDraft: () => cmDraft, state, renderReview, devBag, applyDevBag, openDevBag, syncDevBagUI, tickPour, clearCanSyrup, showRogueEventPopup, getRankState:()=>({fromSummary:rankFromSummary, home:document.getElementById("homeOverlay").classList.contains("show")}), finishOrder, addWallet, spendCoins, handleFurniture, handleClothes, handleSkin, openHome, potMixRatios, bottlePot, stepPotMix, paintPotMix, beginRun, goHome, setStage, renderWork, renderCan, openShop, getProfile:()=>activeProfile, getProfiles:()=>profiles, addPiece, cutPeach, startBoil, stopBoil, selectSize, sealCan, serveOrder, scoreOrder, orderTip, setDevMode, redeemCode, renderReview, storeOrder, expandOrder, openDress, renderFrogWear, removeAlarm, moveAlarm, assignAlarm, newCustomer, openCodex, closeCodex, setCodexTab, renderCodex, acceptGuest, activateOrder, submitActive, renderRestaurant, renderOrderStack, setupDayGuests, saveRunToProfile, clearRun, resumeRun, renderResumeUI, renderRogueMode, pauseRun, startNextDay, startGame, setIntroMode, showShrimpChoice, openRogueShop, rogueEventToday, rogueWeekEvents, addExtraRogueEventDay, renderRogueHud, openShrimpCabinet, closeShrimpCabinet, shrimpOwnedList, useRogueItem, renderPots, emptyCan, startPour, tickPour, stopPour, discardSyrup, rogueOwlToday, setPotMix, paintPotMix, stepPotMix, buyRogueItem, renderRogueShop, makeRogueShopStock, availableSyrups, unlockedToppings, unlockedJars, rogueTipMultiplier, rogueTipWeekFactor, makeOrder, makePots, renderSyrupComposition, findBatch, renderPourSeq, addSugar, rogueGrowthTarget, discardBatch, rogueWeekEvents, rogueEventDaysAhead, rogueWeekDayNow, addExtraRogueEventDay, showSummary, summaryKindForDay, renderLeaderboard, openLeaderboard, leaderboardProfiles, submitGlobalRank, refreshGlobalRank, rankApiUrl, applyCharSkin, handleCharSkin, charSkinId, NAISHU_GUEST, getBgmState:()=>({ src: bgmEl ? bgmEl.currentSrc : null, key: bgmKey, paused: bgmEl ? bgmEl.paused : null, ready: bgmEl ? bgmEl.readyState : null, unlocked: bgmUnlocked, tries: bgmTries, vol: bgmEl ? Math.round(bgmEl.volume*100)/100 : null, sound: state.sound, stage: state.stage, phase: state.phase }), renderTutorialTasks, tutorialTasksForDay, getLaughState:()=>({paused:laughEl?laughEl.paused:null, time:laughEl?Math.round(laughEl.currentTime*10)/10:null, vol:laughEl?Math.round(laughEl.volume*100)/100:null}) };
     }
   }
 

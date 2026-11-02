@@ -17,7 +17,13 @@ const charAssets = [
   ['char-assets/laugh.mp3', 'audio/mpeg'],
   ['char-assets/variant-laozu.png', 'image/png'],
   ['char-assets/variant-naifen.png', 'image/png'],
-  ['char-assets/variant-xuexitong.png', 'image/png']
+  ['char-assets/variant-xuexitong.png', 'image/png'],
+  ['char-assets/skin-xiaonaiwa.png', 'image/png'],
+  ['char-assets/laugh-xiaonaiwa.png', 'image/png'],
+  ['char-assets/skin-naiba.png', 'image/png'],
+  ['char-assets/laugh-naiba.png', 'image/png'],
+  ['char-assets/skin-naidan.png', 'image/png'],
+  ['char-assets/laugh-naidan.png', 'image/png']
 ];
 charAssets.forEach(([rel, mime]) => {
   const b64 = fs.readFileSync(path.join(dir, rel)).toString('base64');
