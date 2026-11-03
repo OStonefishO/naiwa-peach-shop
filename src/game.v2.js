@@ -2543,6 +2543,37 @@
       updateButtonLabel();
     }, 8000);
   }
+  // ---- 开机静默自检：不打扰玩家，只在标题页「设置」上冒个小红点 ----
+  let autoUpdateChecked = false;
+  function setUpdateDot(on){
+    const btn = els.settingsEntryBtn;
+    if(!btn) return;
+    btn.classList.toggle('has-update', !!on);
+  }
+  async function autoCheckUpdate(){
+    if(autoUpdateChecked) return;
+    autoUpdateChecked = true;
+    if(navigator.onLine === false) return;
+    try{
+      const res = await fetch(`${UPDATE_FEED}?t=${Date.now()}`, { cache: 'no-store' });
+      if(!res.ok) return;
+      const data = await res.json();
+      const latest = String((data && data.version) || '');
+      if(!/^\d+(\.\d+)*$/.test(latest)) return;
+      const cur = localVersion();
+      if(cmpVersion(latest, cur) <= 0){ setUpdateDot(false); return; }
+      updateInfo.latest = latest;
+      updateInfo.url = runningInApp()
+        ? String(data.apk || UPDATE_APK)
+        : String(data.web || UPDATE_PAGE);
+      updateInfo.checked = true;
+      updateInfo.state = '';
+      updateButtonLabel();
+      setUpdateDot(true);
+    }catch(e){
+      // 静默失败：网络不通、被墙、页面离线都当没发生过
+    }
+  }
   function openUpdatePage(){
     const cur = localVersion();
     if(!updateInfo.latest || cmpVersion(updateInfo.latest, cur) <= 0){
@@ -2855,6 +2886,8 @@
   function openSettings(){
     syncSettingsUI();
     syncDevModeUI();
+    // 玩家已经看到设置面板了，标题页上的更新小红点就可以收了
+    try { setUpdateDot(false); } catch(e){}
     if(els.settingsEarlyBtn){
       els.settingsEarlyBtn.hidden = !(state.phase === 'playing' || state.phase === 'reviewing');
     }
@@ -9785,6 +9818,8 @@
     applySkins();
     applyCharSkin();
     syncVersionUI();
+    // 开机 3 秒后静默比对一次官网版本，有新版本只冒小红点，不弹窗
+    setTimeout(() => { try { autoCheckUpdate(); } catch(e){} }, 3000);
     setIntroMode('normal');
     updateHud();
     renderResumeUI();
