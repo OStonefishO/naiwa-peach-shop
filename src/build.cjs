@@ -30,5 +30,22 @@ charAssets.forEach(([rel, mime]) => {
   js = js.split(`'${rel}'`).join(`'data:${mime};base64,${b64}'`);
 });
 html = html.replace('<script src="game.v2.js"></script>', () => `<script>\n${js}\n</script>`);
-fs.writeFileSync(path.join(dir, '..', 'wechat-qq', 'index.html'), html, 'utf8');
+const outDir = path.join(dir, '..', 'wechat-qq');
+fs.mkdirSync(outDir, { recursive: true });
+fs.writeFileSync(path.join(outDir, 'index.html'), html, 'utf8');
 console.log('built', html.length, 'bytes, inline js', js.length);
+
+// version.json：给安卓 App 的「检查更新」用。版本号只有一个来源 —— 页面标题里的「正式版 X.Y」。
+const vm = html.match(/正式版\s*([\d.]+)/);
+const version = vm ? vm[1] : '0.0';
+const apkName = `naiwa-peach-shop-${version}.apk`;
+const manifest = {
+  app: '奶蛙黄桃罐头店',
+  version,
+  builtAt: new Date().toISOString(),
+  web: 'https://ostonefisho.github.io/naiwa-peach-shop/',
+  apk: `https://github.com/OStonefishO/naiwa-peach-shop/releases/latest/download/${apkName}`,
+  notes: `奶蛙黄桃罐头店 ${version}`
+};
+fs.writeFileSync(path.join(outDir, 'version.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+console.log('version.json', version, apkName);

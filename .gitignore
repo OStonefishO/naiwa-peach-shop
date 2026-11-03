@@ -6,6 +6,9 @@ deploy/
 *.tmp
 *.log
 
+# APK 构建中间产物（正式安装包在 dist/ 里提交）
+android/out/
+
 # OS files
 Thumbs.db
 .DS_Store

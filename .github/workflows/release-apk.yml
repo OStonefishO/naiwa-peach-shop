@@ -1,0 +1,61 @@
+name: Release APK
+
+# 把 dist/ 里已经签好名的安装包挂到 GitHub Release 上，和 Pages 一起发。
+# 版本号唯一来源：src/v2.html 标题里的「正式版 X.Y」。
+# 注意：CI 里没有签名密钥，所以 APK 由本机 `node android/build-apk.cjs` 产出并提交到 dist/。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dist/*.apk'
+      - 'src/v2.html'
+      - '.github/workflows/release-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: v
+        run: |
+          VERSION=$(grep -oP '正式版\s*\K[0-9.]+' src/v2.html | head -1)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "apk=dist/naiwa-peach-shop-$VERSION.apk" >> "$GITHUB_OUTPUT"
+          echo "detected version: $VERSION"
+
+      - name: Check APK exists
+        id: have
+        run: |
+          if [ -f "${{ steps.v.outputs.apk }}" ]; then
+            echo "ok=1" >> "$GITHUB_OUTPUT"
+            ls -l "${{ steps.v.outputs.apk }}"
+          else
+            echo "ok=0" >> "$GITHUB_OUTPUT"
+            echo "::warning::${{ steps.v.outputs.apk }} 不存在，跳过发版（本机先跑 node android/build-apk.cjs）"
+          fi
+
+      - name: Publish release
+        if: steps.have.outputs.ok == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${{ steps.v.outputs.version }}"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "release $TAG 已存在，覆盖安装包"
+            gh release upload "$TAG" "${{ steps.v.outputs.apk }}" --clobber
+          else
+            gh release create "$TAG" "${{ steps.v.outputs.apk }}" \
+              --title "奶蛙黄桃罐头店 ${{ steps.v.outputs.version }}" \
+              --notes "安卓安装包，和网页版 ${{ steps.v.outputs.version }} 同一份游戏内容。
+
+          - 网页版：https://ostonefisho.github.io/naiwa-peach-shop/
+          - 安装要求：Android 7.0 及以上，允许「安装未知来源应用」。"
+          fi

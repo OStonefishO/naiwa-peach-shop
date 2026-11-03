@@ -2482,6 +2482,79 @@
     if(els.changelogBtn){
       els.changelogBtn.textContent = `📝 更新日志 · ${v} ${CHANGELOG_SUB}`;
     }
+    if(typeof updateButtonLabel === 'function') updateButtonLabel();
+  }
+
+  // ---------------- 检查更新 ----------------
+  // 官网（GitHub Pages）根目录的 version.json 由 src/build.cjs 生成，
+  // 内容和当前这份页面同源同版本；APK 里跑的是本地打包的那份，所以只能去官网比对。
+  const UPDATE_FEED = 'https://ostonefisho.github.io/naiwa-peach-shop/version.json';
+  const UPDATE_PAGE = 'https://ostonefisho.github.io/naiwa-peach-shop/';
+  const UPDATE_APK = 'https://github.com/OStonefishO/naiwa-peach-shop/releases/latest';
+  const updateInfo = { latest: '', url: '', checked: false };
+  function localVersion(){
+    const m = (document.title || '').match(/正式版\s*([\d.]+)/);
+    return m ? m[1] : '';
+  }
+  function runningInApp(){
+    return /NaiwaAndroid/.test(navigator.userAgent || '') || !!window.NaiwaApp;
+  }
+  function cmpVersion(a, b){
+    const pa = String(a || '').split('.').map(n => parseInt(n, 10) || 0);
+    const pb = String(b || '').split('.').map(n => parseInt(n, 10) || 0);
+    const n = Math.max(pa.length, pb.length);
+    for(let i = 0; i < n; i++){
+      const x = pa[i] || 0, y = pb[i] || 0;
+      if(x !== y) return x > y ? 1 : -1;
+    }
+    return 0;
+  }
+  function updateButtonLabel(){
+    const btn = els.updateBtn;
+    if(!btn) return;
+    const cur = localVersion();
+    if(updateInfo.latest && cmpVersion(updateInfo.latest, cur) > 0){
+      btn.dataset.state = 'new';
+      btn.textContent = `🎉 新版本 ${updateInfo.latest} · 点我打开`;
+    } else {
+      btn.dataset.state = '';
+      btn.textContent = cur ? `🔄 检查更新 · 当前 ${cur}` : '🔄 检查更新';
+    }
+  }
+  function openUpdatePage(){
+    const cur = localVersion();
+    if(!updateInfo.latest || cmpVersion(updateInfo.latest, cur) <= 0){
+      updateButtonLabel();
+      toast(cur ? `已经是最新版本 ${cur}` : '已经是最新版本');
+      return;
+    }
+    const url = updateInfo.url || (runningInApp() ? UPDATE_APK : UPDATE_PAGE);
+    try { window.open(url, '_blank'); } catch(e){ location.href = url; }
+    toast(`新版本 ${updateInfo.latest}，已打开下载页`);
+  }
+  async function checkUpdate(){
+    const cur = localVersion();
+    if(updateInfo.latest && cmpVersion(updateInfo.latest, cur) > 0){ openUpdatePage(); return; }
+    const btn = els.updateBtn;
+    if(btn){ btn.dataset.state = 'busy'; btn.textContent = '🔄 正在比对版本…'; }
+    try{
+      const res = await fetch(`${UPDATE_FEED}?t=${Date.now()}`, { cache: 'no-store' });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const latest = String((data && data.version) || '');
+      if(!/^\d+(\.\d+)*$/.test(latest)) throw new Error('bad feed');
+      updateInfo.latest = latest;
+      updateInfo.url = runningInApp()
+        ? String(data.apk || UPDATE_APK)
+        : String(data.web || UPDATE_PAGE);
+      updateInfo.checked = true;
+      updateButtonLabel();
+      if(cmpVersion(latest, cur) > 0) toast(`发现新版本 ${latest}，点按钮打开`);
+      else toast(`已经是最新版本 ${cur}`);
+    }catch(e){
+      updateButtonLabel();
+      toast('检查更新失败，可能是网络问题');
+    }
   }
   function skinVariantArt(skinId){
     const vid = variantEquipped(skinId);
@@ -2639,7 +2712,7 @@
       'redeemInput','redeemBtn','redeemStatus','devExitBtn',
       'reviewPersonality','codexEntryBtn','codexOverlay','codexClose','codexTabs','codexBody','codexFromSettings','batchStrip','batchScrollWrap','batchScroll','batchHint',
       'rogueShopOverlay','rogueShopCoins','rogueShopList','rogueShopNext','shrimpOverlay','shrimpTitle','shrimpSub','shrimpChoices','shrimpSkip','shrimpReroll','shrimpDetail','shrimpConfirm',
-      'eventOverlay','eventIcon','eventTitle','eventDesc','eventContinue','changelogOverlay','changelogClose','changelogDone','changelogBtn',
+      'eventOverlay','eventIcon','eventTitle','eventDesc','eventContinue','changelogOverlay','changelogClose','changelogDone','changelogBtn','updateBtn',
       'rogueHudPanel','rogueDayTag','rogueEventLine','rogueItemsBar','buffBagBtn','buffCount','rogueShopBtn','rogueCoinShopBtn',
       'rogueMarketCoin','rogueMarketBag','buffBagOverlay','buffBagClose','buffBagBody','summaryPauseBtn','devEndDayBtn',
       'shrimpCabinetBtn','shrimpCabinetMeta','shrimpCabinetOverlay','shrimpCabinetClose','shrimpCabinetBody','shrimpCabinetSub',
@@ -9504,6 +9577,7 @@
     if(els.changelogBtn) els.changelogBtn.addEventListener('click', () => {
       if(els.changelogOverlay){ els.changelogOverlay.classList.add('show'); els.changelogOverlay.setAttribute('aria-hidden','false'); }
     });
+    if(els.updateBtn) els.updateBtn.addEventListener('click', checkUpdate);
     [els.changelogClose, els.changelogDone].forEach(b => b && b.addEventListener('click', () => {
       if(els.changelogOverlay){ els.changelogOverlay.classList.remove('show'); els.changelogOverlay.setAttribute('aria-hidden','true'); }
     }));
