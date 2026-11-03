@@ -2491,7 +2491,8 @@
   const UPDATE_FEED = 'https://ostonefisho.github.io/naiwa-peach-shop/version.json';
   const UPDATE_PAGE = 'https://ostonefisho.github.io/naiwa-peach-shop/';
   const UPDATE_APK = 'https://github.com/OStonefishO/naiwa-peach-shop/releases/latest';
-  const updateInfo = { latest: '', url: '', checked: false };
+  const updateInfo = { latest: '', url: '', checked: false, state: '' };
+  let updateResetTimer = 0;
   function localVersion(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     return m ? m[1] : '';
@@ -2513,6 +2514,16 @@
     const btn = els.updateBtn;
     if(!btn) return;
     const cur = localVersion();
+    if(updateInfo.state === 'ok'){
+      btn.dataset.state = 'ok';
+      btn.textContent = cur ? `✅ 已是最新 · ${cur}` : '✅ 已是最新';
+      return;
+    }
+    if(updateInfo.state === 'err'){
+      btn.dataset.state = 'err';
+      btn.textContent = '⚠️ 检查失败 · 点我重试';
+      return;
+    }
     if(updateInfo.latest && cmpVersion(updateInfo.latest, cur) > 0){
       btn.dataset.state = 'new';
       btn.textContent = `🎉 新版本 ${updateInfo.latest} · 点我打开`;
@@ -2520,6 +2531,17 @@
       btn.dataset.state = '';
       btn.textContent = cur ? `🔄 检查更新 · 当前 ${cur}` : '🔄 检查更新';
     }
+  }
+  // 结果只在按钮上停留几秒，之后回到默认文案，方便反复点
+  function flashUpdateState(state){
+    updateInfo.state = state;
+    updateButtonLabel();
+    if(updateResetTimer) clearTimeout(updateResetTimer);
+    updateResetTimer = setTimeout(() => {
+      updateResetTimer = 0;
+      updateInfo.state = '';
+      updateButtonLabel();
+    }, 8000);
   }
   function openUpdatePage(){
     const cur = localVersion();
@@ -2548,11 +2570,16 @@
         ? String(data.apk || UPDATE_APK)
         : String(data.web || UPDATE_PAGE);
       updateInfo.checked = true;
-      updateButtonLabel();
-      if(cmpVersion(latest, cur) > 0) toast(`发现新版本 ${latest}，点按钮打开`);
-      else toast(`已经是最新版本 ${cur}`);
+      if(cmpVersion(latest, cur) > 0){
+        updateInfo.state = '';
+        updateButtonLabel();
+        toast(`发现新版本 ${latest}，点按钮打开`);
+      } else {
+        flashUpdateState('ok');
+        toast(`已经是最新版本 ${cur}`);
+      }
     }catch(e){
-      updateButtonLabel();
+      flashUpdateState('err');
       toast('检查更新失败，可能是网络问题');
     }
   }

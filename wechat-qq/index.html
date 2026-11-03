@@ -2156,6 +2156,8 @@
   .settings-changelog{width:100%;height:33px;margin-top:7px;border:1px dashed #D6B97C;border-radius:10px;background:#FFF9E8;color:#8B5E21;font:900 8.5px/1 inherit;cursor:pointer}
   .settings-update{width:100%;height:33px;margin-top:7px;border:1px solid #BFD8C4;border-radius:10px;background:#F2FBF4;color:#2F7A56;font:900 8.5px/1 inherit;cursor:pointer}
   .settings-update[data-state="new"]{border-color:#E4B84A;background:#FFF6DB;color:#8A5B12}
+  .settings-update[data-state="ok"]{border-color:#9BD3B2;background:#E9F8EE;color:#2F7A56}
+  .settings-update[data-state="err"]{border-color:#E9B5AC;background:#FDF0EE;color:#A6462F}
   .settings-update[data-state="busy"]{opacity:.65;cursor:progress}
   .rogue-hud-panel{margin:6px 0 0;padding:7px 8px;border:1px solid #A9CBE0;border-radius:12px;background:#EAF6FC}
   .rogue-day-line{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:7.4px;font-weight:800;color:#42657A}
@@ -5868,7 +5870,8 @@
   const UPDATE_FEED = 'https://ostonefisho.github.io/naiwa-peach-shop/version.json';
   const UPDATE_PAGE = 'https://ostonefisho.github.io/naiwa-peach-shop/';
   const UPDATE_APK = 'https://github.com/OStonefishO/naiwa-peach-shop/releases/latest';
-  const updateInfo = { latest: '', url: '', checked: false };
+  const updateInfo = { latest: '', url: '', checked: false, state: '' };
+  let updateResetTimer = 0;
   function localVersion(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     return m ? m[1] : '';
@@ -5890,6 +5893,16 @@
     const btn = els.updateBtn;
     if(!btn) return;
     const cur = localVersion();
+    if(updateInfo.state === 'ok'){
+      btn.dataset.state = 'ok';
+      btn.textContent = cur ? `✅ 已是最新 · ${cur}` : '✅ 已是最新';
+      return;
+    }
+    if(updateInfo.state === 'err'){
+      btn.dataset.state = 'err';
+      btn.textContent = '⚠️ 检查失败 · 点我重试';
+      return;
+    }
     if(updateInfo.latest && cmpVersion(updateInfo.latest, cur) > 0){
       btn.dataset.state = 'new';
       btn.textContent = `🎉 新版本 ${updateInfo.latest} · 点我打开`;
@@ -5897,6 +5910,17 @@
       btn.dataset.state = '';
       btn.textContent = cur ? `🔄 检查更新 · 当前 ${cur}` : '🔄 检查更新';
     }
+  }
+  // 结果只在按钮上停留几秒，之后回到默认文案，方便反复点
+  function flashUpdateState(state){
+    updateInfo.state = state;
+    updateButtonLabel();
+    if(updateResetTimer) clearTimeout(updateResetTimer);
+    updateResetTimer = setTimeout(() => {
+      updateResetTimer = 0;
+      updateInfo.state = '';
+      updateButtonLabel();
+    }, 8000);
   }
   function openUpdatePage(){
     const cur = localVersion();
@@ -5925,11 +5949,16 @@
         ? String(data.apk || UPDATE_APK)
         : String(data.web || UPDATE_PAGE);
       updateInfo.checked = true;
-      updateButtonLabel();
-      if(cmpVersion(latest, cur) > 0) toast(`发现新版本 ${latest}，点按钮打开`);
-      else toast(`已经是最新版本 ${cur}`);
+      if(cmpVersion(latest, cur) > 0){
+        updateInfo.state = '';
+        updateButtonLabel();
+        toast(`发现新版本 ${latest}，点按钮打开`);
+      } else {
+        flashUpdateState('ok');
+        toast(`已经是最新版本 ${cur}`);
+      }
     }catch(e){
-      updateButtonLabel();
+      flashUpdateState('err');
       toast('检查更新失败，可能是网络问题');
     }
   }
