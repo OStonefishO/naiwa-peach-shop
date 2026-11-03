@@ -8,7 +8,7 @@
 ```
 android/
   app/src/main/
-    AndroidManifest.xml          包名 com.naiwa.peachshop，versionCode 471 / versionName 4.71
+    AndroidManifest.xml          包名 com.naiwa.peachshop，versionCode / versionName 由 src/v2.html 的版本推导（当前 5.0 → 500）
     java/com/naiwa/peachshop/
       MainActivity.java          全屏 WebView、开屏动画、返回键确认、文件选择器、外链跳系统浏览器
       AssetServer.java           内置极简 localhost HTTP 服务器（支持 Range/206、MIME 表）
@@ -18,8 +18,9 @@ android/
     res/mipmap-*/                ic_launcher（由 src/char-assets/blob.png 生成）
   gen_icons.py                   生成启动图标（Pillow）
   build-apk.cjs                  手工构建脚本（不用 Gradle）
-  out/naiwa-peach-shop-4.71.apk  构建产物
+  out/naiwa-peach-shop-<版本>.apk  构建产物（不入库）
   screenshots/                   模拟器实机截图
+dist/naiwa-peach-shop-<版本>.apk 随 main 提交的安装包，CI 用它发 Release
 ```
 
 ## 为什么要内置 HTTP 服务器
@@ -38,12 +39,15 @@ WebView 直接用 `file:///android_asset/index.html` 打开时，页面是 `file
 需要 `platforms;android-34` 与 `build-tools;34.0.0`）。
 
 ```powershell
-# 1. 先重新生成网页版单文件
+# 1. 先重新生成网页版单文件（同时写 wechat-qq/version.json）
 node src/build.cjs
 
-# 2. 再打 APK
+# 2. 再打 APK（版本号自动从 src/v2.html 的 <title> 读取，产物同时落到 dist/）
 node android/build-apk.cjs
 ```
+
+> 装好后再点「设置 → 检查更新」会去 `https://ostonefisho.github.io/naiwa-peach-shop/version.json`
+> 比对版本；页面靠 UA 里的 `NaiwaAndroid/<版本>` 判断自己跑在 APK 里，从而给下载入口而不是网页。
 
 脚本做的事：
 
@@ -54,7 +58,9 @@ node android/build-apk.cjs
 4. `javac` 编译 Java 源码 + `R.java`，`d8` 转成 `classes.dex`，再塞进 APK；
 5. `zipalign -p 4`，`apksigner` 用 `C:\naiwa_apk_keys\naiwa-release.jks` 签名并校验；
 6. **产物自检**：确认 `AndroidManifest.xml` / `classes.dex` / `resources.arsc`(必须未压缩) /
-   `assets/index.html` / `assets/music/*.mp3` 都在，且没有反斜杠路径。
+   `assets/index.html` / `assets/music/*.mp3` 都在，且没有反斜杠路径；
+7. 把签名包复制到 `dist/`（旧的同前缀 apk 会被清掉），随 `main` 提交后由
+   `.github/workflows/release-apk.yml` 用 `gh release upload --clobber` 挂到 `v<版本>` 这个 Release。
 
 > aapt2 不认中文路径，所以脚本把所有编译动作放在 ASCII 暂存目录 `C:\naiwa_apk_build` 里做，
 > 只有最终 APK 和签名密钥留在项目侧。
@@ -80,7 +86,9 @@ node android/build-apk.cjs
 - 音频正常：`dumpsys audio` 显示 `com.naiwa.peachshop` 拿到 `USAGE_MEDIA` 音频焦点（背景音乐在放）；
 - 存档正常：`app_webview/Default/Local Storage/leveldb` 里写入 `naiwa_v` / `naiwa_profiles_v` / `naiwa_active_v`；
 - 暂停菜单（暂时打样 / 提前下班）正常，返回键弹出奶油色「要离开小店了吗？」自定义卡片；
-- 强制停止后重启，能回到标题页，无崩溃、无 FATAL 日志。
+- 强制停止后重启，能回到标题页，无崩溃、无 FATAL 日志；
+- 「设置 → 检查更新」实测：先显示「正在比对版本…」，拿到官网 `version.json` 后变成
+  「✅ 已是最新 · 5.0」（断网时会变成「⚠️ 检查失败 · 点我重试」）。
 
 > 模拟器必须在**纯 ASCII 路径**下运行，否则 qemu 会静默卡死：
 > `cmd /c mklink /J C:\asdk "D:\文件\_android_sdk"`，然后用 `C:\asdk\emulator\emulator.exe` 启动。
@@ -94,5 +102,7 @@ node android/build-apk.cjs
 
 ## 安装
 
-把 `android/out/naiwa-peach-shop-4.71.apk` 传到手机上，允许「安装未知来源应用」后点击安装。
-系统要求 Android 7.0（API 24）及以上。
+- 手机直接下载：<https://github.com/OStonefishO/naiwa-peach-shop/releases/latest>
+- 或者用本地构建产物 `android/out/naiwa-peach-shop-5.0.apk`（与 `dist/` 里的一致）。
+
+允许「安装未知来源应用」后点击安装，系统要求 Android 7.0（API 24）及以上。

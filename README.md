@@ -1,14 +1,15 @@
-# 奶蛙黄桃罐头店 · 正式版 4.71
+# 奶蛙黄桃罐头店 · 正式版 5.0
 
 一个纯前端（HTML + CSS + JavaScript）的竖屏小店经营游戏：白天接客、切桃、熬糖水、装罐、封盖、出餐，打烊后逛金币商店；除此之外还有肉鸽模式、无尽模式、七天新手教学，以及一个能自己造地图、上传工坊的**自定义模式**。
 
-没有后端、没有框架、没有构建依赖——游戏本体就是一个可以直接双击打开的 HTML 文件。
+没有后端、没有框架、没有构建依赖——游戏本体就是一个可以直接双击打开的 HTML 文件。**现在也有安卓安装包了。**
 
 ## 立刻试玩
 
 | 入口 | 地址 |
 | --- | --- |
 | 主站（GitHub Pages，推荐） | <https://ostonefisho.github.io/naiwa-peach-shop/> |
+| 安卓安装包（GitHub Release） | <https://github.com/OStonefishO/naiwa-peach-shop/releases/latest> |
 | 备用镜像（html.cafe 单文件） | <https://html.cafe/x8b917dbd> |
 | 仓库 | <https://github.com/OStonefishO/naiwa-peach-shop> |
 
@@ -66,6 +67,18 @@
 - **存档**：多店长档案、本机存档码、Supabase 云存档（店长名 + 4–8 位存档密码）。
 - **设置**：主音量 / 音乐 / 闹钟 / 捧腹大笑音量，开发者模式与开发者物品栏。
 
+## 安卓版
+
+`android/` 是一个不依赖 Gradle 的 WebView 壳工程，把同一份 `wechat-qq/index.html` 装进 APK：
+
+- 包名 `com.naiwa.peachshop`，minSdk 24（Android 7.0），竖屏锁定、沉浸式全屏；
+- 页面从内置的 `127.0.0.1` 本地服务器加载（不是 `file://`），所以存档、`fetch` 排行榜、工坊上传都正常；
+- 开屏动画、奶油色退出确认卡片、返回键二次确认；
+- 装好后在「设置 → 检查更新」里可以比对官网版本，有新版本会直接给出下载入口。
+
+安装包由本机 `node android/build-apk.cjs` 签名产出，落到 `dist/naiwa-peach-shop-<版本>.apk`；
+推送到 `main` 后 `release-apk.yml` 会把它挂到对应的 GitHub Release 上。详见 [`android/README.md`](android/README.md)。
+
 ## 技术栈
 
 - 原生 HTML + CSS + JavaScript，无框架、无打包器、无 npm 依赖。
@@ -78,17 +91,20 @@
 
 ```
 src/
-  v2.html           页面骨架 + 全部 CSS
-  game.v2.js        全部游戏逻辑（约 9700 行）
-  build.cjs         构建脚本：内联成单文件
+  v2.html           页面骨架 + 全部 CSS（<title> 里的「正式版 X.Y」是版本号唯一来源）
+  game.v2.js        全部游戏逻辑（约 9800 行）
+  build.cjs         构建脚本：内联成单文件 + 生成 version.json
   char-assets/      奶蛙皮肤与变体立绘
   rogue-assets/     肉鸽 BOSS 立绘
+android/            安卓壳工程（手工 aapt2/javac/d8 构建，见 android/README.md）
+dist/               已签名的安卓安装包（随 main 提交，供 CI 发版）
 tools/
   publish-htmlcafe.cjs      html.cafe 镜像发布
   workshop-supabase.sql     工坊建表 / RLS / RPC
   leaderboard-supabase.sql  排行榜建表
   leaderboard-worker.js     Cloudflare Worker 版排行榜（可选）
 wechat-qq/index.html  构建产物（真正发布的单文件）
+wechat-qq/version.json 当前版本信息（「检查更新」读取它）
 docs/shots/           README 截图
 ```
 
@@ -107,13 +123,20 @@ python -m http.server 8791
 ## 构建与发布
 
 ```bash
-node src/build.cjs          # 生成 wechat-qq/index.html
+node src/build.cjs          # 生成 wechat-qq/index.html + version.json
+node android/build-apk.cjs  # 生成 dist/naiwa-peach-shop-<版本>.apk（需要 JDK 17 + Android SDK）
 ```
 
-推送到 `main` 后 GitHub Actions 会自动构建并发布到 Pages；镜像站用 `node tools/publish-htmlcafe.cjs` 单独同步（需要 `HTMLCAFE_ID` / `HTMLCAFE_KEY` 环境变量）。
+推送到 `main` 后 GitHub Actions 会自动发布到 Pages，并把 `dist/` 里的安装包挂到 Release
+（`.github/workflows/deploy-pages.yml` + `.github/workflows/release-apk.yml`）；
+镜像站用 `node tools/publish-htmlcafe.cjs` 单独同步（需要 `HTMLCAFE_ID` / `HTMLCAFE_KEY` 环境变量）。
+
+> 版本号只需要改 `src/v2.html` 里 `<title>` 的「正式版 X.Y」，页面显示、`version.json`、
+> APK 的 versionCode/versionName、Release 的 tag 全都从这里推导（`versionCode = major*100 + minor`）。
 
 ## 更新日志（节选）
 
+- **5.0** 安卓版上架（Release 提供安装包）；设置里新增「检查更新」，可比对官网版本
 - **4.71** 工坊排序按钮高亮、地图显示上传时间
 - **4.70** 小家改回传统滚动条
 - **4.69** 肉鸽小费罐读取本局金币；小家可左右浏览
