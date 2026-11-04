@@ -17,7 +17,17 @@ import zipfile
 ROOT = r"D:\文件\naiwahuangtaoguantou"
 SRC = os.path.join(ROOT, "wechat-qq", "index.html")
 OUT = os.path.join(ROOT, "dist", "toy", "split")
-ZIP = os.path.join(ROOT, "dist", "toy", "naiwa-peach-shop-5.0-toy.zip")
+
+
+def game_version():
+    """版本号从 v2.html 的 <title> 里取，和网页版/APK 保持同一个来源。"""
+    with open(os.path.join(ROOT, "src", "v2.html"), encoding="utf-8") as f:
+        m = re.search(r"正式版\s*([\d.]+)", f.read())
+    return m.group(1) if m else "0.0"
+
+
+VERSION = game_version()
+ZIP = os.path.join(ROOT, "dist", "toy", f"naiwa-peach-shop-{VERSION}-toy.zip")
 LIMIT = 1024 * 1024  # 1MB
 
 MIME_EXT = {
