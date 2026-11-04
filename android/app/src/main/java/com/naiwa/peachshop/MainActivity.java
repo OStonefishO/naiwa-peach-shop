@@ -9,6 +9,8 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.Window;
@@ -28,6 +30,12 @@ public class MainActivity extends Activity {
     private View splash;
     private AssetServer server;
     private ValueCallback<Uri[]> pendingFileCallback;
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+    private final Runnable pauseTimersTask = new Runnable() {
+        @Override public void run() {
+            if (web != null) web.pauseTimers();
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -322,8 +330,13 @@ public class MainActivity extends Activity {
     protected void onPause() {
         super.onPause();
         if (web != null) {
+            // 先让页面把这一局存进本地、再补一次云存档，稍后才冻结计时器
+            try {
+                web.evaluateJavascript("window.__naiwaFlush&&window.__naiwaFlush()", null);
+            } catch (Exception ignored) {}
             web.onPause();
-            web.pauseTimers();
+            uiHandler.removeCallbacks(pauseTimersTask);
+            uiHandler.postDelayed(pauseTimersTask, 600);
         }
     }
 
@@ -331,6 +344,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (web != null) {
+            uiHandler.removeCallbacks(pauseTimersTask);
             web.resumeTimers();
             web.onResume();
         }

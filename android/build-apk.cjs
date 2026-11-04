@@ -145,6 +145,15 @@ const SRC = path.join(WORK, 'src');
 copyDir(path.join(ANDROID, 'app', 'src', 'main', 'java'), path.join(SRC, 'java'));
 copyDir(path.join(ANDROID, 'app', 'src', 'main', 'res'), path.join(SRC, 'res'));
 fs.copyFileSync(path.join(ANDROID, 'app', 'src', 'main', 'AndroidManifest.xml'), path.join(SRC, 'AndroidManifest.xml'));
+// 清单里写死的版本号会盖掉 aapt2 的 --version-code/--version-name，
+// 所以这里按 src/v2.html 的版本重写一遍，避免忘了改清单发出版本错位的包。
+{
+  const mfPath = path.join(SRC, 'AndroidManifest.xml');
+  let mf = fs.readFileSync(mfPath, 'utf8');
+  mf = mf.replace(/android:versionCode="[^"]*"/, `android:versionCode="${VERSION_CODE}"`)
+         .replace(/android:versionName="[^"]*"/, `android:versionName="${VERSION}"`);
+  fs.writeFileSync(mfPath, mf, 'utf8');
+}
 
 // ---------- 2. 同步游戏资源到 assets ----------
 const GAME_DIR = path.join(ROOT, 'wechat-qq');
@@ -354,6 +363,17 @@ fs.copyFileSync(signedApk, finalApk);
   if (!entries.some((e) => /^assets\/music\/.+\.mp3$/.test(e))) fail('APK 缺少 assets/music/*.mp3');
   if (entries.some((e) => e.includes('\\'))) fail('APK 内有反斜杠路径：' + entries.filter((e) => e.includes('\\')).join(', '));
   log(`自检通过：${entries.length} 个条目，含 classes.dex / resources.arsc(未压缩) / assets/index.html / assets/music/*.mp3`);
+
+  // 版本号自检：装到手机上看到的必须就是网页标题里的那个版本
+  const badging = spawnSync(path.join(BUILD_TOOLS, 'aapt2.exe'), ['dump', 'badging', finalApk], { encoding: 'utf8' });
+  const line = (badging.stdout || '').split(/\r?\n/).find((s) => s.startsWith('package:'));
+  if (!line) fail('无法读取 APK 的 package 信息');
+  const gotName = (line.match(/versionName='([^']*)'/) || [])[1];
+  const gotCode = (line.match(/versionCode='([^']*)'/) || [])[1];
+  if (gotName !== VERSION || gotCode !== String(VERSION_CODE)) {
+    fail(`APK 版本号不对：清单里是 ${gotName}(${gotCode})，期望 ${VERSION}(${VERSION_CODE})`);
+  }
+  log(`版本自检通过：versionName=${gotName} versionCode=${gotCode}`);
 }
 
 const size = fs.statSync(finalApk).size;

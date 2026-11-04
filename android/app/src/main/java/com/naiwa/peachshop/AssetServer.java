@@ -36,8 +36,79 @@ public class AssetServer {
         return port;
     }
 
+    /**
+     * 端口必须尽量固定：WebView 的 localStorage 是按源（含端口）隔离的，
+     * 每次换个端口就等于换了一个新手机 —— 存档会"用完就丢"。
+     * 优先 43971，被占用就顺着往下试，最后才退回随机端口。
+     */
+    private static final int[] PREFERRED_PORTS = {43971, 43972, 43973, 43974, 43975};
+
+    /** 老版本每次随机端口，存档是按「端口」分开的；优先复用旧的端口把存档接回来。 */
+    private int legacyPort() {
+        try {
+            java.io.File dir = new java.io.File(ctx.getApplicationInfo().dataDir,
+                    "app_webview/Default/Local Storage/leveldb");
+            java.io.File[] files = dir.listFiles();
+            if (files == null) return 0;
+            java.util.regex.Pattern pat = java.util.regex.Pattern.compile("http://127\\.0\\.0\\.1:(\\d{4,5})");
+            java.util.HashMap<Integer, Integer> count = new java.util.HashMap<Integer, Integer>();
+            for (java.io.File f : files) {
+                if (!f.isFile() || f.length() > 8 * 1024 * 1024) continue;
+                byte[] buf = new byte[(int) f.length()];
+                java.io.FileInputStream in = new java.io.FileInputStream(f);
+                try {
+                    int off = 0, n;
+                    while (off < buf.length && (n = in.read(buf, off, buf.length - off)) > 0) off += n;
+                } finally {
+                    in.close();
+                }
+                java.util.regex.Matcher m = pat.matcher(new String(buf, "ISO-8859-1"));
+                while (m.find()) {
+                    Integer key = Integer.valueOf(m.group(1));
+                    Integer c = count.get(key);
+                    count.put(key, c == null ? 1 : c + 1);
+                }
+            }
+            int best = 0, bestCount = 0;
+            for (java.util.Map.Entry<Integer, Integer> e : count.entrySet()) {
+                if (e.getValue() > bestCount) { bestCount = e.getValue(); best = e.getKey(); }
+            }
+            return best;
+        } catch (Throwable t) {
+            return 0;
+        }
+    }
+
+    private int[] portsToTry() {
+        int legacy = legacyPort();
+        int[] out = new int[PREFERRED_PORTS.length + 1];
+        out[0] = legacy;
+        System.arraycopy(PREFERRED_PORTS, 0, out, 1, PREFERRED_PORTS.length);
+        return out;
+    }
+
     public int start() throws IOException {
-        server = new ServerSocket(0, 64, InetAddress.getByName("127.0.0.1"));
+        IOException lastError = null;
+        int[] ports = portsToTry();
+        for (int p : ports) {
+            if (p <= 0) continue;
+            try {
+                ServerSocket s = new ServerSocket();
+                s.setReuseAddress(true);
+                s.bind(new java.net.InetSocketAddress(InetAddress.getByName("127.0.0.1"), p), 64);
+                server = s;
+                break;
+            } catch (IOException e) {
+                lastError = e;
+            }
+        }
+        if (server == null) {
+            try {
+                server = new ServerSocket(0, 64, InetAddress.getByName("127.0.0.1"));
+            } catch (IOException e) {
+                throw lastError != null ? lastError : e;
+            }
+        }
         port = server.getLocalPort();
         running = true;
         pool = Executors.newFixedThreadPool(4);

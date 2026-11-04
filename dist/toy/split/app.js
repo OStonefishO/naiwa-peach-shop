@@ -1,0 +1,9969 @@
+
+
+(function(){
+  'use strict';
+
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const icon = name => `<svg class="icon"><use href="#i-${name}"></use></svg>`;
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  const SIZES = {
+    small:{name:'小罐', ml:180, scale:.84},
+    medium:{name:'中罐', ml:300, scale:.95},
+    large:{name:'大罐', ml:420, scale:1.05}
+  };
+  const SUGAR = {
+    1:{name:'少糖', target:31, tol:8},
+    2:{name:'标准糖', target:61, tol:9},
+    3:{name:'多糖', target:87, tol:7}
+  };
+  const TEMPS = {ice:'冰镇', room:'常温', warm:'温热'};
+  const JARS = {
+    classic:{name:'经典罐', price:0, free:true, scale:1},
+    narrow:{name:'窄口罐', price:80, scale:.84},
+    wide:{name:'广口罐', price:100, scale:1.12},
+    gold:{name:'大金罐', price:0, scale:1.02}
+  };
+  const TOPPINGS = {
+    none:{name:'不加', icon:'x'},
+    mint:{name:'薄荷', icon:'leaf'},
+    osmanthus:{name:'桂花', icon:'flower'},
+    dates:{name:'红枣', icon:'peach'},
+    goji:{name:'枸杞', icon:'flower'},
+    rock:{name:'冰糖', icon:'drop'},
+    honeysuckle:{name:'金银花', icon:'flower'}
+  };
+  const BASE_TOPPINGS = ['mint','osmanthus'];
+  const EXPANSION = {
+    topping:[
+      {id:'dates', name:'红枣', price:45, desc:'甜香厚实的红枣，客人可能点 1–3 勺'},
+      {id:'goji', name:'枸杞', price:55, desc:'养生系枸杞，订单里可能出现'},
+      {id:'rock', name:'冰糖', price:65, desc:'清甜冰糖，配黄桃糖水正好'},
+      {id:'honeysuckle', name:'金银花', price:75, desc:'清爽金银花，夏日限定加料'}
+    ],
+    jar:[
+      {id:'narrow', name:'窄口罐', price:80, desc:'瓶口更窄，倒糖水时要更稳'},
+      {id:'wide', name:'广口罐', price:100, desc:'大口装桃，摆盘更豪放'}
+    ]
+  };
+  const GUESTS = [
+    {name:'小黄', kind:'dog', tier:'normal', accessory:null, body:'#FFC91D', bodyDark:'#EDB114', belly:'#FFF0C8',
+      greet:'第一次来！听说奶蛙的罐头超好吃～',
+      happy:'这罐黄桃也太香了吧！冰冰凉凉，甜度刚刚好！',
+      okay:'味道不错～下次我会再来买的。'},
+    {name:'阿蓝', kind:'dog', tier:'normal', accessory:'cap', body:'#FFD447', bodyDark:'#E9B41D', belly:'#FFF3D4', cap:'#4E8CC9',
+      greet:'老板，给我来一罐，拜托啦！',
+      happy:'哇，就是这个味道！黄桃又大又甜，奶蛙好厉害！',
+      okay:'还不错哦，下次记得快一点点～'},
+    {name:'豆豆', kind:'dog', tier:'normal', accessory:'glasses', body:'#F5B72B', bodyDark:'#DEA11A', belly:'#FFE9B8',
+      greet:'嘿嘿，今天想尝点不一样的～',
+      happy:'太完美了！暖乎乎的糖水配黄桃，超级治愈！',
+      okay:'味道可以，下次再给你一次机会吧～'},
+    {name:'口水猫', kind:'cat', tier:'normal', patience:1.02, coin:1.05, tolDelta:0,
+      greet:'吸溜……好香的黄桃味，我可以在窗边等吗？',
+      happy:'吸溜！这罐也太好吃了吧，甜水我都想喝光！',
+      okay:'还不错，就是我的口水快滴到柜台上了……'},
+    {name:'夜莺师傅', kind:'bird', tier:'normal', patience:.95, coin:1.1, tolDelta:0,
+      greet:'嗯……让我听听这罐黄桃的声音。',
+      happy:'高音甜，中音准，低音沉——这罐黄桃，通透！',
+      okay:'节奏还行，尾音差了点意思。'},
+    {name:'海绵宝宝', kind:'sponge', tier:'normal', patience:1.1, coin:1.1, tolDelta:0,
+      greet:'我准备好啦！我准备好啦！今天也要来一罐黄桃！',
+      happy:'这罐黄桃比蟹黄堡还香！我要给它打一百分！',
+      okay:'嗯……味道不错，不过还可以再快乐一点！'},
+    {name:'飞机耳猫', kind:'plane', tier:'normal', patience:1.05, coin:1.05, tolDelta:0,
+      greet:'（飞机耳）……可以，给我一罐吗？我、我会付钱的。',
+      happy:'耳朵都竖起来了！这罐真的好好吃！',
+      okay:'嗯……还行吧，我没有很失望。'},
+    {name:'牛来', kind:'bull', tier:'normal', personality:'generous', patience:1.12, coin:1.08, tolDelta:1,
+      greet:'哞……我不着急，慢慢做，做得好吃就行。',
+      happy:'哞！这罐真不错，我请你喝牛奶！',
+      okay:'哞，还行，我今天心情好，不跟你计较。'}
+  ];
+  const GUEST_CODEX = {
+    '小黄':{icon:'🐕',bio:'街角第一个闻香而来的小黄狗，最爱冰镇薄荷。'},
+    '阿蓝':{icon:'🐶',bio:'戴蓝色小帽的熟客，点单干脆，喜欢桂花香。'},
+    '豆豆':{icon:'🐩',bio:'戴圆框眼镜的慢条斯理型客人，偏爱温热糖水。'},
+    '口水猫':{icon:'🐱',bio:'闻到黄桃味就会流口水的橘猫，抱着一罐同款罐头。'},
+    '夜莺师傅':{icon:'🐦',bio:'用耳朵品鉴糖水的音乐家，讲究“高音甜、低音沉”。'},
+    '海绵宝宝':{icon:'🧽',bio:'永远元气满满的海绵，觉得黄桃罐头比蟹黄堡还香。'},
+    '飞机耳猫':{icon:'🐈',bio:'耳朵像小飞机一样折起来，说话小声但很认真地付钱。'},
+    '牛来':{icon:'🐂',bio:'慢悠悠的黄色牛客人，通常带着大方性格来，不催单也不计较。'}
+  };
+  const AUTHOR_GUEST = {name:'奶龙学长', kind:'author', tier:'normal', badge:'彩蛋', personality:'generous',
+    patience:1.6, coin:3, tolDelta:2,
+    greet:'我就是作者奶龙学长！今天来尝尝自己的店，小费管够。',
+    happy:'哈哈，做得不错！作者本人给你点赞，小费加倍！',
+    okay:'谢谢款待，作者下次还会悄悄来。'};
+  const ELITE_GUEST = {name:'寸头猪', kind:'pig', tier:'elite', badge:'精英', personality:'strict', patience:.8, coin:1.35, tolDelta:-2,
+    greet:'我从沙漠一路溜达来的。给我做罐讲究点的，别糊弄。',
+    happy:'行啊，这手艺在沙漠里能开分店。',
+    okay:'凑合吧，下次糖水可别倒歪了。'};
+  const BOSS_GUEST = {name:'认真狗', kind:'serious', tier:'boss', badge:'BOSS', personality:'strict', patience:.62, coin:2, tolDelta:-3,
+    greet:'我只说一遍：罐型、块数、糖水比例，全部按单子来。',
+    happy:'……合格。今天的检查，你通过了。',
+    okay:'有几个细节不达标。下次我会带放大镜来。'};
+  const PATRICK_GUEST = {name:'派大星', kind:'patrick', tier:'boss', badge:'BOSS', personality:'irritable', patience:.7, coin:1.9, tolDelta:-2,
+    greet:'我是一颗星……听说这里有黄桃罐头？我要用全部零花钱买！',
+    happy:'太——好——吃——啦！我要把它当枕头抱着睡！',
+    okay:'我有点没吃明白……不过没关系，再来一罐！'};
+  const DOG_ELITE = {name:'大狗', kind:'bigdog', tier:'elite', badge:'精英', personality:'irritable', patience:.78, coin:1.4, tolDelta:-1,
+    greet:'汪！别让我等太久，我今天心情不太好。',
+    happy:'汪！勉强算你过关，肉给你留一口。',
+    okay:'汪……这点小错，我可记着呢。'};
+  const CHUBBY_ELITE = {name:'肥嘟嘟', kind:'chubby', tier:'elite', badge:'精英', personality:'generous', patience:.95, coin:1.5, tolDelta:1,
+    greet:'嘿嘿，给我来一罐，多一点糖也没关系。',
+    happy:'好吃！你人真好，我下次还来！',
+    okay:'没关系没关系，能吃就行。'};
+  const SAD_ELITE = {name:'伤心鼠', kind:'sadmouse', tier:'elite', badge:'精英', personality:'impatient', patience:.7, coin:1.4, tolDelta:-1,
+    greet:'……能快一点吗？我还要回去看手机。',
+    happy:'哇，好吃！我的伤心都少了一半。',
+    okay:'嗯……可以吧，我先走了。'};
+  const MAO_BOSS = {name:'耄耋', kind:'mao', tier:'boss', badge:'BOSS', personality:'strict', patience:.66, coin:2, tolDelta:-3,
+    greet:'都看着我干什么？罐头、糖水、比例，一样都不能错。',
+    happy:'……嗯，这次的罐头，勉强能入我的眼。',
+    okay:'哼，细节全是破绽。下次别让我挑出来。'};
+  const ELITE_GUESTS = [ELITE_GUEST, DOG_ELITE, CHUBBY_ELITE, SAD_ELITE];
+  const BOSS_GUESTS = [BOSS_GUEST, PATRICK_GUEST, MAO_BOSS];
+  function eliteGuestForDay(day){
+    const week = Math.floor((day - 1) / WEEK_DAYS) + 1;
+    return ELITE_GUESTS[(week - 1) % ELITE_GUESTS.length];
+  }
+  function bossGuestForDay(day){
+    const week = Math.floor((day - 1) / WEEK_DAYS) + 1;
+    return BOSS_GUESTS[(week - 1) % BOSS_GUESTS.length];
+  }
+  function isAuthorDay(day){ return ((day * 7919 + 104729) % 23) === 0; }
+  function makeAuthorGuest(){
+    return Object.assign({}, AUTHOR_GUEST, {coin: Number((2 + Math.random() * 2).toFixed(2))});
+  }
+  const PERSONALITIES = {
+    patient:{
+      id:'patient', name:'有耐心', icon:'☕', color:'#4E9A7A',
+      delta:[60000,120000],
+      desc:'愿意多等一会儿的客人，通常也会点更复杂的东西。',
+      effect:'等待时间 +1~2 分钟 · 订单更复杂'
+    },
+    generous:{
+      id:'generous', name:'大方', icon:'💛', color:'#D7A11E',
+      delta:[0,0],
+      desc:'对不完美和小错误很包容，吃到好吃的就开心。',
+      effect:'最终评分更宽松 · 小错误扣分更少'
+    },
+    strict:{
+      id:'strict', name:'苛刻', icon:'📏', color:'#C15A4A',
+      delta:[-60000,-20000],
+      desc:'对细节要求很高，订单也更复杂，而且不太愿意等。',
+      effect:'等待 −20~60 秒 · 订单更复杂 · 评分更严格'
+    },
+    impatient:{
+      id:'impatient', name:'缺乏耐心', icon:'⏳', color:'#C77A3A',
+      delta:[-60000,-30000],
+      desc:'不想等太久，通常只点简单的东西。',
+      effect:'等待 −30~60 秒 · 订单更简单'
+    },
+    irritable:{
+      id:'irritable', name:'易怒', icon:'💢', color:'#B64C58',
+      delta:[-10000,-10000],
+      desc:'一点小错误就会让心情变差，评价掉得很快。',
+      effect:'扣分被放大 · 小错误代价很高'
+    },
+    petty:{
+      id:'petty', name:'斤斤计较', icon:'🧾', color:'#7A5AA6',
+      delta:[-30000,-10000],
+      desc:'最讨厌被插队，食材稍微不对就会记在心里。',
+      effect:'被插队扣分翻倍 · 糖水容错略严'
+    },
+    depression:{
+      id:'depression', name:'重度抑郁症', icon:'🖤', color:'#4C4A63',
+      delta:[20000,60000],
+      desc:'嘴上说随便，其实心里只认死亡之糖。用别的糖，他一口都不会碰。',
+      effect:'只要死亡之糖 · 做对了糖浆分翻倍'
+    }
+  };
+  const PERSONALITY_IDS = ['patient','generous','strict','impatient','irritable','petty'];
+  const SPECIAL_SLOT = {elite:1, boss:2};
+  function specialForDay(day){
+    const d = ((day - 1) % WEEK_DAYS) + 1;
+    if(d === 7) return {type:'boss', slot:SPECIAL_SLOT.boss, guest:bossGuestForDay(day)};
+    if(d === 5) return {type:'elite', slot:SPECIAL_SLOT.elite, guest:eliteGuestForDay(day)};
+    if(rogueActive() && state.rogue && Number(state.rogue.extraEliteDow) === d){
+      return {type:'elite', slot:SPECIAL_SLOT.elite, guest:eliteGuestForDay(day)};
+    }
+    return null;
+  }
+  function personalityFor(guest){
+    if(rogueActive() && rogueEventToday() && rogueEventToday().id === 'harmony') return PERSONALITIES.generous;
+    if(guest && guest.personality && PERSONALITIES[guest.personality]) return PERSONALITIES[guest.personality];
+    if(guest && guest.tier !== 'normal') return PERSONALITIES[PERSONALITY_IDS[randInt(0, PERSONALITY_IDS.length - 1)]];
+    // 普通客人：一半概率没有特殊性格，按普通耐心/订单处理
+    if(Math.random() < .5) return null;
+    return PERSONALITIES[PERSONALITY_IDS[randInt(0, PERSONALITY_IDS.length - 1)]];
+  }
+  function personalityTag(p){
+    if(!p) return '';
+    return `<span class="personality-tag" style="--pc:${p.color}">${p.icon} ${p.name}</span>`;
+  }
+  function personalityWaitText(p){
+    if(!p) return '';
+    if(p.delta[0] >= 60000) return `等待 +${Math.round(p.delta[0]/60000)}~${Math.round(p.delta[1]/60000)} 分钟`;
+    if(p.delta[0] <= -20000) return `等待 ${Math.round(p.delta[0]/1000)}~${Math.round(p.delta[1]/1000)} 秒`;
+    if(p.id === 'irritable') return '小错误扣分放大';
+    return '评分更宽松';
+  }
+  function personalityPatience(p, guest){
+    let base = PATIENCE_MS * (guest.patience || 1);
+    const ev = rogueEventToday();
+    if(ev && ev.id === 'eager') base *= .5;
+    if(ev && ev.id === 'calm') base *= 1.5;
+    if(shrimpLevel('slowClock')) base += 60000;
+    const delta = p && p.delta ? randInt(p.delta[0], p.delta[1]) : 0;
+    return clamp(Math.round(base + delta), 90000, 420000);
+  }
+  function markSeen(guest){
+    if(!activeProfile || !guest || (guest.tier !== 'elite' && guest.tier !== 'boss')) return;
+    const key = guest.tier;
+    activeProfile.seen[key] = activeProfile.seen[key] || [];
+    if(!activeProfile.seen[key].includes(guest.name)){
+      activeProfile.seen[key].push(guest.name);
+      saveProfiles();
+    }
+  }
+
+  const MODES = {
+    normal:{name:'普通模式', days:28, desc:'4 周 · 28 天 · 尽可能多赚钱'},
+    tutorial:{name:'新手模式', weekDays:7, desc:'7 天教学 · 出餐 / 性格 / 商店 / 精英 / 混合糖浆'},
+    endless:{name:'无尽模式', weekDays:7, desc:'每周完成业绩 · 不达标就关门'},
+    rogue:{name:'肉鸽模式', weekDays:7, desc:'每周业绩 · 辣虾 · 随机事件 · 肉鸽商店'},
+    custom:{name:'自定义模式', days:28, desc:'自定义客人 / 订单 / 目标 / 评分 · 自定义码与工坊'}
+  };
+  const NORMAL_DAYS = 28;
+  const WEEK_DAYS = 7;
+  const TUTORIAL_DAYS = 7;
+  const weekTargetFor = week => Math.min(900, 280 + (week - 1) * 55);
+
+  /* -------------------- 新手模式 -------------------- */
+  const TUTORIAL_SCRIPTS = {
+    1:{
+      title:'第一单：出餐流程',
+      guests:[{name:'小黄'},{name:'阿蓝'}],
+      pots:1, alarms:0, coins:60,
+      intro:[
+        {key:'d1-start', title:'欢迎来到奶蛙的小店', text:'接下来 7 天，奶蛙会每天陪你做几单。<b>新手模式不会扣钱、也不会因为失误关门</b>，放心试。'},
+        {key:'d1-flow', title:'一罐黄桃罐头的四步', text:'① 看左边的<b>订单卡</b>，记住罐型、黄桃、糖水、温度、加料；② 去<b>「厨房」</b>切黄桃、加糖熬糖水；③ 回<b>「工作台」</b>装罐、倒糖水、调温度、加料、封盖；④ 把订单卡拖到<b>「订单架」</b>，再点「交给客人」。'},
+        {key:'d1-tip', title:'不用背，跟着提示走', text:'页面顶部会写着「第 1 步、第 2 步」，跟着做就行。每做完一单，右边会给出评分明细，告诉你哪一项扣了分。'}
+      ],
+      serve:['d1-score', '评价会看罐型、黄桃、糖水比例、火候、温度、加料和出餐速度，每一项差一点都会扣分。']
+    },
+    2:{
+      title:'客人的性格',
+      guests:[{name:'豆豆', personality:'generous'},{name:'口水猫', personality:'strict'}],
+      prepPeaches:true,
+      stageTips:{
+        work:[{key:'d2-syrup', title:'这两锅糖水都不完美', text:'看「倒糖水」这一行：已经备好两锅糖，一锅<b>偏生</b>、一锅<b>焦苦</b>。故意用它们试试，看看客人怎么评价火候。'}]
+      },
+      pots:1, alarms:0,
+      batches:[{sugar:2, quality:'thin', types:['classic']},{sugar:2, quality:'burnt', types:['classic']}],
+      intro:[
+        {key:'d2-start', title:'大方的客人和苛刻的客人', text:'今天两位客人性格不同：豆豆「大方」，评分更宽松、小费更多；口水猫「苛刻」，要求高、扣分更狠。'},
+        {key:'d2-peach2', title:'黄桃已经帮你切好了', text:'今天的黄桃<b>提前切好放在碗里</b>了，去工作台点「＋」直接装罐，不用再进厨房。'}
+      ],
+      serve:['d2-after', '看到评分下面的性格标签了吗？大方客人的小费会额外加成，苛刻客人同样的失误会扣更多分。']
+    },
+    3:{
+      title:'插队与斤斤计较',
+      guests:[{name:'夜莺师傅'},{name:'小黄', personality:'petty'}],
+      pots:1, alarms:0, autoAccept:0,
+      intro:[{key:'d3-start', title:'接单顺序也算分', text:'先接谁的订单，就先给谁做。让后来的客人先出餐，前面的客人会被「插队」，评价里会多一条扣分。'}],
+      serve:['d3-after', '「斤斤计较」的客人最讨厌被插队，被插队时扣分会翻倍。想了解所有性格，可以打开「图鉴 → 性格」查看。']
+    },
+    4:{
+      title:'复杂订单与金币商店',
+      guests:[{name:'豆豆', personality:'strict', order:{complex:true}},{name:'阿蓝'}],
+      toppings:['mint','osmanthus','goji'],
+      jars:['narrow','wide'],
+      pots:2, alarms:1, shop:true,
+      stageTips:{
+        work:[{key:'d4-jar', title:'先切换罐子', text:'订单写的是<b>窄口罐 / 广口罐</b>时，点「挑罐型」里那个<b>「经典罐 · 点此切换罐子」</b>，切到订单要的罐子。'},
+               {key:'d4-top', title:'加料也要对', text:'订单里的<b>薄荷 / 桂花 / 枸杞 / 冰糖 / 金银花 / 红枣</b> 都要自己点：<b>点一下加一份，点两下加两份</b>，点错了再点一下能减回去。多加了会扣分，按订单数量来。'}]
+      },
+      intro:[
+        {key:'d4-start', title:'复杂订单来了', text:'今天这位客人要的更多：<b>特定的罐型、指定的加料、还要分层</b>。材料已经全部发给你了，对照订单卡一样一样来。'},
+
+        {key:'d4-shop', title:'金币商店开门了', text:'之后每天打烊结算时，点<b>「逛金币商店」</b>可以买加料、糖浆、熬糖锅和闹钟，后面的订单会越来越挑。'}
+      ],
+      serve:['d4-after', '复杂订单的分更高、小费也更多，但每一样都要对。']
+    },
+    5:{
+      title:'精英日与多锅熬糖',
+      guests:[{name:'夜莺师傅', tier:'elite'},{name:'口水猫'}],
+      pots:3, alarms:2, syrups:['honey'],
+      stageTips:{
+        kitchen:[{key:'d5-pots', title:'3 口锅、2 个闹钟', text:'厨房现在有 <b>3 口熬糖锅、2 个闹钟</b>。不同糖可以同时熬；闹钟会在火候过半时响，提醒你别熬过头。'},
+                 {key:'d5-alarm', title:'闹钟怎么用', text:'熬糖时点锅右上角的<b>小铃铛</b>放闹钟，火候过半会响；再点一次可以收回来。'}]
+      },
+      intro:[
+        {key:'d5-start', title:'今天是精英日', text:'餐厅里戴<b>「精英」徽章</b>的就是精英客人：订单更复杂、<b>评分更严（容差更小）</b>，但金币和小费都更高。'},
+        {key:'d5-pots0', title:'今天是精英日', text:'戴<b>「精英」徽章</b>的客人评分更严、奖励更高。厨房也升级了：<b>3 口锅、2 个闹钟</b>，去试试同时熬两种糖。'}
+      ],
+      serve:['d5-after', '精英客人的评分更严格，但金币和小费都更可观。']
+    },
+    6:{
+      title:'混合糖浆与比例',
+      guests:[{name:'豆豆', personality:'patient', order:{mix:true}},{name:'小黄'}],
+      pots:3, alarms:2, syrups:['honey'],
+      stageTips:{
+        kitchen:[{key:'d6-boil', title:'一起熬 or 分开熬', text:'订单写<b>「一起熬」</b>就把两种糖放同一口锅；写<b>「分开熬」</b>就各熬一锅，倒糖时会按顺序记录在罐子上。'}],
+        work:[{key:'d6-mix', title:'记得搅拌', text:'订单写「<b>分层</b>」就不用搅；写「<b>已搅拌</b>」时要在这里点一次<b>「搅拌一下」</b>，否则这项会扣分。'}]
+      },
+      intro:[
+        {key:'d6-start', title:'两种糖，按比例来', text:'订单写「<b>经典 60% + 蜂蜜 40%</b>」时：在厨房给锅选两种糖，用<b>比例滑块</b>（或左右 ＋/−）调到 60:40，再点「开火」熬。'},
+
+      ],
+      serve:['d6-after', '比例对上了才是满分：绿色区间里就是完美比例。']
+    },
+    7:{
+      title:'自由练习',
+      guests:[{name:'小黄'},{name:'阿蓝'},{name:'豆豆'}],
+      pots:2, alarms:1, coins:40,
+      intro:[{key:'d7-start', title:'最后一天，交给你了', text:'今天没有提示，按自己的节奏来。打完这一天，新手模式就通关啦。'}],
+      serve:['d7-after', '很棒！新手模式结束，去普通模式开一家真正的小店吧。']
+    }
+  };
+  const TUTORIAL_STAGE_TIPS = {
+    _default:{
+      kitchen:{ title:'厨房：切黄桃 + 熬糖水', text:'先在「切黄桃」按订单点 切大块 / 切小块；再熬糖：选糖型 → 按「订单写的勺数」点「糖+」（订单写几勺就加几勺）→ 点「开火」，等火候条进绿色区间再点「收糖」。偏生或焦苦都会扣分。' },
+      work:{ title:'工作台：按部就班装罐', text:'① 挑罐型 ② 放黄桃（大块/小块要对）③ 按住「倒糖水」倒到绿色目标量 ④ 选温度 ⑤ 选加料 ⑥ 封盖。每步都对着左边的订单卡来。' },
+      desk:{ title:'出餐：先拖订单，再交给客人', text:'按住左边那张订单卡，拖到下面的「订单架」松手；然后把罐头封好，点下面的大按钮「交给客人」。' }
+    },
+    3:{
+      restaurant:{ title:'试试插队：先做后来的客人', text:'夜莺师傅已经接单正在做了。现在点小黄那行的「接单」，让后来的客人先做——这就是插队，会被记一笔扣分；斤斤计较的客人扣分还会翻倍。' },
+      desk:{ title:'插队之后记得回去收尾', text:'先把小黄这单做完交给他，再回餐厅把夜莺师傅的订单点开继续做。' }
+    },
+    2:{
+      kitchen:{ title:'先用这两锅不完美的糖', text:'今天不用重新熬：工作台的糖水选单里已经有「偏生」和「焦苦」两锅，先拿去倒，看看客人怎么评价火候。' },
+      work:{ title:'体验两种火候评价', text:'倒「偏生」或「焦苦」的糖水各试一单，评分的「熬糖火候」那一项会变成黄色或红色，注意看差多少分。' }
+    },
+    5:{
+      kitchen:{ title:'多锅同时熬 + 闹钟', text:'现在有 3 口锅、2 个闹钟：不同锅可以同时熬不同糖；把右下角闹钟拖到锅上，火候过半它会响，提醒你回来收糖。' }
+    },
+    6:{
+      kitchen:{ title:'两种糖按比例混合', text:'这单要两种糖浆：选两种糖后，用中间的滑块调「每种糖的比例」（比如 60% / 40%），再决定「一起熬」还是「分开熬」。' },
+      work:{ title:'分层记得搅拌', text:'混好的糖水会分层，工作台点「搅拌一下」；两种糖分开熬的，倒糖时会按先后顺序记录在「倒入顺序」里。' }
+    }
+  };
+  const GUIDE = { steps: [], idx: 0, layer: null, onDown: null, onClick: null };
+  function guidePause(){
+    if(GUIDE.layer) GUIDE.layer.remove();
+    GUIDE.layer = null;
+    if(GUIDE.onDown){ document.removeEventListener('pointerdown', GUIDE.onDown, true); GUIDE.onDown = null; }
+    if(GUIDE.onClick){ document.removeEventListener('click', GUIDE.onClick, true); GUIDE.onClick = null; }
+  }
+  function guideEnd(){
+    if(GUIDE.layer) GUIDE.layer.remove();
+    GUIDE.layer = null; GUIDE.steps = []; GUIDE.idx = 0;
+    if(GUIDE.onDown){ document.removeEventListener('pointerdown', GUIDE.onDown, true); GUIDE.onDown = null; }
+    if(GUIDE.onClick){ document.removeEventListener('click', GUIDE.onClick, true); GUIDE.onClick = null; }
+  }
+  function guideStart(steps){
+    if(true) return; // 箭头高亮改为按需的 tutorialPointerHint，见下
+    if(!tutorialActive() || !steps || !steps.length) return;
+    guideEnd();
+    GUIDE.steps = steps.slice(); GUIDE.idx = 0;
+    guideStep();
+  }
+  function guideStep(){
+    if(!GUIDE.steps.length) return;
+    const step = GUIDE.steps[GUIDE.idx];
+    const el = document.querySelector(step.sel);
+    if(!el){ GUIDE.idx++; if(GUIDE.idx < GUIDE.steps.length) guideStep(); else guideEnd(); return; }
+    try{ el.scrollIntoView({block:'center', inline:'center'}); }catch(e){}
+    if(GUIDE.layer) GUIDE.layer.remove();
+    const r = el.getBoundingClientRect();
+    const pad = 12;
+    const rw = r.width + pad * 2, rh = r.height + pad * 2;
+    const size = Math.max(rw, rh);
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const vw = innerWidth, vh = innerHeight;
+    const left = Math.min(Math.max(cx - rw / 2, 4), Math.max(4, vw - rw - 4));
+    const top = Math.min(Math.max(cy - rh / 2, 4), Math.max(4, vh - rh - 4));
+    const layer = document.createElement('div');
+    layer.className = 'guide-layer';
+    const blockers = [
+      {l:0, t:0, w:vw, h:Math.max(0, top)},
+      {l:0, t:Math.max(0, top + rh), w:vw, h:Math.max(0, vh - (top + rh))},
+      {l:0, t:Math.max(0, top), w:Math.max(0, left), h:rh},
+      {l:Math.max(0, left + rw), t:Math.max(0, top), w:Math.max(0, vw - (left + rw)), h:rh}
+    ];
+    blockers.forEach(b => {
+      if(b.w <= 0 || b.h <= 0) return;
+      const d = document.createElement('div');
+      d.className = 'guide-blocker';
+      d.style.cssText = 'left:'+b.l+'px;top:'+b.t+'px;width:'+b.w+'px;height:'+b.h+'px';
+      layer.appendChild(d);
+    });
+    const ring = document.createElement('div');
+    ring.className = 'guide-ring';
+    ring.style.cssText = 'left:'+left+'px;top:'+top+'px;width:'+rw+'px;height:'+rh+'px';
+    layer.appendChild(ring);
+    const bubble = document.createElement('div');
+    bubble.className = 'guide-bubble';
+    bubble.textContent = step.text || '点这里';
+    const bw = 236, bh = 56;
+    const bLeft = Math.min(Math.max(10, cx - bw / 2), Math.max(10, vw - bw - 10));
+    let bTop = top - bh - 34;
+    if(bTop < 10) bTop = Math.min(vh - bh - 12, top + rh + 26);
+    bubble.style.cssText = 'left:'+bLeft+'px;top:'+bTop+'px';
+    layer.appendChild(bubble);
+    const arrowWrap = document.createElement('div');
+    arrowWrap.innerHTML = '<svg class="guide-arrow" width="40" height="52" viewBox="0 0 40 52"><path d="M20 50 C20 34 20 24 20 12" fill="none" stroke="#FFC24A" stroke-width="6" stroke-linecap="round"/><path d="M6 22 L20 6 L34 22" fill="none" stroke="#FFC24A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const arrow = arrowWrap.firstElementChild;
+    const below = top + rh + 56 < vh;
+    const aLeft = Math.min(Math.max(6, cx - 20), Math.max(6, vw - 46));
+    const aTop = below ? Math.min(top + rh + 2, vh - 56) : Math.max(6, top - 54);
+    arrow.style.left = aLeft + 'px';
+    arrow.style.top = aTop + 'px';
+    if(!below) arrow.style.transform = 'rotate(180deg)';
+    layer.appendChild(arrow);
+    document.body.appendChild(layer);
+    GUIDE.layer = layer;
+    const advance = () => {
+      if(step.until && !step.until()){ guideStep(); return; }
+      GUIDE.idx++;
+      if(GUIDE.idx < GUIDE.steps.length) guideStep(); else guideEnd();
+    };
+    if(step.advance === 'pointerdown'){
+      GUIDE.onDown = e => { try{ if(e.target.closest(step.sel)) setTimeout(advance, 240); }catch(err){} };
+      setTimeout(() => { if(GUIDE.onDown) document.addEventListener('pointerdown', GUIDE.onDown, true); }, 260);
+    }else{
+      GUIDE.onClick = e => { try{ if(e.target.closest(step.sel)) setTimeout(advance, 240); }catch(err){} };
+      setTimeout(() => { if(GUIDE.onClick) document.addEventListener('click', GUIDE.onClick, true); }, 260);
+    }
+  }
+  function tutFlag(k){
+    if(!tutorialActive()) return;
+    state.tutorial = state.tutorial || { seen:{} };
+    state.tutorial.flags = state.tutorial.flags || {};
+    if(state.tutorial.flags[k]) return;
+    state.tutorial.flags[k] = 1;
+    renderTutorialTasks();
+  }
+  function tutF(k){ return !!(state.tutorial && state.tutorial.flags && state.tutorial.flags[k]); }
+  function tutorialTasksForDay(day){
+    const orders = state.orders || [];
+    const served = orders.filter(o => o.served).length;
+    const qs = (state.tutorial && state.tutorial.servedQuality) || [];
+    if(day === 1) return [
+      { id:'t1a', text:'看订单卡，去厨房切黄桃', check: () => tutF('cut') || tutF('boil') || served > 0 },
+      { id:'t1b', text:'熬一锅糖水', check: () => tutF('boil') || served > 0 },
+      { id:'t1c', text:'装罐并封盖', check: () => tutF('seal') || served > 0 },
+      { id:'t1d', text:'拖订单到订单架，交给客人', check: () => served > 0 }
+    ];
+    if(day === 2) return [
+      { id:'t2a', text:'用「偏生」的糖水做一罐', check: () => qs.includes('thin') },
+      { id:'t2b', text:'用「焦苦」的糖水做一罐', check: () => qs.includes('burnt') },
+      { id:'t2c', text:'看看两位客人的评价差多少', check: () => served >= 2 }
+    ];
+    if(day === 3) return [
+      { id:'t3a', text:'去餐厅，点后面那位客人的「接单」', check: () => !!(state.tutorial && state.tutorial.seen && state.tutorial.seen['d3-jumped']) },
+      { id:'t3b', text:'把插队那单做完交给客人', check: () => served >= 1 }
+    ];
+    if(day === 4) return [
+      { id:'t4a', text:'切换罐型，切到订单要的罐子', check: () => tutF('jar') || !!(state.can && state.order && state.can.jar && state.can.jar === (state.order.jar || 'classic')) },
+      { id:'t4b', text:'加够订单要的小料', check: () => tutF('top') || !!(state.can && state.can.toppings && Object.keys(state.can.toppings).length >= 2) },
+      { id:'t4c', text:'封盖出餐，看看复杂订单的评分', check: () => served >= 1 }
+    ];
+    if(day === 5) return [
+      { id:'t5a', text:'同时用两口锅熬糖（点锅 2 选糖）', check: () => tutF('pot2') || (state.pots || []).filter(p => Number(p.sugar) > 0).length >= 2 },
+      { id:'t5b', text:'给熬着的锅放一个闹钟', check: () => tutF('alarm') || (state.pots || []).some(p => p.alarm) },
+      { id:'t5c', text:'完成精英客人的订单', check: () => served >= 1 }
+    ];
+    if(day === 6) return [
+      { id:'t6a', text:'调出 60 : 40 的混合糖（滑块或 ＋/−）', check: () => tutF('mix') || (state.pots || []).some(p => { const r = potMixRatios(p); return r && Object.values(r).some(v => Math.abs(v - 60) <= 5); }) },
+      { id:'t6b', text:'按订单「分开熬 / 一起熬」熬好', check: () => tutF('boil') },
+      { id:'t6c', text:'该搅拌时点「搅拌一下」', check: () => tutF('stir') || !!(state.can && state.can.stirred) },
+      { id:'t6d', text:'完成这单混合糖浆订单', check: () => served >= 1 }
+    ];
+    return [
+      { id:'t7a', text:'自由营业，完成 3 单', check: () => served >= 3 }
+    ];
+  }
+  function customTasks(){
+    const m = customMap();
+    if(!m || m.missionsOn === false) return [];
+    const stats = state.customStats || {};
+    return (m.missions || []).map((x, i) => {
+      const have = x.type === 'coins' ? (state.weekEarned || 0) : (stats[x.type] || 0);
+      return { id: 'cm' + i, text: (CM_MISSION_LABEL[x.type] || x.type).replace('X', x.target) + `（${Math.min(have, x.target)}/${x.target}）`, check: () => have >= x.target };
+    });
+  }
+  function dailyTasksForCurrent(){
+    if(tutorialActive()) return tutorialTasksForDay(state.day);
+    if(state.mode === 'custom'){
+      const list = customTasks();
+      if(list.length) return list;
+    }
+    const served = (state.reviews || []).length;
+    return [
+      { id:'gd1', text:'接待客人，看订单卡', check: () => !!state.order },
+      { id:'gd2', text:'熬好一锅糖水', check: () => (state.batches || []).length > 0 || (state.can && state.can.syrup > 0) },
+      { id:'gd3', text:'装罐、倒糖水并封盖', check: () => !!(state.can && state.can.sealed) || served > 0 },
+      { id:'gd4', text:'把订单架上的罐头交给客人', check: () => served > 0 }
+    ];
+  }
+  function renderTutorialTasks(){
+    if(!els.game) return;
+    const wrap = document.getElementById('taskInline');
+    const btn = document.getElementById('taskInlineBtn');
+    const listEl = document.getElementById('taskInlineList');
+    if(!wrap || !btn || !listEl) return;
+    const onDesk = state.phase === 'playing' && state.stage === 'desk';
+    if(!onDesk){
+      wrap.hidden = true;
+      return;
+    }
+    const list = dailyTasksForCurrent();
+    const done = list.map(x => !!x.check());
+    const allDone = done.length > 0 && done.every(Boolean);
+    const count = `${done.filter(Boolean).length}/${list.length}`;
+    wrap.hidden = false;
+    btn.innerHTML = `<span>任务</span><em>${count}</em>`;
+    listEl.innerHTML = `<div class="task-head"><span>${state.mode === 'custom' ? '本周任务' : '今日任务'}</span><em>${count}</em></div>
+      <ul>${list.map((x, i) => `<li class="${done[i] ? 'done' : ''}"><i>${done[i] ? '✓' : ''}</i><span>${x.text}</span></li>`).join('')}</ul>`;
+    listEl.classList.toggle('all-done', allDone);
+    if(!btn._wired){
+      btn._wired = true;
+      btn.addEventListener('click', () => {
+        const p2 = document.getElementById('taskInlineList');
+        if(!p2) return;
+        p2.hidden = !p2.hidden;
+        btn.classList.toggle('open', !p2.hidden);
+      });
+    }
+    const note = document.querySelector('.desk-note');
+    if(tutorialActive() && note) note.style.display = 'none';
+    if(tutorialActive() && allDone && !(state.tutorial && state.tutorial['taskDone' + state.day])){
+      state.tutorial = state.tutorial || { seen:{} };
+      state.tutorial['taskDone' + state.day] = 1;
+      toast('今日任务全部完成！');
+    }
+  }
+  function tutorialGuideForDay(day){
+    const o = state.order || {};
+    const size = o.size || 'medium';
+    const sizeSel = '.size-btn[data-size="' + size + '"]';
+    if(day === 1){
+      return [
+        { sel:'#stageTabs [data-stage="kitchen"]', text:'第 1 步：先去厨房备料' },
+        { sel:'.cut-btn[data-cut="large"]', text:'点「切大块」，按订单切黄桃' },
+        { sel:'#stageTabs [data-stage="work"]', text:'切好了，去工作台装罐' },
+        { sel:sizeSel, text:'先挑订单要的罐型' },
+        { sel:'[data-piece-plus="large"]', text:'点「+」把黄桃放进罐子' },
+        { sel:'#pourBtn', text:'按住「倒糖水」，倒到绿色区间', advance:'pointerdown' },
+        { sel:'#stageTabs [data-stage="desk"]', text:'装好了，回服务台出餐' },
+        { sel:'#orderTicket', text:'按住订单卡，拖到下面的「订单架」', advance:'pointerdown' }
+      ];
+    }
+    if(day === 5){
+      return [
+        { sel:'#stageTabs [data-stage="restaurant"]', text:'第 5 天是精英日，先去餐厅看看是谁来了' },
+        { sel:'.rest-card[data-elite="1"]', text:'精英客人：订单更复杂、评分更严，但金币和小费更高', advance:'pointerdown' },
+        { sel:'#stageTabs [data-stage="kitchen"]', text:'厨房有 3 口熬糖锅和 2 个闹钟，可以同时熬' },
+        { sel:'.pot-card', text:'不同糖可以同时熬：点锅里的糖型切换', advance:'pointerdown' }
+      ];
+    }
+    if(day === 4){
+      const jarName = (JARS[o.jar || 'classic'] || {}).name || '订单要的罐型';
+      const steps = [];
+      steps.push({ sel:'#stageTabs [data-stage="work"]', text:'今天的订单更复杂：先去工作台' });
+      steps.push({ sel:'.size-btn[data-size="' + size + '"]', text:'先挑订单要的罐型' });
+      steps.push({ sel:'#jarSwitchBtn', text:'点这里切换罐子，订单要「' + jarName + '」',
+        until:() => state.can.jar === (o.jar || 'classic') });
+      const tops = (o.toppings || o.tops || []).map(x => (x && x.id) || x);
+      if(tops.length) steps.push({ sel:'[data-piece-plus="large"]', text:'按订单放黄桃' });
+      tops.forEach((id, i) => {
+        steps.push({ sel:'.chip[data-topping="' + id + '"]',
+          text:'订单还额外要加料，点「' + ((TOPPINGS[id] || {}).name || id) + '」（' + (i + 1) + '/' + tops.length + '）' });
+      });
+      steps.push({ sel:'#pourBtn', text:'按住「倒糖水」，倒到绿色区间', advance:'pointerdown' });
+      steps.push({ sel:'#stageTabs [data-stage="desk"]', text:'装好了，回服务台出餐' });
+      return steps;
+    }
+    if(day === 2){
+      return [
+        { sel:'#stageTabs [data-stage="work"]', text:'黄桃已经切好放在碗里了，直接去工作台' },
+        { sel:sizeSel, text:'挑订单要的罐型' },
+        { sel:'[data-piece-plus="large"]', text:'点「+」放黄桃，大小要对' },
+        { sel:'#pourBtn', text:'按住「倒糖水」，这次用偏生或焦苦的那锅', advance:'pointerdown' },
+        { sel:'#stageTabs [data-stage="desk"]', text:'回服务台，看看客人的评价' }
+      ];
+    }
+    return null;
+  }
+
+  function tutorialScriptStageTip(stage){
+    if(!tutorialActive()) return;
+    const sc = tutorialScript();
+    if(!sc || !sc.stageTips) return;
+    const list = sc.stageTips[stage] || [];
+    list.forEach(x => tutorialTip(x.key, x.title, x.text));
+  }
+  function tutorialStageTip(stage){
+    if(!tutorialActive() || state.day !== 1) return;
+    const dayTips = TUTORIAL_STAGE_TIPS[state.day] || {};
+    let tip = dayTips[stage] || TUTORIAL_STAGE_TIPS._default[stage];
+    if(stage === 'desk' && state.can && state.can.sealed && !orderOnRack()){
+      tip = { title:'封好了，把订单拖到订单架', text:'按住左边那张订单卡，拖到下面的「订单架」松手，再点「交给客人」出餐。' };
+    }
+    if(!tip) return;
+    const id = `d${state.day}-${stage}`;
+    if(!state.tutorial) state.tutorial = { seen:{} };
+    if(state.tutorial.seen && state.tutorial.seen[id]) return;
+    state.tutorial.seen[id] = true;
+    tutorialForceTip(tip.title, tip.text);
+  }
+  function tutorialForceTip(title, text){
+    if(!tutorialActive() || !els.tutorialOverlay) return;
+    guidePause();
+    state.tutorialQueue = [];
+    els.tutorialTitle.textContent = title || '新手教程';
+    els.tutorialText.textContent = text || '';
+    els.tutorialOverlay.classList.add('show');
+    els.tutorialOverlay.setAttribute('aria-hidden','false');
+  }
+  function tutorialActive(){ return state.mode === 'tutorial'; }  function tutorialScript(){
+    if(!tutorialActive()) return null;
+    return TUTORIAL_SCRIPTS[state.day] || TUTORIAL_SCRIPTS[TUTORIAL_DAYS];
+  }
+  function guestByName(name){
+    const all = GUESTS.concat(ELITE_GUESTS, BOSS_GUESTS);
+    return all.find(g => g.name === name) || GUESTS[0];
+  }
+  function tutorialTip(id, title, text){
+    if(!tutorialActive()) return;
+    if(!state.tutorial) state.tutorial = { seen:{} };
+    if(!state.tutorial.seen) state.tutorial.seen = {};
+    if(!id || state.tutorial.seen[id]) return;
+    state.tutorial.seen[id] = true;
+    state.tutorialQueue = state.tutorialQueue || [];
+    state.tutorialQueue.push({ title: title || '新手教程', text: text || '' });
+    pumpTutorialTip();
+  }
+  function pumpTutorialTip(){
+    document.querySelectorAll('.guide-layer.pointer-only').forEach(el => el.remove());
+    if(!els.tutorialOverlay) return;
+    if(els.tutorialOverlay.classList.contains('show')) return;
+    const next = (state.tutorialQueue || []).shift();
+    if(!next) return;
+    if(!state.tutorial) state.tutorial = { seen:{} };
+    state.tutorial.shownTips = (state.tutorial.shownTips || 0) + 1;
+    const totalTips = state.tutorial.shownTips + (state.tutorialQueue || []).length;
+    if(els.tutorialStep){
+      els.tutorialStep.hidden = false;
+      els.tutorialStep.textContent = '新手第 ' + state.day + ' 天 · 第 ' + state.tutorial.shownTips + ' 条';
+    }
+    els.tutorialTitle.textContent = next.title;
+    els.tutorialText.innerHTML = next.text;
+    if(els.tutorialNext){
+      const left = (state.tutorialQueue || []).length;
+      els.tutorialNext.textContent = left > 0 ? '下一步（还有 ' + left + ' 条）' : '知道啦，开始做';
+    }
+    els.tutorialOverlay.classList.add('show');
+    els.tutorialOverlay.setAttribute('aria-hidden','false');
+  }
+  function closeTutorialTip(){
+    if(!els.tutorialOverlay) return;
+    els.tutorialOverlay.classList.remove('show');
+    els.tutorialOverlay.setAttribute('aria-hidden','true');
+    setTimeout(() => {
+      pumpTutorialTip();
+      setTimeout(() => { try { tutorialStagePointer(state.stage); } catch(e){} }, 700);
+    }, 160);
+  }
+
+  // 轻量「箭头指一下」：只出现光圈 + 箭头 + 一句提示，不挡住其它操作
+  const POINTER_HINTS = {};
+  function tutorialPointerHint(key, sel, text, extra){
+    if(!tutorialActive()) return;
+    state.tutorial = state.tutorial || { seen:{} };
+    state.tutorial.pointers = state.tutorial.pointers || {};
+    if(els.tutorialOverlay && els.tutorialOverlay.classList.contains('show')){
+      if(!extra || !extra._retry){ setTimeout(() => tutorialPointerHint(key, sel, text, Object.assign({}, extra || {}, { _retry:1 })), 500); }
+      return;
+    }
+    if(!extra || !extra.force){
+      if(state.tutorial.pointers[key]) return;
+      state.tutorial.pointers[key] = 1;
+    }
+    const target = typeof sel === 'string' ? document.querySelector(sel) : sel;
+    if(!target) return;
+    target.scrollIntoView({ block:'center', inline:'nearest' });
+    setTimeout(() => {
+      const r = target.getBoundingClientRect();
+      const rw = Math.min(window.innerWidth - 8, r.width + 22);
+      const rh = Math.min(window.innerHeight - 8, r.height + 22);
+      const rx = Math.min(Math.max(4, r.left + r.width / 2 - rw / 2), window.innerWidth - rw - 4);
+      const ry = Math.min(Math.max(4, r.top + r.height / 2 - rh / 2), window.innerHeight - rh - 4);
+      const layer = document.createElement('div');
+      layer.className = 'guide-layer pointer-only';
+      layer.innerHTML = `<div class="guide-ring" style="left:${rx}px;top:${ry}px;width:${rw}px;height:${rh}px"></div>
+        <div class="guide-arrow" style="left:${rx + rw / 2 - 17}px;top:${ry + rh + 4}px"><svg viewBox="0 0 34 40"><path d="M17 38 C17 26 17 16 17 6" /><path d="M8 15 L17 5 L26 15" /></svg></div>
+        <div class="guide-bubble" style="left:${bubbleLeft(rx, rw)}px;top:${Math.min(ry + rh + 52, window.innerHeight - 96)}px">${text}</div>`;
+      document.body.appendChild(layer);
+      const kill = () => { layer.remove(); };
+      setTimeout(kill, extra && extra.ms ? extra.ms : 9000);
+      const onDoc = e => { if(target.contains(e.target)) kill(); };
+      document.addEventListener('pointerdown', onDoc, true);
+      document.addEventListener('click', onDoc, true);
+      const tick = setInterval(() => { if(!document.body.contains(layer)){ clearInterval(tick); document.removeEventListener('pointerdown', onDoc, true); document.removeEventListener('click', onDoc, true); } }, 800);
+    }, 260);
+  }
+  function bubbleLeft(rx, rw){
+    const vw = window.innerWidth;
+    const left = rx + rw / 2 - 116;
+    return Math.min(Math.max(8, left), vw - 248);
+  }
+  function tutorialStagePointer(stage){
+    if(!tutorialActive()) return;
+    const day = state.day;
+    if(day === 3 && stage === 'restaurant'){
+      const accept = document.querySelector('#restaurantList [data-accept-guest], .rest-card [data-accept-guest]');
+      if(accept) tutorialPointerHint('d3-accept', accept, '点「接单」，让后来的客人先做——这就是插队', {});
+      else tutorialPointerHint('d3-tab', '#stageTabs [data-stage="restaurant"]', '去「餐厅」点「接单」，试试插队');
+    }
+    if(day === 4 && stage === 'work'){
+      const o = state.order || {};
+      const want = o.toppings || o.tops || [];
+      const have = (state.can && state.can.toppings) || {};
+      const miss = want.find(x => (have[x.id] || 0) < Number(x.qty || 0));
+      if(miss && TOPPINGS[miss.id]) tutorialPointerHint('d4-top', '[data-topping="' + miss.id + '"]', '订单要 <b>' + TOPPINGS[miss.id].name + ' ×' + (miss.qty || 1) + '</b>，点这个小料');
+    }
+    if(day === 1 && stage === 'kitchen'){
+      const need = Math.max(1, Math.min(3, Number(state.order && state.order.sugar) || 2));
+      tutorialPointerHint('d1-boil', '[data-pot-sugar="1"]', `按订单加 <b>${need} 勺</b>糖，再点「开火」熬到绿色区`);
+    }
+    if(day === 1 && stage === 'work'){
+      const c = state.can || {};
+      if(!(c.syrup > 0)) tutorialPointerHint('d1-pour', '#pourBtn', '按住这个按钮往罐里倒糖水，松手停');
+      else if(!c.stirred && (state.order && (state.order.syrups || []).length > 1)) tutorialPointerHint('d1-stir', '#stirBtn', '倒好了，点「搅拌一下」');
+    }
+    if(day === 3 && stage === 'desk'){
+      const jumped = !!(state.tutorial && state.tutorial.seen && state.tutorial.seen['d3-jumped']);
+      if(!jumped) tutorialPointerHint('d3-go', '#stageTabs [data-stage="restaurant"]', '先去「餐厅」，点后面那位客人的「接单」');
+      else tutorialPointerHint('d3-work', '#stageTabs [data-stage="work"]', '回「工作台」把插队这单做完');
+    }
+    if(day === 4 && stage === 'work') tutorialPointerHint('d4-jar', '#jarSwitchBtn', '点这里切换罐子，切到订单要的罐型');
+    if(day === 5 && stage === 'desk') tutorialPointerHint('d5-kitchen', '#stageTabs [data-stage="kitchen"]', '去「厨房」，用 3 口锅同时熬糖');
+    if(day === 6 && stage === 'desk') tutorialPointerHint('d6-kitchen', '#stageTabs [data-stage="kitchen"]', '去「厨房」，按订单比例调两种糖');
+    if(day === 6 && stage === 'work') tutorialPointerHint('d6-stir', '#stirBtn', '点「搅拌一下」，这单要「已搅拌」');
+  }
+  function applyTutorialDay(){
+    if(!tutorialActive()) return;
+    if(state.tutorialDayApplied === state.day) return;
+    state.tutorialDayApplied = state.day;
+    const sc = tutorialScript();
+    if(!sc) return;
+    if(typeof guideEnd === 'function') guideEnd();
+    state.upgrade.pots = sc.pots || 1;
+    state.upgrade.alarms = sc.alarms || 0;
+    state.upgrade.knives = [0,0,0];
+    state.tutorial = state.tutorial || { seen:{} };
+    state.tutorial.syrups = (sc.syrups || []).slice();
+    state.tutorial.toppings = (sc.toppings || []).slice();
+    state.tutorial.jars = (sc.jars || []).slice();
+    if(state.day >= 4){
+      state.tutorial.jars = ['narrow', 'wide'];
+      state.tutorial.toppings = Object.keys(TOPPINGS).filter(id => id !== 'none');
+      state.tutorial.syrups = ['honey', 'maple', 'honeysuckle'];
+    }
+    state.batches = [];
+    (sc.batches || []).forEach((b, i) => {
+      state.batches.push({
+        id: ++batchSeq, sugar: b.sugar || 2, quality: b.quality || 'perfect',
+        types: b.types || ['classic'], mix: b.mix || 50, used: 0, ratios: null
+      });
+    });
+    state.selectedBatch = null;
+    if(sc.prepPeaches){ state.bowl = { large:8, small:8 }; }
+    state.coins = state.tutorialCoins == null ? (sc.coins || 0) : state.tutorialCoins;
+    if(sc.coins != null) state.tutorialCoins = state.coins;
+  }
+  function tutorialAfterServe(){    if(!tutorialActive()) return;
+    const sc = tutorialScript();
+    if(!sc || !sc.serve) return;
+    const [key, text] = sc.serve;
+    setTimeout(() => tutorialTip(key, '点评一下', text), 900);
+  }
+
+  const MUSIC = {
+    title:'music/title.mp3',
+    desk:'music/desk.mp3',
+    work:'music/work.mp3',
+    summary:'music/summary.mp3'
+  };
+  const PATIENCE_MS = 220000;
+  const GUEST_COUNT = 3;
+  const POUR_RATE = 0.032;
+  const BOIL_MS = 14000;
+  const BOIL_MIN = 55;
+  const BOIL_MAX = 82;
+  const CUT_STOCK = 14;
+  const MAX_PIECES = 5;
+  const SYRUPS = {
+    classic:{name:'经典糖浆', short:'经典', color:'#F3BC45', grad:['#FFD76B','#F19A2D'], price:0, desc:'黄桃罐头的招牌糖水'},
+    honey:{name:'蜂蜜', short:'蜂蜜', color:'#E7A12B', grad:['#FFD36A','#D98812'], price:120, desc:'更浓更甜，带一点花香'},
+    maple:{name:'枫糖浆', short:'枫糖', color:'#A96532', grad:['#D79A5B','#8B4B23'], price:150, desc:'焦糖木香，和蜂蜜很搭'},
+    honeysuckle:{name:'金银花糖浆', short:'金银花', color:'#B7C95A', grad:['#E6F0A6','#93AA39'], price:160, desc:'清爽草本香，和蜂蜜很搭'},
+    death:{name:'死亡之糖', short:'死亡', color:'#7B5C8C', grad:['#C4A6D6','#4A2B57'], price:0, desc:'顾客吃下当场倒地，小费 ×5，但后面的客人会被吓跑'}
+  };
+  const SYRUP_IDS = ['classic','honey','maple','honeysuckle','death'];
+  const ALARM_PRICE = 35;
+  const SAVE_KEY = 'naiwa_v2_save';
+  const POT_PRICES = {1:28, 2:48, 3:75};
+  const KNIVES = {
+    wood:{name:'木柄刀', price:0, color:'#8A5A32'},
+    mint:{name:'薄荷刀', price:18, color:'#62B79A'},
+    sakura:{name:'樱花刀', price:35, color:'#E39AAE'},
+    gold:{name:'黄金刀', price:60, color:'#E8B53A'}
+  };
+  const SETTINGS_KEY = 'naiwa_settings_v1';
+  const DEFAULT_SETTINGS = {master:80, music:70, alarm:80, laugh:82};
+  let settings = {...DEFAULT_SETTINGS};
+  try{
+    const raw = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    ['master','music','alarm','laugh'].forEach(k => {
+      if(Number.isFinite(raw[k])) settings[k] = clamp(Math.round(raw[k]), 0, 100);
+    });
+  }catch(e){}
+  function saveSettings(){
+    try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }catch(e){}
+  }
+  function applyAudioVolumes(){
+    if(masterGain) masterGain.gain.value = state.sound ? settings.master / 100 * .7 : 0;
+    if(!bgmEl) bgmEl = els.bgm;
+    if(bgmEl) bgmEl.volume = state.sound ? settings.master / 100 * settings.music / 100 * .6 : 0;
+    if(alarmEl) alarmEl.volume = state.sound ? Math.min(.34, settings.master / 100 * settings.alarm / 100 * .22) : 0;
+    if(laughEl) laughEl.volume = state.sound ? Math.min(.9, settings.master / 100 * settings.laugh / 100 * .62) : 0;
+  }
+
+  /* -------------------- 玩家小家数据 -------------------- */
+  const PROFILE_KEY = 'naiwa_profiles_v1';
+  const ACTIVE_KEY = 'naiwa_active_v1';
+  const GIST_TOKEN_KEY = 'naiwa_gist_token';
+  const GIST_ID_KEY = 'naiwa_gist_id';
+  const GIST_FILE = 'naiwa-cloud-save.json';
+  const SB_URL_KEY = 'naiwa_sb_url';
+  const SB_KEY_KEY = 'naiwa_sb_key';
+  const SB_PIN_KEY = 'naiwa_sb_pin_v1';
+  const SB_SYNC_KEY = 'naiwa_sb_synced_at';
+  const SB_DEFAULT_URL = 'https://ckwfbkqnczlsvvrhhaqb.supabase.co';
+  const SB_DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrd2Zia3FuY3psc3Z2cmhoYXFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMzMjMyMjEsImV4cCI6MjEwODg5OTIyMX0.N1M4YxM6gmztjkFdhXViIYc7TMyLz9W1LzhXNgaYrBA';
+  const FURNITURE = {
+    rug:{name:'黄桃地毯', price:60, icon:'🟨', desc:'软乎乎，踩上去像踩在黄桃上'},
+    plant:{name:'薄荷盆栽', price:45, icon:'🌿', desc:'让小家闻起来清清凉凉'},
+    lamp:{name:'暖黄落地灯', price:90, icon:'💡', desc:'打烊后的温柔灯光'},
+    table:{name:'小木桌', price:80, icon:'🪵', desc:'放一罐刚封好的黄桃'},
+    shelf:{name:'罐头陈列架', price:120, icon:'🫙', desc:'把招牌罐头摆给客人看'},
+    pumpkin:{name:'南瓜灯', price:70, icon:'🎃', desc:'万圣节限定的小摆件'}
+  };
+  const FURN_POS = {
+    rug:{x:38,y:91}, plant:{x:26,y:74}, lamp:{x:69,y:58},
+    table:{x:32,y:78}, shelf:{x:66,y:33}, pumpkin:{x:58,y:73}
+  };
+  const CLOTHES = {
+    head:[
+      {id:'chef', name:'厨师帽', price:0, free:true, icon:'👨‍🍳'},
+      {id:'witch', name:'万圣尖帽', price:55, icon:'🧙'},
+      {id:'glasses', name:'圆框眼镜', price:35, icon:'👓'},
+      {id:'shades', name:'墨镜', price:45, icon:'🕶️'},
+      {id:'scholar', name:'校园鸭舌帽', price:50, icon:'🧢'}
+    ],
+    top:[
+      {id:'apron', name:'奶蛙围裙', price:0, free:true, icon:'🥼'},
+      {id:'hoodie', name:'黄桃卫衣', price:60, icon:'🧥'},
+      {id:'uniform', name:'校园制服', price:70, icon:'🎽'},
+      {id:'pumpkin', name:'南瓜毛衣', price:65, icon:'🎃'}
+    ]
+  };
+  const SKIN_VARIANTS = {
+    blob: [
+      {id:'xuexitong', name:'学习通奶蛙', price:1000, img:'assets/685b49d6371a.png'},
+      {id:'laozu', name:'奶蛙老祖', price:2000, img:'assets/9a3c6218416f.png'},
+      {id:'naifen', name:'奶粉', price:666, img:'assets/163f5ca94fe3.png'}
+    ]
+  };
+  function skinVariants(skinId){ return SKIN_VARIANTS[skinId] || []; }
+  function variantOwned(skinId, id){ return ((activeProfile.variants || {})[skinId] || []).includes(id); }
+  function variantEquipped(skinId){ return (activeProfile.equippedVariant || {})[skinId] || null; }
+  const SKIN_AREAS = {desk:'服务台', work:'工作台', kitchen:'厨房'};
+  const SKINS = {
+    desk:[
+      {id:'classic', name:'原木小店', price:0, free:true},
+      {id:'halloween', name:'万圣南瓜', price:80},
+      {id:'campus', name:'校园值日', price:80}
+    ],
+    work:[
+      {id:'classic', name:'原木工作台', price:0, free:true},
+      {id:'halloween', name:'南瓜工坊', price:80},
+      {id:'campus', name:'校园手工课', price:80}
+    ],
+    kitchen:[
+      {id:'classic', name:'原木厨房', price:0, free:true},
+      {id:'halloween', name:'女巫厨房', price:80},
+      {id:'campus', name:'校园食堂', price:80}
+    ]
+  };
+  const CHAR_SKIN_ASSETS = {
+    blob:'assets/3403fc929dad.png',
+    laugh:'assets/7732a17062ee.png',
+    laughAudio:'assets/0fd17697f96d.mp3'
+  };
+  const CHAR_SKIN_ART = {
+    blob: { img:'assets/3403fc929dad.png', laugh:'assets/7732a17062ee.png' },
+    xiaonaiwa: { img:'assets/991c1cdcfa47.png', laugh:'assets/07298110fe3a.png' },
+    naiba: { img:'assets/3565ae4f6f61.png', laugh:'assets/4e22fd18f055.png' },
+    naidan: { img:'assets/6f8f9c8df5f5.png', laugh:'assets/c699bbfe4257.png' }
+  };
+  function skinArt(id){ return CHAR_SKIN_ART[id] || null; }
+  const CHAR_SKINS = [
+    {id:'classic', name:'奶蛙 · 经典套装', free:true, desc:'原来的奶蛙，戴厨师帽、系小围裙'},
+    {id:'blob', name:'捧腹奶蛙 · 全套皮肤', free:true, desc:'整只换成捧腹奶蛙；每天结算时会捧腹大笑'},
+    {id:'xiaonaiwa', name:'小奶蛙 · 全套皮肤', price:1000, desc:'笑起来眯成一条缝的小奶蛙；结算会大笑'},
+    {id:'naiba', name:'奶霸 · 全套皮肤', price:2000, desc:'肌肉奶霸，结算会捧腹大笑'},
+    {id:'naidan', name:'奶蛋 · 全套皮肤', price:5000, desc:'圆滚滚的奶蛋，结算会笑到打滚'}
+  ];
+  const ROGUE_BASE_TARGET = 400;
+  // 肉鸽周目标成长：每周线性随机 +40%~+100%（400 → 560~800 → …），不再指数爆炸
+  function rogueGrowthTarget(prev){
+    const growth = .8 + Math.random() * .8;
+    return Math.round((Number(prev) || ROGUE_BASE_TARGET) * (1 + growth));
+  }
+  const ROGUE_TARGET = () => ROGUE_BASE_TARGET;
+  const SHRIMPS = [
+    {id:'goodReview',name:'好评价',rarity:'normal',desc:'客人评分 +4%（每级），上限 3 级',max:3,key:'score'},
+    {id:'mercy',name:'手下留情！',rarity:'normal',desc:'降分时少扣 5% 小费，上限 1 级',max:1,key:'mercy'},
+    {id:'fortune',name:'来财',rarity:'normal',desc:'小费 +7%（每级），上限 5 级',max:5,key:'tip'},
+    {id:'fireMaster',name:'火候控制师傅',rarity:'normal',desc:'熬糖完美区 +6.7%（每级），上限 3 级',max:3,key:'boil'},
+    {id:'overScore',name:'超满分！',rarity:'normal',desc:'满分线 +10（每级），上限 5 级',max:5,key:'max'},
+    {id:'moreComplex',name:'更复杂！',rarity:'normal',desc:'复杂订单率 +10%（每级），上限 2 级',max:2,key:'complex'},
+    {id:'lessComplex',name:'别复杂！',rarity:'normal',desc:'复杂订单率 -10%（每级），上限 2 级',max:2,key:'simple'},
+    {id:'caliper',name:'游标卡尺',rarity:'rare',desc:'加糖完美区 +6.7%（每级），上限 3 级',max:3,key:'sugarTol'},
+    {id:'labMaster',name:'实验室巨匠',rarity:'rare',desc:'高复杂订单额外金币 +30%（每级），上限 3 级',max:3,key:'lab'},
+    {id:'memberCard',name:'商店会员卡',rarity:'rare',desc:'所有商店 -25%，上限 1 级；不与白金叠加',max:1,key:'discount25'},
+    {id:'influencer',name:'网红门店',rarity:'rare',desc:'每天多 1 名客人（每级），上限 3 级',max:3,key:'guests'},
+    {id:'alarmPtsd',name:'闹钟PSTD',rarity:'rare',desc:'闹钟响时 33% 自动捞出完美糖，上限 1 级',max:1,key:'alarmAuto'},
+    {id:'luckyHorseshoe',name:'金马掌',rarity:'legend',desc:'幸运事件概率 +25%，上限 1 级',max:1,key:'luck'},
+    {id:'goldJar',name:'大金罐',rarity:'legend',desc:'多出金罐：订单点名要大金罐时，罐型与罐子都能对上，小费 +20%（不再通用其他罐子）',max:1,key:'goldJar'},
+    {id:'slowClock',name:'缓慢时钟',rarity:'legend',desc:'所有客人耐心 +1 分钟',max:1,key:'patience'},
+    {id:'platinumCard',name:'白金会员卡',rarity:'legend',desc:'所有商店 -50%，上限 1 级；不与会员卡叠加',max:1,key:'discount50'},
+    {id:'bigPot',name:'大糖锅',rarity:'curse',desc:'一次熬糖产 3 份；33% 概率全是过/生糖',max:1,key:'triple'},
+    {id:'bloodCross',name:'血色十字架',rarity:'curse',desc:'每周事件日 +1 天；但 33% 为霉运事件',max:1,key:'badLuck'},
+    {id:'redEye',name:'红眼',rarity:'curse',desc:'精英/BOSS 金币 ×5，但要求 +75%',max:1,key:'redEye'},
+    {id:'challenger',name:'挑战者',rarity:'curse',desc:'金币 +33%，但精英日 +1',max:1,key:'challenger'},
+    {id:'plusScore',name:'PLUS！',rarity:'curse',desc:'满分 +100；≤70% 时扣更多小费',max:1,key:'plus'},
+    {id:'scoutSpot',name:'探店圣地',rarity:'normal',desc:'每周 10% 概率多出一天精英日，上限 2 级',max:2,key:'scout'},
+    {id:'rateSurge',name:'汇率暴涨',rarity:'normal',desc:'顾客按评分给的小费 +5%（每级），上限 10 级',max:10,key:'rate'},
+    {id:'boilSpeed',name:'狂暴模式熬糖锅',rarity:'rare',desc:'熬糖速度加快 5%（每级），上限 3 级',max:3,key:'boilSpeed'},
+    {id:'plating',name:'摆盘高手',rarity:'rare',desc:'小料评分权重 +3%（每级），上限 3 级',max:3,key:'plating'},
+    {id:'highScore',name:'高分选手！',rarity:'rare',desc:'顾客评分上限 +5 分（每级，可叠加），上限 4 级',max:4,key:'highScore'},
+    {id:'pleaser',name:'讨好型人格',rarity:'legend',desc:'负面性格影响的扣分降低 10%，上限 1 级',max:1,key:'pleaser'},
+    {id:'autoBoil',name:'自动熬糖机',rarity:'legend',desc:'接单时 33% 概率自动熬好所需糖浆，上限 1 级',max:1,key:'autoBoil'},
+    {id:'deathSugar',name:'死亡之糖',rarity:'curse',desc:'解锁专属糖浆「死亡之糖」：顾客食用即死，小费 ×5，但会吓跑后面的客人',max:1,key:'deathSugar'}
+  ];
+  const ROGUE_RARITY = {
+    normal:{name:'普通',color:'#B9B2A7',rate:53.33},
+    rare:{name:'稀有',color:'#4D8FD6',rate:16.70},
+    legend:{name:'传奇',color:'#D8A62A',rate:4.90},
+    curse:{name:'诅咒',color:'#C8433B',rate:10.00}
+  };
+  const ROGUE_ITEMS = [
+    {id:'doubao',name:'帮手豆包',price:1000,max:1,permanent:true,desc:'糖到完美时自动收获，并站在服务台'},
+    {id:'reroll',name:'再来一份！',price:100,max:9,desc:'刷新精英/BOSS日的辣虾选择'},
+    {id:'cashback',name:'好评返现福利',price:50,max:3,desc:'客人至少得到 80 分（消耗）'},
+    {id:'goldPot',name:'黄金锅',price:250,max:4,desc:'一次熬糖产出 2 份，可叠加 4 个'},
+    {id:'personality',name:'性格改造器',price:100,max:2,desc:'把客人性格改成随机（消耗）'},
+    {id:'sugarOwl',name:'糖枭',price:300,max:1,permanent:true,desc:'仅今天：所有小料、糖浆、罐子解锁（打烊后消耗）'},
+    {id:'wolfClub',name:'狼牙棒',price:200,max:1,desc:'把一位负面性格的客人变成「大方」（消耗品，一局一个）'},
+    {id:'pourGuard',name:'糖浆隔断板',price:1000,max:1,permanent:true,desc:'倒糖水不会再超出完美区间上限，全局有效'},
+    {id:'eventCalendar',name:'事件日历',price:180,max:1,permanent:true,desc:'每周随机事件日 +1 天（最多 3 天）'}
+  ];
+  const ROGUE_EVENTS = [
+    {id:'eager',name:'急切的客人',type:'bad',desc:'所有客人耐心 -50%'},
+    {id:'picky',name:'小心眼',type:'bad',desc:'50% 概率只给 60 分以下'},
+    {id:'thief',name:'偷订单的贼',type:'bad',desc:'提交订单 50% 失败，需要重做'},
+    {id:'naishu',name:'奶鼠来袭',type:'bad',desc:'奶鼠作为 BOSS 登场，会偷小费'},
+    {id:'goldRush',name:'淘金热',type:'good',desc:'所有小费 ×3'},
+    {id:'calm',name:'平静的客人',type:'good',desc:'所有客人耐心 +50%'},
+    {id:'harmony',name:'世纪大和解',type:'good',desc:'所有客人变为大方'}
+  ];
+  const NAISHU_GUEST = {name:'奶鼠',kind:'naishu',tier:'boss',badge:'BOSS',personality:'petty',patience:.8,coin:3,tolDelta:-1,happy:'嘿嘿，小费我就收下啦～'};
+  function defaultProfile(name){
+    return {
+      name:name || '奶蛙店长', wallet:200, bestNormal:0, bestEndless:0, bestEndlessCoins:0,
+      bestRogue:0, bestRogueCoins:0, totalRuns:0,
+      ownedFurniture:[], placedFurniture:[], furniturePositions:{},
+      clothes:{head:['chef'], top:['apron']},
+    variants:{},
+    equippedVariant:{},
+      equipped:{head:'chef', top:'apron'},
+      skins:{desk:['classic'], work:['classic'], kitchen:['classic']},
+      equippedSkins:{desk:'classic', work:'classic', kitchen:'classic'},
+      charSkin:'classic',
+      unlocks:{toppings:[], jars:[]},
+      upgrades:{pots:1, alarms:0, knife:'wood', knives:['wood']},
+      syrups:{honey:false, maple:false, honeysuckle:false},
+      seen:{elite:[], boss:[]},
+      rogueUnlocked:false,
+      roguePlayed:false,
+      run:null,
+      lastRun:null
+    };
+  }
+  let profiles = {};
+  let activeProfile = null;
+  let cloudSuppress = false;
+  let cloudTimer = null;
+
+  let audioCtx = null, masterGain = null;
+  let batchSeq = 0;
+  const DEV_MODE_KEY = 'naiwa_dev_mode';
+  function loadDevMode(){
+    try { return localStorage.getItem(DEV_MODE_KEY) === '1'; } catch(e){ return false; }
+  }
+  function coinText(){
+    if(state.devMode) return '∞';
+    if(state.mode === 'rogue' && state.rogue) return String(state.rogue.coins);
+    if(state.mode === 'tutorial') return String(state.tutorialCoins || 0);
+    return String(activeProfile ? activeProfile.wallet : state.coins);
+  }
+  function canAfford(n){
+    if(state.devMode) return true;
+    if(state.mode === 'rogue' && state.rogue) return state.rogue.coins >= n;
+    if(state.mode === 'tutorial') return (state.tutorialCoins || 0) >= n;
+    return !!(activeProfile && activeProfile.wallet >= n);
+  }
+
+  function emptyCan(){
+    return {size:null, jar:'classic', pieces:[], syrup:0, components:{classic:0,honey:0,maple:0,honeysuckle:0}, pourLog:[], stirred:false, temp:null, toppings:[], toppingTouched:false, sealed:false, batchIds:[]};
+  }
+  function makePots(){
+    return Array.from({length:20}, (_,i) => ({id:i, sugar:0, types:['classic'], mix:50, progress:0, status:'idle', quality:null, startedAt:0, alarm:false, alarmFired:false}));
+  }
+
+  const state = {
+    phase:'intro', stage:'desk', day:1, coins:0, best:0,
+    mode:'normal', introMode:'normal', runEarned:0, week:1, weekEarned:0, weekTarget:weekTargetFor(1),
+    summaryKind:'day', bestNormal:0, bestEndless:0,
+    dayCoins:0, dayStars:0, guestIndex:0, guest:null, personality:null, order:null, todayGuests:[],
+    dayGuests:[], orders:[], activeOrderId:null, orderSeq:0, queueInfo:null, rackOrderId:null,
+    can:emptyCan(), bowl:{large:0,small:0}, stock:Infinity,
+    pots:makePots(), batches:[], selectedBatch:null,
+    upgrade:{pots:1, alarms:0, knife:'wood', knives:['wood']},
+    reviews:[], patience:1, patienceMs:PATIENCE_MS, deadline:0, pouring:false,
+    sound:true, lastPourSfx:0, speechTimer:null, toastTimer:null, scoreResult:null,
+    metaAwarded:false, homeTab:'room', skinPreview:{area:'desk', id:'classic'}, shopTab:'run', shopSkinTab:'full',
+    devMode:loadDevMode(),
+    rogue:null
+  };
+  let bgmEl = null, bgmKey = null, bgmToken = 0, musicWanted = false, alarmEl = null, bgmRetryTimer = 0, laughEl = null;
+
+  /* -------------------- 音效 -------------------- */
+  function ensureAudio(){
+    try{
+      if(!audioCtx){
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if(!AC) return;
+        audioCtx = new AC();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = state.sound ? settings.master / 100 * .7 : 0;
+        masterGain.connect(audioCtx.destination);
+      }
+      if(audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+    }catch(e){ audioCtx = null; }
+  }
+  function playAlarm(){
+    if(!state.sound) return;
+    try{
+      if(!alarmEl){
+        alarmEl = new Audio('music/alarm.mp3');
+        alarmEl.preload = 'auto';
+      }
+      alarmEl.volume = state.sound ? Math.min(.34, settings.master / 100 * settings.alarm / 100 * .22) : 0;
+      alarmEl.currentTime = 0;
+      const p = alarmEl.play();
+      if(p && p.catch) p.catch(()=>{});
+    }catch(e){}
+  }
+  const SFX_BOOST = 1.55;
+  function tone(freq, dur=.08, type='sine', vol=.05, delay=0, endFreq=null){
+    if(!audioCtx || !state.sound) return;
+    try{
+      const t = audioCtx.currentTime + delay;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t);
+      if(endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, t + dur);
+      gain.gain.setValueAtTime(.0001, t);
+      gain.gain.exponentialRampToValueAtTime(Math.min(.9, vol * SFX_BOOST), t + .012);
+      gain.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      osc.connect(gain); gain.connect(masterGain);
+      osc.start(t); osc.stop(t + dur + .03);
+    }catch(e){}
+  }
+  const sfx = {
+    tap(){ tone(520,.045,'triangle',.035); },
+    add(){ tone(330,.07,'sine',.06,0,520); tone(680,.06,'sine',.03,.055); },
+    remove(){ tone(320,.07,'sine',.035,0,220); },
+    chop(){ tone(240,.035,'square',.025,0,160); tone(620,.05,'triangle',.035,.035); },
+    pour(){ tone(210 + Math.random()*70,.055,'sine',.022); },
+    ding(){ tone(880,.1,'sine',.045); tone(1174,.13,'sine',.035,.08); },
+    alarm(){ playAlarm(); },
+    error(){ tone(170,.12,'square',.025,0,140); },
+    seal(){ tone(160,.1,'square',.025); tone(360,.1,'triangle',.045,.08); tone(740,.1,'sine',.028,.15); },
+    serve(){ tone(523,.12,'triangle',.05); tone(659,.12,'triangle',.045,.1); tone(784,.18,'triangle',.04,.2); },
+    star(){ tone(660,.08,'sine',.04); tone(880,.09,'sine',.04,.09); tone(1100,.14,'sine',.035,.18); },
+    coin(){ tone(920,.07,'triangle',.04); tone(1240,.1,'triangle',.035,.07); },
+    sad(){ tone(330,.16,'triangle',.035,0,247); tone(220,.22,'triangle',.03,.15,196); },
+    guest(){ tone(660,.12,'sine',.035); tone(990,.16,'sine',.03,.13); }
+  };
+  function buzz(ms){ try{ if(navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) navigator.vibrate(ms); }catch(e){} }
+
+  /* -------------------- 背景音乐 -------------------- */
+  function musicKeyFor(){
+    if(state.phase === 'intro') return 'title';
+    if(state.phase === 'playing') return (state.stage === 'desk' || state.stage === 'restaurant') ? 'desk' : 'work';
+    return 'summary';
+  }
+  let bgmUnlocked = false, bgmTries = 0, bgmWantedKey = null;
+  function bgmRetry(delay=1200){
+    clearTimeout(bgmRetryTimer);
+    bgmRetryTimer = setTimeout(() => {
+      bgmRetryTimer = 0;
+      if(!bgmEl || !state.sound || document.hidden) return;
+      if(bgmEl.paused) tryBgmPlay();
+    }, delay);
+  }
+  function bgmWatch(reason){
+    if(!bgmEl) bgmEl = els.bgm;
+    if(!bgmEl) return;
+    const key = musicKeyFor();
+    bgmWantedKey = key;
+    if(!state.sound){ try{ bgmEl.pause(); }catch(e){} return; }
+    if(bgmKey !== key || !bgmEl.getAttribute('src') || !bgmEl.currentSrc){
+      bgmKey = key;
+      ++bgmToken;
+      try{
+        bgmEl.pause();
+        bgmEl.loop = true;
+        bgmEl.src = MUSIC[key];
+        bgmEl.load();
+        applyAudioVolumes();
+      }catch(e){}
+    }
+    tryBgmPlay();
+  }
+  function tryBgmPlay(){
+    if(!bgmEl || !state.sound || document.hidden) return;
+    if(!bgmEl.paused) { bgmTries = 0; return; }
+    const p = bgmEl.play();
+    if(!p) return;
+    if(p.then){
+      p.then(() => { bgmTries = 0; }).catch(() => {
+        bgmTries = Math.min(bgmTries + 1, 8);
+        if(bgmTries <= 6){
+          bgmRetry(Math.min(600 * bgmTries, 4000));
+        }
+      });
+    }
+  }
+  function unlockBgm(){
+    if(!bgmEl) bgmEl = els.bgm;
+    if(!bgmEl) return;
+    if(bgmUnlocked) return;
+    bgmUnlocked = true;
+    try{
+      const wasMuted = bgmEl.muted;
+      bgmEl.muted = true;
+      if(!bgmEl.getAttribute('src')) bgmWatch('unlock');
+      const p = bgmEl.play();
+      const fin = () => {
+        try{ bgmEl.pause(); bgmEl.currentTime = 0; }catch(e){}
+        bgmEl.muted = wasMuted;
+        applyAudioVolumes();
+        bgmTries = 0;
+        bgmWatch('unlocked');
+      };
+      if(p && p.then) p.then(fin).catch(fin); else fin();
+    }catch(e){}
+  }
+  function playBgm(key){
+    if(!bgmEl) bgmEl = els.bgm;
+    if(!bgmEl) return;
+    if(!state.sound){ try{ bgmEl.pause(); }catch(e){} return; }
+    if(bgmKey === key && bgmEl.currentSrc && !bgmEl.paused) return;
+    bgmKey = key;
+    bgmWantedKey = key;
+    ++bgmToken;
+    try{
+      bgmEl.loop = true;
+      if(bgmEl.getAttribute('src') !== MUSIC[key] || !bgmEl.currentSrc){
+        bgmEl.pause();
+        bgmEl.src = MUSIC[key];
+        bgmEl.load();
+      }
+      applyAudioVolumes();
+      tryBgmPlay();
+    }catch(e){ bgmRetry(1600); }
+  }
+  function cueMusic(){
+    playBgm(musicKeyFor());
+  }
+  function setupBgmResilience(){
+    if(!bgmEl) bgmEl = els.bgm;
+    if(!bgmEl || bgmEl.dataset.resilient === '1') return;
+    bgmEl.dataset.resilient = '1';
+    bgmEl.addEventListener('ended', () => { if(state.sound) playBgm(bgmKey || musicKeyFor()); });
+    bgmEl.addEventListener('error', () => bgmRetry(1200));
+    bgmEl.addEventListener('stalled', () => bgmRetry(1500));
+    bgmEl.addEventListener('suspend', () => { if(state.sound && !bgmEl.paused && !document.hidden) bgmRetry(2500); });
+    const kick = () => {
+      try{ ensureAudio(); }catch(e){}
+      unlockBgm();
+      if(!state.sound) return;
+      bgmWatch('gesture');
+    };
+    ['pointerdown','touchstart','touchend','mousedown','keydown','click','scroll'].forEach(evt => {
+      document.addEventListener(evt, kick, { passive: true, capture: true });
+    });
+    document.addEventListener('visibilitychange', () => {
+      if(document.hidden) return;
+      unlockBgm();
+      bgmWatch('visible');
+    });
+    window.addEventListener('pageshow', () => bgmWatch('pageshow'));
+    window.addEventListener('focus', () => bgmWatch('focus'));
+    window.addEventListener('online', () => bgmWatch('online'));
+    setInterval(() => {
+      if(!state.sound || document.hidden || !bgmEl) return;
+      const wanted = musicKeyFor();
+      if(wanted !== bgmKey){ bgmWatch('sync'); return; }
+      if(bgmEl.paused){
+        bgmWatch('watchdog');
+      }else if(bgmEl.ended){
+        playBgm(wanted);
+      }
+    }, 2000);
+  }
+
+  /* -------------------- 存档 -------------------- */
+  function loadSave(){
+    try{
+      const raw = localStorage.getItem(SAVE_KEY);
+      if(!raw) return;
+      const s = JSON.parse(raw);
+      if(Number.isFinite(s.bestNormal)) state.bestNormal = Math.max(0, s.bestNormal);
+      if(Number.isFinite(s.bestEndless)) state.bestEndless = Math.max(0, s.bestEndless);
+      if(Number.isFinite(s.coins)) state.coins = Math.max(0, s.coins);
+      if(Number.isFinite(s.best)) state.best = Math.max(0, s.best);
+      if(s.upgrade){
+        if(Number.isFinite(s.upgrade.pots)) state.upgrade.pots = clamp(s.upgrade.pots, 1, 4);
+        if(typeof s.upgrade.alarm === 'boolean') state.upgrade.alarm = s.upgrade.alarm;
+        if(s.upgrade.knife && KNIVES[s.upgrade.knife]) state.upgrade.knife = s.upgrade.knife;
+        if(Array.isArray(s.upgrade.knives)){
+          state.upgrade.knives = ['wood'].concat(s.upgrade.knives.filter(k => k !== 'wood' && KNIVES[k]));
+        }
+      }
+    }catch(e){}
+  }
+  function saveGame(){
+    try{
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        coins:state.coins, best:state.best, bestNormal:state.bestNormal, bestEndless:state.bestEndless,
+        upgrade:state.upgrade
+      }));
+    }catch(e){}
+  }
+
+  /* -------------------- 玩家档 / 小家 / 排行榜 -------------------- */
+  function normalizeProfile(p){
+    const d = defaultProfile(p.name);
+    p.wallet = Number.isFinite(p.wallet) ? Math.max(0, p.wallet) : d.wallet;
+    p.bestNormal = Number.isFinite(p.bestNormal) ? Math.max(0, p.bestNormal) : 0;
+    p.bestEndless = Number.isFinite(p.bestEndless) ? Math.max(0, p.bestEndless) : 0;
+    p.bestEndlessCoins = Number.isFinite(p.bestEndlessCoins) ? Math.max(0, p.bestEndlessCoins) : 0;
+    p.bestRogue = Number.isFinite(p.bestRogue) ? Math.max(0, p.bestRogue) : 0;
+    p.bestRogueCoins = Number.isFinite(p.bestRogueCoins) ? Math.max(0, p.bestRogueCoins) : 0;
+    p.totalRuns = Number.isFinite(p.totalRuns) ? p.totalRuns : 0;
+    p.ownedFurniture = Array.isArray(p.ownedFurniture) ? p.ownedFurniture.filter(id => FURNITURE[id]) : [];
+    p.placedFurniture = Array.isArray(p.placedFurniture) ? p.placedFurniture.filter(id => p.ownedFurniture.includes(id)).slice(0,4) : [];
+    p.furniturePositions = p.furniturePositions && typeof p.furniturePositions === 'object' ? p.furniturePositions : {};
+    const legacyPos = {rug:{x:50,y:86}, plant:{x:13,y:72}, lamp:{x:87,y:56}, table:{x:27,y:76}, shelf:{x:82,y:31}, pumpkin:{x:58,y:71}};
+    p.placedFurniture.forEach((id,i) => {
+      const pos = p.furniturePositions[id];
+      if(!pos || !Number.isFinite(pos.x) || !Number.isFinite(pos.y)) p.furniturePositions[id] = FURN_POS[id] || {x:22+i*18,y:70};
+      else if(legacyPos[id] && Math.abs(pos.x-legacyPos[id].x) < 1 && Math.abs(pos.y-legacyPos[id].y) < 1) p.furniturePositions[id] = FURN_POS[id];
+    });
+    p.clothes = p.clothes && typeof p.clothes === 'object' ? p.clothes : {};
+    p.variants = (p.variants && typeof p.variants === 'object') ? p.variants : {};
+    p.equippedVariant = (p.equippedVariant && typeof p.equippedVariant === 'object') ? p.equippedVariant : {};
+    p.clothes.head = Array.isArray(p.clothes.head) ? p.clothes.head.filter(id => CLOTHES.head.some(c => c.id === id)) : [];
+    p.clothes.top = Array.isArray(p.clothes.top) ? p.clothes.top.filter(id => CLOTHES.top.some(c => c.id === id)) : [];
+    ['chef'].forEach(id => { if(!p.clothes.head.includes(id)) p.clothes.head.push(id); });
+    ['apron'].forEach(id => { if(!p.clothes.top.includes(id)) p.clothes.top.push(id); });
+    p.equipped = p.equipped && typeof p.equipped === 'object' ? p.equipped : {};
+    if(!p.clothes.head.includes(p.equipped.head)) p.equipped.head = 'chef';
+    if(!p.clothes.top.includes(p.equipped.top)) p.equipped.top = 'apron';
+    p.skins = p.skins && typeof p.skins === 'object' ? p.skins : {};
+    p.equippedSkins = p.equippedSkins && typeof p.equippedSkins === 'object' ? p.equippedSkins : {};
+    Object.keys(SKINS).forEach(area => {
+      const owned = Array.isArray(p.skins[area]) ? p.skins[area] : [];
+      p.skins[area] = Array.from(new Set(['classic'].concat(owned.filter(id => SKINS[area].some(s => s.id === id)))));
+      if(!p.skins[area].includes(p.equippedSkins[area])) p.equippedSkins[area] = 'classic';
+    });
+    p.charSkin = CHAR_SKINS.some(s => s.id === p.charSkin) ? p.charSkin : 'classic';
+    p.unlocks = p.unlocks && typeof p.unlocks === 'object' ? p.unlocks : {};
+    p.unlocks.toppings = Array.isArray(p.unlocks.toppings)
+      ? Array.from(new Set(p.unlocks.toppings.filter(id => EXPANSION.topping.some(x => x.id === id))))
+      : [];
+    p.unlocks.jars = Array.isArray(p.unlocks.jars)
+      ? Array.from(new Set(p.unlocks.jars.filter(id => EXPANSION.jar.some(x => x.id === id))))
+      : [];
+    p.upgrades = p.upgrades && typeof p.upgrades === 'object' ? p.upgrades : {};
+    p.upgrades.pots = clamp(Math.round(Number(p.upgrades.pots) || 1), 1, 4);
+    p.upgrades.alarms = clamp(Math.round(Number(p.upgrades.alarms) || 0), 0, 4);
+    p.upgrades.knives = Array.isArray(p.upgrades.knives)
+      ? Array.from(new Set(['wood'].concat(p.upgrades.knives.filter(k => KNIVES[k] && k !== 'wood'))))
+      : ['wood'];
+    if(!KNIVES[p.upgrades.knife]) p.upgrades.knife = 'wood';
+    p.syrups = p.syrups && typeof p.syrups === 'object' ? p.syrups : {};
+    p.syrups.honey = !!p.syrups.honey;
+    p.syrups.maple = !!p.syrups.maple;
+    p.syrups.honeysuckle = !!p.syrups.honeysuckle;
+    p.seen = p.seen && typeof p.seen === 'object' ? p.seen : {};
+    p.seen.elite = Array.isArray(p.seen.elite) ? Array.from(new Set(p.seen.elite.filter(n => typeof n === 'string'))) : [];
+    p.seen.boss = Array.isArray(p.seen.boss) ? Array.from(new Set(p.seen.boss.filter(n => typeof n === 'string'))) : [];
+    p.rogueUnlocked = !!p.rogueUnlocked;
+    p.roguePlayed = !!p.roguePlayed;
+    p.run = (p.run && typeof p.run === 'object' && (p.run.mode === 'normal' || p.run.mode === 'endless' || p.run.mode === 'rogue') && Number(p.run.day) >= 1)
+      ? p.run : null;
+    return p;
+  }
+  function rogueActive(){ return state.mode === 'rogue' && !!state.rogue; }
+  function rogueHas(id){ return !!(state.rogue && state.rogue.items && state.rogue.items[id] > 0); }
+  function shrimpLevel(id){
+    return state.rogue ? state.rogue.shrimp.filter(x => x === id).length : 0;
+  }
+  function rogueOwlToday(){ return rogueActive() && rogueHas('sugarOwl') && Number(state.rogue.owlDay) === Number(state.day); }
+  function availableSyrups(){
+    if(state.mode === 'custom') return SYRUP_IDS.slice().filter(id => id !== 'death');
+    if(tutorialActive()) return Array.from(new Set(['classic'].concat((state.tutorial && state.tutorial.syrups) || [])));
+    if(rogueActive()) return Array.from(new Set(['classic'].concat(SYRUP_IDS.filter(id => {
+      if(id === 'classic') return false;
+      if(id === 'death') return shrimpLevel('deathSugar') > 0;
+      return (state.rogue.syrups || []).includes(id) || rogueOwlToday();
+    }))));
+    const owned = activeProfile && activeProfile.syrups ? activeProfile.syrups : {};
+    return ['classic'].concat(['honey','maple','honeysuckle'].filter(id => owned[id]));
+  }
+  function unlockedToppings(){
+    if(state.mode === 'custom') return Array.from(new Set(BASE_TOPPINGS.concat(EXPANSION.topping.map(x => x.id))));
+    if(tutorialActive()) return Array.from(new Set(BASE_TOPPINGS.concat((state.tutorial && state.tutorial.toppings) || [])));
+    if(rogueActive()){
+      const extra = rogueOwlToday() ? EXPANSION.topping.map(x => x.id) : state.rogue.toppings;
+      return BASE_TOPPINGS.concat(extra);
+    }
+    const extra = activeProfile && activeProfile.unlocks ? activeProfile.unlocks.toppings : [];
+    return BASE_TOPPINGS.concat(extra);
+  }
+  function unlockedJars(){
+    if(state.mode === 'custom') return ['classic','narrow','wide'];
+    if(tutorialActive()) return ['classic'].concat((state.tutorial && state.tutorial.jars) || []);
+    if(rogueActive()){
+      const extra = rogueOwlToday() ? EXPANSION.jar.map(x => x.id) : state.rogue.jars;
+      const jars = ['classic'].concat(extra);
+      if(shrimpLevel('goldJar')) jars.push('gold');
+      return Array.from(new Set(jars));
+    }
+    const extra = activeProfile && activeProfile.unlocks ? activeProfile.unlocks.jars : [];
+    return ['classic'].concat(extra);
+  }
+  function loadProfiles(){
+    try{
+      const raw = localStorage.getItem(PROFILE_KEY);
+      profiles = raw ? JSON.parse(raw) : {};
+      if(!profiles || typeof profiles !== 'object') profiles = {};
+    }catch(e){ profiles = {}; }
+    let activeName = '';
+    try{ activeName = localStorage.getItem(ACTIVE_KEY) || ''; }catch(e){}
+    if(!profiles[activeName]){
+      activeName = activeName || '奶蛙店长';
+      profiles[activeName] = defaultProfile(activeName);
+    }
+    Object.keys(profiles).forEach(name => {
+      profiles[name].name = name;
+      normalizeProfile(profiles[name]);
+    });
+    activeProfile = profiles[activeName];
+    syncProfile();
+    saveProfiles();
+  }
+  function saveProfiles(){
+    try{
+      localStorage.setItem(PROFILE_KEY, JSON.stringify(profiles));
+      if(activeProfile) localStorage.setItem(ACTIVE_KEY, activeProfile.name);
+    }catch(e){}
+    if(!cloudSuppress) scheduleCloudSync();
+  }
+  function syncProfile(){
+    if(!activeProfile) return;
+    state.bestNormal = activeProfile.bestNormal || 0;
+    state.bestEndless = activeProfile.bestEndless || 0;
+    if(rogueActive()){
+      // 肉鸽进行中：金币与升级都跟着本局走，不能被账号存档覆盖
+      state.coins = state.rogue.coins || 0;
+      state.upgrade = state.rogue.upgrades || state.upgrade;
+    }else if(tutorialActive()){
+      // 新手模式：金币和厨房配置是教学脚本给的，不跟账号存档混
+      state.coins = Number(state.tutorialCoins) || 0;
+    }else{
+      state.coins = activeProfile.wallet || 0;
+      if(activeProfile.upgrades) state.upgrade = activeProfile.upgrades;
+    }
+    if(els.coins) els.coins.textContent = coinText();
+    if(els.homeCoins) els.homeCoins.textContent = coinText();
+    if(els.shopCoins) els.shopCoins.textContent = coinText();
+    if(els.dressCoins) els.dressCoins.textContent = `${coinText()} 金币`;
+  }
+  function playerNameSafe(name){
+    return String(name || '').trim().replace(/\s+/g, ' ').slice(0, 10);
+  }
+  function switchProfile(name){
+    name = playerNameSafe(name) || '奶蛙店长';
+    if(!profiles[name]) profiles[name] = defaultProfile(name);
+    activeProfile = normalizeProfile(profiles[name]);
+    activeProfile.name = name;
+    saveProfiles();
+    syncProfile();
+    renderPlayerBar();
+    setIntroMode(state.introMode || 'normal');
+    renderResumeUI();
+    renderHome();
+    return name;
+  }
+  function savePlayerName(){
+    if(state.phase !== 'intro'){ toast('营业中不能换店长哦'); return; }
+    const name = switchProfile(els.playerName.value);
+    sfx.ding();
+    flashButton(els.savePlayerBtn, 'is-done');
+    toast(`已保存店长「${name}」· 数据在本机存档`);
+    if(sbPinRemembered()) autoCloudSave();
+  }
+  function renderPlayerBar(){
+    if(!els.playerName || !activeProfile) return;
+    if(document.activeElement !== els.playerName) els.playerName.value = activeProfile.name;
+    if(els.homeOwner) els.homeOwner.textContent = `店长：${activeProfile.name}`;
+    renderPlayerMenu();
+  }
+  function renderPlayerMenu(){
+    if(!els.playerMenu) return;
+    const names = Object.keys(profiles).filter(Boolean);
+    names.sort((a,b) => (a === activeProfile.name ? -1 : b === activeProfile.name ? 1 : a.localeCompare(b, 'zh-CN')));
+    els.playerMenu.innerHTML = names.length
+      ? names.map(name => `<button class="player-menu-item${name === activeProfile.name ? ' active' : ''}" type="button" data-player-name="${esc(name)}"><span>${esc(name)}</span>${name === activeProfile.name ? '<small>当前</small>' : ''}</button>`).join('')
+      : '<div class="player-menu-empty">还没有其他店长存档</div>';
+  }
+
+  /* -------------------- 存档 / GitHub 云同步 -------------------- */
+  function cloudPayload(){
+    return {
+      app: 'naiwa-peach-shop',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      active: activeProfile ? activeProfile.name : '',
+      profiles
+    };
+  }
+  function encodeSaveCode(){
+    const bytes = new TextEncoder().encode(JSON.stringify(cloudPayload()));
+    let bin = '';
+    bytes.forEach(b => { bin += String.fromCharCode(b); });
+    return 'NAIWA1:' + btoa(bin);
+  }
+  function decodeSaveCode(code){
+    code = String(code || '').trim();
+    if(code.startsWith('NAIWA1:')) code = code.slice(7);
+    const bin = atob(code.replace(/\s+/g, ''));
+    const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+    const data = JSON.parse(new TextDecoder().decode(bytes));
+    if(!data || typeof data.profiles !== 'object' || !data.profiles) throw new Error('存档码格式不正确');
+    return data;
+  }
+  function importCloudPayload(data){
+    const names = Object.keys(data.profiles);
+    if(!names.length) throw new Error('存档里没有店长数据');
+    cloudSuppress = true;
+    try{
+      names.forEach(name => {
+        const p = data.profiles[name];
+        if(!p || typeof p !== 'object') return;
+        p.name = name;
+        profiles[name] = normalizeProfile(p);
+      });
+      const wanted = data.active && profiles[data.active] ? data.active : names[0];
+      activeProfile = profiles[wanted];
+      localStorage.setItem(PROFILE_KEY, JSON.stringify(profiles));
+      localStorage.setItem(ACTIVE_KEY, activeProfile.name);
+      syncProfile();
+    } finally { cloudSuppress = false; }
+    renderPlayerBar();
+    setIntroMode(state.introMode || 'normal');
+    renderHome();
+    // 载入存档后主菜单必须立刻刷出新对局，不然「继续肉鸽」要手动点保存才出现
+    renderResumeUI();
+    autoSaveSig = cloudSignature();
+    scheduleCloudSync();
+    return names.length;
+  }
+  function gistToken(){
+    try{ return localStorage.getItem(GIST_TOKEN_KEY) || ''; }catch(e){ return ''; }
+  }
+  function gistIds(){
+    try{ return JSON.parse(localStorage.getItem(GIST_ID_KEY) || '{}') || {}; }catch(e){ return {}; }
+  }
+  function setGistId(name, id){
+    const ids = gistIds();
+    ids[name] = id;
+    try{ localStorage.setItem(GIST_ID_KEY, JSON.stringify(ids)); }catch(e){}
+  }
+  async function gistApi(path, options = {}){
+    const token = gistToken();
+    if(!token) throw new Error('请先填写 GitHub Token');
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000);
+    let res;
+    try{
+      res = await fetch('https://api.github.com' + path, {
+        ...options,
+        signal: ctrl.signal,
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'Authorization': 'Bearer ' + token,
+          'X-GitHub-Api-Version': '2022-11-28',
+          ...(options.headers || {})
+        }
+      });
+    }catch(err){
+      clearTimeout(timer);
+      throw new Error(err.name === 'AbortError' ? '连接 GitHub 超时，请检查网络' : '无法连接 GitHub，请检查网络');
+    }
+    clearTimeout(timer);
+    if(!res.ok){
+      let msg = '';
+      try{ msg = (await res.json()).message || ''; }catch(e){}
+      if(res.status === 401) throw new Error('Token 无效或已过期');
+      if(res.status === 403) throw new Error('Token 权限不足，需要 gist 权限');
+      if(res.status === 404) throw new Error('Token 没有 gist 权限（GitHub 404）');
+      throw new Error('GitHub ' + res.status + (msg ? '：' + msg : ''));
+    }
+    if(res.status === 204) return null;
+    return res.json();
+  }
+  async function findGist(name){
+    const cached = gistIds()[name];
+    if(cached){
+      try{ return await gistApi('/gists/' + cached); }catch(e){ if(!/404/.test(e.message)) throw e; }
+    }
+    const list = await gistApi('/gists?per_page=100');
+    const hit = (list || []).find(g => g.description === 'naiwa-save:' + name);
+    if(hit) setGistId(name, hit.id);
+    return hit || null;
+  }
+  async function syncGist(){
+    if(!activeProfile) throw new Error('没有店长存档');
+    const name = activeProfile.name;
+    const existing = await findGist(name);
+    const body = JSON.stringify({
+      description: 'naiwa-save:' + name,
+      public: false,
+      files: { [GIST_FILE]: { content: JSON.stringify(cloudPayload()) } }
+    });
+    const gist = existing
+      ? await gistApi('/gists/' + existing.id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body })
+      : await gistApi('/gists', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    setGistId(name, gist.id);
+    return gist;
+  }
+  async function restoreGist(){
+    if(!activeProfile) throw new Error('没有店长存档');
+    const gist = await findGist(activeProfile.name);
+    if(!gist) throw new Error('云端没有找到「' + activeProfile.name + '」的存档');
+    let content = gist.files && gist.files[GIST_FILE] && gist.files[GIST_FILE].content;
+    if(!content && gist.files && gist.files[GIST_FILE] && gist.files[GIST_FILE].raw_url){
+      const r = await fetch(gist.files[GIST_FILE].raw_url);
+      content = await r.text();
+    }
+    if(!content) throw new Error('云存档文件为空');
+    const data = JSON.parse(content);
+    return importCloudPayload(data);
+  }
+  function scheduleCloudSync(){
+    if(!gistToken() || !activeProfile) return;
+    clearTimeout(cloudTimer);
+    cloudTimer = setTimeout(() => {
+      syncGist().catch(err => {
+        if(els.saveStatus) renderSaveStatus(err.message, 'err');
+      });
+    }, 2200);
+  }
+  function renderSaveStatus(text, kind = ''){
+    if(!els.saveStatus) return;
+    els.saveStatus.textContent = text;
+    els.saveStatus.className = 'save-status' + (kind ? ' ' + kind : '');
+  }
+  function openSave(){
+    if(!els.saveOverlay) return;
+    saveRunToProfile();
+    if(els.saveExport) els.saveExport.value = encodeSaveCode();
+    if(els.gistToken) els.gistToken.value = gistToken();
+    if(els.saveImport) els.saveImport.value = '';
+    const cfg = sbConfig();
+    if(els.sbUrl) els.sbUrl.value = cfg.url;
+    if(els.sbKey) els.sbKey.value = cfg.key;
+    if(els.sbPin) els.sbPin.value = sbPinRemembered();
+    if(els.sbAdvanced) els.sbAdvanced.hidden = !state.devMode;
+    renderPinState();
+    sbStatus(cfg.url && cfg.key ? '已配置 · 输入存档密码后上传/读取' : '未配置 · 先填 Project URL 和 anon key', cfg.url && cfg.key ? 'ok' : '');
+    renderSaveStatus(gistToken() ? '已填写 Token · 点“同步到 GitHub”验证并上传' : '未连接 · 存档只在本机浏览器', gistToken() ? 'ok' : '');
+    els.saveOverlay.classList.add('show');
+    els.saveOverlay.setAttribute('aria-hidden','false');
+    sfx.tap();
+  }
+  function closeSave(){
+    if(!els.saveOverlay) return;
+    els.saveOverlay.classList.remove('show');
+    els.saveOverlay.setAttribute('aria-hidden','true');
+  }
+  async function doGistSync(){
+    const token = (els.gistToken.value || '').trim();
+    if(!token){ renderSaveStatus('请先填写 GitHub Token', 'err'); return; }
+    try{ localStorage.setItem(GIST_TOKEN_KEY, token); }catch(e){}
+    renderSaveStatus('正在同步…');
+    try{
+      const gist = await syncGist();
+      renderSaveStatus('已同步到私有 Gist · ' + new Date().toLocaleTimeString(), 'ok');
+      toast('云存档已同步');
+      if(gist && gist.html_url) console.log('gist', gist.html_url);
+    }catch(err){ renderSaveStatus(err.message, 'err'); }
+  }
+  async function doGistRestore(){
+    const token = (els.gistToken.value || '').trim();
+    if(!token){ renderSaveStatus('请先填写 GitHub Token', 'err'); return; }
+    try{ localStorage.setItem(GIST_TOKEN_KEY, token); }catch(e){}
+    renderSaveStatus('正在读取云存档…');
+    try{
+      const n = await restoreGist();
+      renderSaveStatus('已从云端恢复 ' + n + ' 个店长存档', 'ok');
+      toast('云存档已恢复');
+      if(els.saveExport) els.saveExport.value = encodeSaveCode();
+    }catch(err){ renderSaveStatus(err.message, 'err'); }
+  }
+  function doGistClear(){
+    try{ localStorage.removeItem(GIST_TOKEN_KEY); }catch(e){}
+    if(els.gistToken) els.gistToken.value = '';
+    renderSaveStatus('已断开 · 本机存档仍然保留');
+  }
+  function sbConfig(){
+    try{
+      return {
+        url: (localStorage.getItem(SB_URL_KEY) || SB_DEFAULT_URL).trim(),
+        key: (localStorage.getItem(SB_KEY_KEY) || SB_DEFAULT_KEY).trim()
+      };
+    }catch(e){ return { url:SB_DEFAULT_URL, key:SB_DEFAULT_KEY }; }
+  }
+  function sbStatus(text, kind = ''){
+    if(!els.sbStatus) return;
+    els.sbStatus.textContent = text;
+    els.sbStatus.className = 'save-status' + (kind ? ' ' + kind : '');
+  }
+
+  /* -------------------- 记住存档密码 / 自动云存档 -------------------- */
+  function sbPinRemembered(){
+    try{ return String(localStorage.getItem(SB_PIN_KEY) || '').trim(); }catch(e){ return ''; }
+  }
+  function sbRememberPin(pin){
+    pin = String(pin || '').trim();
+    try{
+      if(pin) localStorage.setItem(SB_PIN_KEY, pin);
+      else localStorage.removeItem(SB_PIN_KEY);
+    }catch(e){}
+    renderPinState();
+  }
+  function renderPinState(){
+    if(!els.sbPinState) return;
+    const pin = sbPinRemembered();
+    els.sbPinState.textContent = pin
+      ? '🔒 已记住存档密码 · 回标题页自动上传'
+      : '未记住存档密码（输入一次后自动记住）';
+    els.sbPinState.classList.toggle('ok', !!pin);
+    if(els.sbForgetPin) els.sbForgetPin.hidden = !pin;
+  }
+  function flashButton(btn, kind){
+    if(!btn || !btn.classList) return;
+    btn.classList.remove('is-busy','is-done','is-fail');
+    void btn.offsetWidth;
+    btn.classList.add(kind);
+    clearTimeout(btn._flashTimer);
+    if(kind !== 'is-busy'){
+      btn._flashTimer = setTimeout(() => btn.classList.remove(kind), 1400);
+    }
+  }
+  function clockText(ts){
+    const d = new Date(ts || Date.now());
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+  function cloudSavedAt(){
+    try{ return Number(localStorage.getItem(SB_SYNC_KEY)) || 0; }catch(e){ return 0; }
+  }
+  function setCloudSavedAt(ts){
+    try{ localStorage.setItem(SB_SYNC_KEY, String(ts || Date.now())); }catch(e){}
+  }
+  let autoSaveBusy = false;
+  let autoSaveSig = '';
+  function cloudSignature(){
+    try{ return JSON.stringify(profiles) + '|' + (activeProfile ? activeProfile.name : ''); }catch(e){ return String(Date.now()); }
+  }
+  // 回标题页 / 切后台：本地已经保存，再悄悄传一份云端
+  async function autoCloudSave(){
+    if(autoSaveBusy || !activeProfile) return false;
+    const pin = sbPinRemembered();
+    if(!pin) return false;
+    const sig = cloudSignature();
+    if(sig === autoSaveSig) return false;
+    autoSaveBusy = true;
+    try{
+      await sbRpc('save_player', { p_name: activeProfile.name, p_pin: pin, p_data: cloudPayload() });
+      autoSaveSig = sig;
+      setCloudSavedAt(Date.now());
+      sbStatus('☁️ 已自动存档 · ' + clockText(), 'ok');
+      toast('☁️ 已自动存档 ' + clockText());
+      return true;
+    }catch(err){
+      sbStatus('自动存档失败：' + err.message, 'err');
+      return false;
+    }finally{ autoSaveBusy = false; }
+  }
+  // 上线时静默比对一次云端：本机没有进行中的对局且云端更新，才自动拉取
+  async function autoCloudPull(){
+    const pin = sbPinRemembered();
+    if(!pin || !activeProfile || activeProfile.run) return false;
+    try{
+      const data = await sbRpc('load_player', { p_name: activeProfile.name, p_pin: pin });
+      const payload = Array.isArray(data) ? data[0] : data;
+      if(!payload || !payload.profiles) return false;
+      const remoteAt = Date.parse(payload.exportedAt || payload.updated_at || '') || 0;
+      if(remoteAt && remoteAt - cloudSavedAt() < 60000) return false;
+      importCloudPayload(payload);
+      setCloudSavedAt(remoteAt || Date.now());
+      sbStatus('☁️ 已同步云端存档', 'ok');
+      toast('☁️ 已同步云端存档');
+      return true;
+    }catch(err){ return false; }
+  }
+  function naiwaFlush(){
+    try{ saveRunToProfile(); }catch(e){}
+    try{ autoCloudSave(); }catch(e){}
+  }
+  async function sbRpc(fn, body){
+    const cfg = sbConfig();
+    if(!cfg.url || !cfg.key) throw new Error('请先填写 Supabase Project URL 和 anon key');
+    const url = cfg.url.replace(/\/+$/, '');
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12000);
+    let res;
+    try{
+      res = await fetch(url + '/rest/v1/rpc/' + fn, {
+        method: 'POST',
+        signal: ctrl.signal,
+        headers: {
+          'apikey': cfg.key,
+          'Authorization': 'Bearer ' + cfg.key,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+    }catch(err){
+      clearTimeout(timer);
+      throw new Error(err.name === 'AbortError' ? '连接 Supabase 超时' : '无法连接 Supabase，请检查 URL 和网络');
+    }
+    clearTimeout(timer);
+    let data = null;
+    try{ data = await res.json(); }catch(e){}
+    if(!res.ok){
+      const msg = (data && (data.message || data.hint || data.details)) || ('Supabase ' + res.status);
+      if(/wrong pin|invalid pin/i.test(msg)) throw new Error('存档密码不正确');
+      if(/not found|no save/i.test(msg)) throw new Error('云端没有找到这个店长的存档');
+      if(/invalid name/i.test(msg)) throw new Error('店长名字不合法');
+      if(/pin too short/i.test(msg)) throw new Error('存档密码至少 4 位');
+      if(res.status === 404) throw new Error('Supabase 函数不存在，请先运行 schema.sql');
+      throw new Error(msg);
+    }
+    return data;
+  }
+  function sbCheckPin(){
+    const typed = (els.sbPin && els.sbPin.value || '').trim();
+    const pin = typed || sbPinRemembered();
+    if(!/^\d{4,8}$/.test(pin)) throw new Error('存档密码请填 4–8 位数字');
+    return pin;
+  }
+  function sbSaveConfig(){
+    const url = (els.sbUrl && els.sbUrl.value || '').trim();
+    const key = (els.sbKey && els.sbKey.value || '').trim();
+    if(!/^https:\/\/.+\.supabase\.co\/?$/.test(url)) throw new Error('Project URL 格式应为 https://xxx.supabase.co');
+    if(key.length < 20) throw new Error('anon key 看起来不完整');
+    try{
+      localStorage.setItem(SB_URL_KEY, url);
+      localStorage.setItem(SB_KEY_KEY, key);
+    }catch(e){}
+  }
+  async function doSbSave(){
+    const btn = els.sbSaveBtn;
+    try{
+      if(!activeProfile) throw new Error('没有店长存档');
+      sbSaveConfig();
+      const pin = sbCheckPin();
+      sbRememberPin(pin);
+      flashButton(btn, 'is-busy');
+      sbStatus('正在上传到 Supabase…');
+      await sbRpc('save_player', {
+        p_name: activeProfile.name,
+        p_pin: pin,
+        p_data: cloudPayload()
+      });
+      autoSaveSig = cloudSignature();
+      setCloudSavedAt(Date.now());
+      flashButton(btn, 'is-done');
+      sbStatus('已上传 · ' + clockText(), 'ok');
+      toast('☁️ 云存档已上传 ' + clockText());
+    }catch(err){
+      flashButton(btn, 'is-fail');
+      sbStatus(err.message, 'err');
+      toast('⚠️ ' + err.message);
+    }
+  }
+  async function doSbLoad(){
+    const btn = els.sbLoadBtn;
+    try{
+      if(!activeProfile) throw new Error('没有店长存档');
+      sbSaveConfig();
+      const pin = sbCheckPin();
+      sbRememberPin(pin);
+      flashButton(btn, 'is-busy');
+      sbStatus('正在读取 Supabase…');
+      const data = await sbRpc('load_player', { p_name: activeProfile.name, p_pin: pin });
+      const payload = Array.isArray(data) ? data[0] : data;
+      if(!payload || !payload.profiles) throw new Error('云端存档格式不正确');
+      const n = importCloudPayload(payload);
+      setCloudSavedAt(Date.now());
+      flashButton(btn, 'is-done');
+      sbStatus('已恢复 ' + n + ' 个店长存档', 'ok');
+      toast('☁️ 云存档已恢复 · 主菜单已刷新');
+      if(els.saveExport) els.saveExport.value = encodeSaveCode();
+    }catch(err){
+      flashButton(btn, 'is-fail');
+      sbStatus(err.message, 'err');
+      toast('⚠️ ' + err.message);
+    }
+  }
+  function doExportCopy(){
+    const code = encodeSaveCode();
+    if(els.saveExport) els.saveExport.value = code;
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(code).then(() => toast('存档码已复制')).catch(() => toast('复制失败，请手动选中'));
+    }else{
+      els.saveExport.select(); document.execCommand('copy'); toast('存档码已复制');
+    }
+  }
+  function doExportDownload(){
+    const blob = new Blob([JSON.stringify(cloudPayload(), null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'naiwa-save-' + (activeProfile ? activeProfile.name : 'player') + '.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  function doImportCode(){
+    try{
+      const n = importCloudPayload(decodeSaveCode(els.saveImport.value));
+      renderSaveStatus('已导入 ' + n + ' 个店长存档', 'ok');
+      toast('存档已导入');
+      if(els.saveExport) els.saveExport.value = encodeSaveCode();
+    }catch(err){ renderSaveStatus(err.message, 'err'); }
+  }
+  function addWallet(n){
+    if(!Number.isFinite(n) || n <= 0) return;
+    if(rogueActive()){
+      state.rogue.coins += n;
+      state.rogue.totalCoins += n;
+      state.rogue.weekEarned += n;
+      state.weekEarned += n;
+      state.coins = state.rogue.coins;
+      if(els.coins) els.coins.textContent = coinText();
+      return;
+    }
+    if(!activeProfile) return;
+    if(tutorialActive()){
+      state.coins += n;
+      state.tutorialCoins = state.coins;
+      if(els.coins) els.coins.textContent = coinText();
+      if(els.homeCoins) els.homeCoins.textContent = coinText();
+      if(els.shopCoins) els.shopCoins.textContent = coinText();
+      return;
+    }
+    activeProfile.wallet += n;
+    state.coins = activeProfile.wallet;
+    saveProfiles();
+    if(els.coins) els.coins.textContent = coinText();
+    if(els.homeCoins) els.homeCoins.textContent = coinText();
+    if(els.shopCoins) els.shopCoins.textContent = coinText();
+    if(els.dressCoins) els.dressCoins.textContent = `${coinText()} 金币`;
+  }
+  // scope='global' 时强制走主菜单钱包：肉鸽金币只在本局内花，永远不能买服装/家具/皮肤
+  function spendCoins(n, scope){
+    if(state.devMode) return true;
+    if(scope === 'global') return spendGlobalCoins(n);
+    if(rogueActive()){
+      if(state.rogue.coins < n) return false;
+      state.rogue.coins -= n;
+      state.coins = state.rogue.coins;
+      if(els.coins) els.coins.textContent = coinText();
+      return true;
+    }
+    if(tutorialActive()){
+      if((state.tutorialCoins || 0) < n) return false;
+      state.tutorialCoins -= n;
+      state.coins = state.tutorialCoins;
+      if(els.coins) els.coins.textContent = coinText();
+      return true;
+    }
+    if(!activeProfile || !Number.isFinite(n) || activeProfile.wallet < n) return false;
+    activeProfile.wallet -= n;
+    state.coins = activeProfile.wallet;
+    saveProfiles();
+    if(els.coins) els.coins.textContent = coinText();
+    if(els.homeCoins) els.homeCoins.textContent = coinText();
+    if(els.shopCoins) els.shopCoins.textContent = coinText();
+    if(els.dressCoins) els.dressCoins.textContent = `${coinText()} 金币`;
+    return true;
+  }
+  function spendGlobalCoins(n){
+    if(!activeProfile || !Number.isFinite(n) || activeProfile.wallet < n) return false;
+    activeProfile.wallet -= n;
+    state.coins = rogueActive() ? state.rogue.coins : (tutorialActive() ? (state.tutorialCoins || 0) : activeProfile.wallet);
+    saveProfiles();
+    if(els.coins) els.coins.textContent = coinText();
+    if(els.homeCoins) els.homeCoins.textContent = coinText();
+    if(els.shopCoins) els.shopCoins.textContent = coinText();
+    if(els.dressCoins) els.dressCoins.textContent = `${coinText()} 金币`;
+    return true;
+  }
+  // 全网排行榜：
+  //   1) 默认走游戏内置的 Supabase（需要先在 Supabase SQL Editor 跑一次 tools/leaderboard-supabase.sql）；
+  //   2) 也可以把 RANK_API 换成自己部署的 Cloudflare Worker（tools/leaderboard-worker.js），留空则用 Supabase；
+  //   3) 两者都没准备好时自动退回「本机排行榜」，不报错。
+  const RANK_API = '';
+  const globalRanks = { endless:[], rogue:[] };
+  let globalRankOk = false;
+  function rankApiUrl(path){ return RANK_API.replace(/\/+$/,'') + path; }
+  function rankMode(mode){ return mode === 'rogue' ? 'rogue' : 'endless'; }
+  function submitGlobalRank(mode, week, coins){
+    if(!activeProfile) return;
+    if(mode !== 'endless' && mode !== 'rogue') return;
+    const name = String(activeProfile.name || '').slice(0, 12);
+    const payload = { name, mode, week:Math.max(0, week|0), coins:Math.max(0, coins|0) };
+    try{
+      if(RANK_API){
+        fetch(rankApiUrl('/submit'), {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(payload)
+        }).catch(() => {});
+        return;
+      }
+      const cfg = sbConfig();
+      if(!cfg.url || !cfg.key) return;
+      fetch(cfg.url.replace(/\/+$/,'') + '/rest/v1/rpc/naiwa_submit_score', {
+        method:'POST',
+        headers:{'apikey':cfg.key, 'Authorization':'Bearer ' + cfg.key, 'Content-Type':'application/json'},
+        body:JSON.stringify({ p_name:name, p_mode:mode, p_week:payload.week, p_coins:payload.coins })
+      }).catch(() => {});
+    }catch(e){ /* 离线时忽略 */ }
+  }
+  function refreshGlobalRank(tab){
+    const mode = rankMode(tab);
+    const apply = rows => {
+      globalRanks[mode] = Array.isArray(rows) ? rows.slice(0, 20) : [];
+      globalRankOk = true;
+      if(rankTab === mode) renderLeaderboard(mode);
+    };
+    try{
+      if(RANK_API){
+        fetch(rankApiUrl(`/top?mode=${mode}`))
+          .then(r => r.ok ? r.json() : null)
+          .then(data => { if(data) apply(data.rows); })
+          .catch(() => {});
+        return;
+      }
+      const cfg = sbConfig();
+      if(!cfg.url || !cfg.key) return;
+      fetch(cfg.url.replace(/\/+$/,'') + '/rest/v1/rpc/naiwa_top_rank', {
+        method:'POST',
+        headers:{'apikey':cfg.key, 'Authorization':'Bearer ' + cfg.key, 'Content-Type':'application/json'},
+        body:JSON.stringify({ p_mode:mode, p_limit:20 })
+      }).then(r => r.ok ? r.json() : null)
+        .then(data => { if(data) apply(data.rows || data); })
+        .catch(() => {});
+    }catch(e){ /* 离线时忽略 */ }
+  }
+
+  function awardProfile(kind){
+    if(!activeProfile) return 0;
+    const weekNow = Math.max(1, Number(state.week) || Math.ceil(state.day / WEEK_DAYS));
+    const earned = Math.max(0, Number(state.runEarned) || 0);
+    if(kind === 'weekPass'){
+      if(state.mode === 'endless'){
+        activeProfile.bestEndless = Math.max(activeProfile.bestEndless || 0, weekNow);
+        activeProfile.bestEndlessCoins = Math.max(activeProfile.bestEndlessCoins || 0, earned);
+      }else if(state.mode === 'rogue'){
+        activeProfile.bestRogue = Math.max(activeProfile.bestRogue || 0, weekNow);
+        activeProfile.bestRogueCoins = Math.max(activeProfile.bestRogueCoins || 0, earned);
+      }
+      syncProfile(); saveProfiles();
+      submitGlobalRank(state.mode, weekNow, earned);
+      return 0;
+    }
+    if(kind !== 'runEnd' && kind !== 'gameOver') return 0;
+    if(state.metaAwarded) return 0;
+    if(state.mode === 'normal' && kind === 'runEnd'){
+      activeProfile.bestNormal = Math.max(activeProfile.bestNormal || 0, earned);
+    }
+    if(state.mode === 'endless'){
+      activeProfile.bestEndless = Math.max(activeProfile.bestEndless || 0, weekNow);
+      activeProfile.bestEndlessCoins = Math.max(activeProfile.bestEndlessCoins || 0, earned);
+      activeProfile.totalRuns = (activeProfile.totalRuns || 0) + 1;
+    }else if(state.mode === 'rogue' && kind === 'gameOver'){
+      activeProfile.bestRogue = Math.max(activeProfile.bestRogue || 0, weekNow);
+      activeProfile.bestRogueCoins = Math.max(activeProfile.bestRogueCoins || 0, earned);
+      activeProfile.totalRuns = (activeProfile.totalRuns || 0) + 1;
+    }else{
+      activeProfile.totalRuns = (activeProfile.totalRuns || 0) + 1;
+    }
+    activeProfile.lastRun = {
+      mode:state.mode, day:state.day, week:weekNow, earned,
+      kind, date:new Date().toISOString().slice(0,10)
+    };
+    state.metaAwarded = true;
+    syncProfile();
+    saveProfiles();
+    submitGlobalRank(state.mode, weekNow, earned);
+    return 0;
+  }
+  let rankTab = 'endless';
+  function leaderboardProfiles(tab = rankTab){
+    const key = tab === 'rogue' ? 'bestRogue' : 'bestEndless';
+    const coinKey = tab === 'rogue' ? 'bestRogueCoins' : 'bestEndlessCoins';
+    return Object.values(profiles)
+      .filter(p => (p[key] || 0) > 0 || (p[coinKey] || 0) > 0)
+      .sort((a,b) => (b[key] || 0) - (a[key] || 0) || (b[coinKey] || 0) - (a[coinKey] || 0) || a.name.localeCompare(b.name));
+  }
+  function renderLeaderboard(tab = rankTab){
+    rankTab = tab === 'rogue' ? 'rogue' : 'endless';
+    if(els.leaderboardTitle) els.leaderboardTitle.textContent = '排行榜';
+    if(!els.leaderboardList) return;
+    const remote = globalRankOk ? (globalRanks[rankTab] || []) : [];
+    const weekKey = rankTab === 'rogue' ? 'bestRogue' : 'bestEndless';
+    const coinKey = rankTab === 'rogue' ? 'bestRogueCoins' : 'bestEndlessCoins';
+    if(els.leaderboardSub){
+      els.leaderboardSub.textContent = globalRankOk ? '全球排行榜 · 用名字区分存档' : '本机排行榜 · 用名字区分存档';
+    }
+    if(els.leaderboardFoot){
+      els.leaderboardFoot.textContent = globalRankOk
+        ? `全球排行榜 · 共 ${remote.length} 位玩家 · 打开榜单时自动同步`
+        : (rankTab === 'rogue' ? '本机排行榜 · 每周金币指标递增，活得越久排名越高' : '本机排行榜 · 每周目标递增，活得越久排名越高');
+    }
+    document.querySelectorAll('[data-rank-tab]').forEach(b => {
+      b.classList.toggle('active', b.dataset.rankTab === rankTab);
+    });
+    if(globalRankOk && !remote.length){
+      els.leaderboardList.innerHTML = `<div class="leaderboard-empty">全球排行榜还没有${rankTab === 'rogue' ? '肉鸽' : '无尽'}成绩。<br>完成一周就能上榜，来当第一个吧！</div>`;
+      return;
+    }
+    if(remote.length){
+      const me = activeProfile ? activeProfile.name : '';
+      els.leaderboardList.innerHTML = remote.map((p,i) => `
+        <div class="leaderboard-row${p.name === me ? ' me' : ''}">
+          <div class="leaderboard-rank">${i + 1}</div>
+          <div class="leaderboard-name">${esc(p.name)}<small>${p.coins || 0} 金币</small></div>
+          <div class="leaderboard-score">第 ${p.week || 0} 周<small>${rankTab === 'rogue' ? '肉鸽最远' : '无尽最远'}</small></div>
+        </div>`).join('');
+      return;
+    }
+    const rows = leaderboardProfiles(rankTab);
+    if(!rows.length){
+      els.leaderboardList.innerHTML = `<div class="leaderboard-empty">还没有${rankTab === 'rogue' ? '肉鸽' : '无尽'}模式记录。<br>去挑战一周，把名字留在榜上吧！</div>`;
+      return;
+    }
+    els.leaderboardList.innerHTML = rows.slice(0,10).map((p,i) => `
+      <div class="leaderboard-row${activeProfile && p.name === activeProfile.name ? ' me' : ''}">
+        <div class="leaderboard-rank">${i + 1}</div>
+        <div class="leaderboard-name">${esc(p.name)}<small>${p.totalRuns || 0} 局 · ${rankTab === 'rogue' ? '肉鸽' : '无尽'}累计 ${p[coinKey] || 0} 金币</small></div>
+        <div class="leaderboard-score">第 ${p[weekKey] || 0} 周<small>${rankTab === 'rogue' ? '肉鸽最远' : '无尽最远'}</small></div>
+      </div>`).join('');
+  }
+  function pushMyRankOnce(){
+    if(!activeProfile) return;
+    if((activeProfile.bestEndless || 0) > 0){
+      submitGlobalRank('endless', activeProfile.bestEndless, activeProfile.bestEndlessCoins || 0);
+    }
+    if((activeProfile.bestRogue || 0) > 0){
+      submitGlobalRank('rogue', activeProfile.bestRogue, activeProfile.bestRogueCoins || 0);
+    }
+  }
+  function openLeaderboard(tab = rankTab){
+    renderLeaderboard(tab);
+    pushMyRankOnce();
+    refreshGlobalRank(tab === 'rogue' ? 'rogue' : 'endless');
+    els.leaderboardOverlay.classList.add('show');
+    els.leaderboardOverlay.setAttribute('aria-hidden','false');
+    sfx.tap();
+  }
+  let rankFromSummary = false;
+  function closeLeaderboard(){
+    els.leaderboardOverlay.classList.remove('show');
+    els.leaderboardOverlay.setAttribute('aria-hidden','true');
+    if(rankFromSummary){
+      rankFromSummary = false;
+      goHome();
+    }
+  }
+  let confirmAction = null;
+  let confirmCancelAction = null;
+  function openConfirm(opts={}){
+    if(els.confirmIcon){
+      if(opts.iconSvg) els.confirmIcon.innerHTML = icon(opts.iconSvg);
+      else els.confirmIcon.textContent = opts.icon || '🚪';
+    }
+    if(els.confirmTitle) els.confirmTitle.textContent = opts.title || '要提前下班吗？';
+    if(els.confirmCopy) els.confirmCopy.innerHTML = opts.copy || '';
+    if(els.confirmTip){
+      els.confirmTip.innerHTML = opts.tipHtml || '';
+      els.confirmTip.hidden = !opts.tipHtml;
+    }
+    if(els.confirmOk) els.confirmOk.textContent = opts.okText || '确定';
+    const noCancel = opts.cancelText === '';
+    if(els.confirmOk) els.confirmOk.classList.toggle('solo', noCancel);
+    if(els.confirmCancel){
+      els.confirmCancel.textContent = noCancel ? '取消' : (opts.cancelText || '取消');
+      els.confirmCancel.style.display = noCancel ? 'none' : '';
+    }
+    confirmAction = typeof opts.onOk === 'function' ? opts.onOk : null;
+    confirmCancelAction = typeof opts.onCancel === 'function' ? opts.onCancel : null;
+    els.confirmOverlay.classList.add('show');
+    els.confirmOverlay.setAttribute('aria-hidden','false');
+    sfx.tap();
+  }
+  function askEarlyLeave(){
+    if(state.phase === 'intro') return;
+    openConfirm({
+      title:'要提前下班吗？',
+      copy:'提前下班会结束本局，未完成的对局会从「继续上一局」里清除，无法再继续。<br>确定要提前下班吗？',
+      okText:'提前下班',
+      cancelText:'继续营业',
+      onOk:doEarlyLeave
+    });
+  }
+  function closeConfirm(fireCancel){
+    els.confirmOverlay.classList.remove('show');
+    els.confirmOverlay.setAttribute('aria-hidden','true');
+    const cb = confirmCancelAction;
+    confirmAction = null;
+    confirmCancelAction = null;
+    if(fireCancel !== false && typeof cb === 'function'){ try { cb(); } catch(e){} }
+  }
+  function doEarlyLeave(){
+    clearRun();
+    closeConfirm();
+    goHome();
+    sfx.tap();
+  }
+  function hatHTML(id){
+    if(!id || id === 'chef') return '';
+    if(id === 'glasses') return '<div class="wear-hat glasses"><i></i><i></i></div>';
+    return `<div class="wear-hat ${id}"></div>`;
+  }
+  function topHTML(id){
+    if(!id || id === 'apron') return '';
+    return `<div class="wear-top ${id}"></div>`;
+  }
+  function charDollInner(skin){
+    const id = skin || charSkinId();
+    const art = skinArt(id);
+    if(art){
+      return `<img class="char-img" src="${art.img}" alt="" draggable="false">`;
+    }
+    return '<svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>';
+  }
+  function dollHTML(){
+    const head = activeProfile.equipped.head;
+    const top = activeProfile.equipped.top;
+    const blob = charSkinId() === 'blob';
+    return `<div class="room-doll${blob ? ' is-blob' : ''}${head !== 'chef' ? ' has-hat' : ''}${top !== 'apron' ? ' has-top' : ''}">
+      ${charDollInner()}
+      ${hatHTML(head)}
+      ${topHTML(top)}
+    </div>`;
+  }
+  function furnitureHTML(id){
+    if(id === 'plant') return '<div class="furn furn-plant"><i class="leaf"></i><i class="leaf two"></i><i class="pot"></i></div>';
+    if(id === 'lamp') return '<div class="furn furn-lamp"><i class="shade"></i><i class="pole"></i></div>';
+    if(id === 'table') return '<div class="furn furn-table"><i class="top"></i><i class="leg l"></i><i class="leg r"></i></div>';
+    if(id === 'shelf') return '<div class="furn furn-shelf"></div>';
+    if(id === 'pumpkin') return '<div class="furn furn-pumpkin"></div>';
+    if(id === 'rug') return '<div class="furn furn-rug"></div>';
+    return '';
+  }
+  function furnitureItemHTML(id){
+    const pos = activeProfile.furniturePositions[id] || FURN_POS[id] || {x:50,y:70};
+    const z = id === 'rug' ? 2 : Math.round(pos.y);
+    return `<div class="furn-item" data-furn="${id}" style="left:${pos.x}%;top:${pos.y}%;z-index:${z}" role="button" aria-label="拖动${FURNITURE[id].name}">
+      ${furnitureHTML(id)}<span class="furn-grab">✥</span>
+    </div>`;
+  }
+  function bindFurnitureDrag(){
+    const canvas = els.homeRoom && els.homeRoom.querySelector('.room-canvas');
+    if(!canvas) return;
+    $$('.furn-item', canvas).forEach(el => {
+      el.addEventListener('pointerdown', e => {
+        if(!activeProfile || state.homeTab !== 'room') return;
+        e.preventDefault();
+        const id = el.dataset.furn;
+        const rect = canvas.getBoundingClientRect();
+        const start = {x:e.clientX, y:e.clientY};
+        const pos = activeProfile.furniturePositions[id] || FURN_POS[id] || {x:50,y:70};
+        const orig = {x:pos.x/100*rect.width, y:pos.y/100*rect.height};
+        let moved = false;
+        el.classList.add('dragging');
+        try{ el.setPointerCapture(e.pointerId); }catch(err){}
+        const move = ev => {
+          const dx = ev.clientX - start.x, dy = ev.clientY - start.y;
+          if(Math.abs(dx)+Math.abs(dy) > 3) moved = true;
+          const x = clamp(orig.x + dx, 24, rect.width - 8);
+          const y = clamp(orig.y + dy, 34, rect.height - 4);
+          activeProfile.furniturePositions[id] = {x:x/rect.width*100, y:y/rect.height*100};
+          el.style.left = (x/rect.width*100) + '%';
+          el.style.top = (y/rect.height*100) + '%';
+          el.style.zIndex = id === 'rug' ? '2' : String(Math.round(y/rect.height*100));
+        };
+        const up = () => {
+          el.classList.remove('dragging');
+          el.removeEventListener('pointermove', move);
+          el.removeEventListener('pointerup', up);
+          el.removeEventListener('pointercancel', up);
+          if(moved){ saveProfiles(); sfx.tap(); }
+        };
+        el.addEventListener('pointermove', move);
+        el.addEventListener('pointerup', up);
+        el.addEventListener('pointercancel', up);
+      });
+    });
+  }
+  function renderRoom(){
+    if(!els.homeRoom || !activeProfile) return;
+    const scrollLeft = els.homeRoom.scrollLeft, scrollTop = els.homeRoom.scrollTop;
+    const furn = activeProfile.placedFurniture.map(furnitureItemHTML).join('');
+    els.homeRoom.innerHTML = `<div class="room-canvas">${furn}${dollHTML()}<div class="room-pan-tip">拖动家具摆放 · 滑动空白处看房间</div></div>`;
+    bindFurnitureDrag();
+    const count = activeProfile.placedFurniture.length;
+    if(els.homeRoomTip) els.homeRoomTip.textContent = count
+      ? `已经摆下 ${count} 件家具，按住家具可以拖动换位置。`
+      : '房间还空空的，去家具店挑一件吧。';
+    const canvas = els.homeRoom.querySelector('.room-canvas');
+    requestAnimationFrame(() => {
+      if(!canvas) return;
+      els.homeRoom.scrollLeft = scrollLeft || Math.max(0,(canvas.offsetWidth - els.homeRoom.clientWidth) / 2);
+      els.homeRoom.scrollTop = scrollTop || Math.max(0,(canvas.offsetHeight - els.homeRoom.clientHeight) / 2);
+    });
+  }
+  function renderFurniture(){
+    if(!els.furnitureGrid || !activeProfile) return;
+    els.furnitureGrid.innerHTML = Object.entries(FURNITURE).map(([id,f]) => {
+      const owned = activeProfile.ownedFurniture.includes(id);
+      const placed = activeProfile.placedFurniture.includes(id);
+      const afford = activeProfile.wallet >= f.price;
+      return `<div class="home-item">
+        <div class="item-ico">${f.icon}</div>
+        <b>${f.name}</b><small>${f.desc}</small>
+        <button class="item-buy${owned ? ' owned' : ''}" type="button" data-furniture="${id}" ${!owned && !afford ? 'disabled' : ''}>
+          ${owned ? (placed ? '收起' : '摆放') : afford ? `买 ${f.price}` : `还差 ${f.price - activeProfile.wallet}`}
+        </button>
+      </div>`;
+    }).join('');
+  }
+  function skinAllowsParts(){
+    const skin = activeProfile && activeProfile.skin;
+    return !skin || skin === 'classic';
+  }
+  function renderCloset(){
+    if(!els.closetGrid || !activeProfile) return;
+    const section = (kind,label) => {
+      const items = CLOTHES[kind].map(item => {
+        const owned = activeProfile.clothes[kind].includes(item.id);
+        const equipped = activeProfile.equipped[kind] === item.id;
+        const afford = activeProfile.wallet >= item.price;
+        return `<div class="home-item">
+          <div class="item-ico">${item.icon}</div>
+          <b>${item.name}</b><small>${equipped ? '正在穿着' : owned ? '已拥有' : '衣橱新品'}</small>
+          <button class="item-buy${equipped ? ' owned' : ''}" type="button" data-clothes="${kind}:${item.id}" ${equipped ? 'disabled' : !owned && !afford ? 'disabled' : ''}>
+            ${equipped ? '穿着中' : owned ? '穿上' : afford ? `买 ${item.price}` : `还差 ${item.price - activeProfile.wallet}`}
+          </button>
+        </div>`;
+      }).join('');
+      return `<div class="closet-label">${label}</div>${items}`;
+    };
+    els.closetGrid.innerHTML = section('head','帽子 / 眼镜槽') + section('top','上衣槽');
+  }
+  function skinPreviewHTML(){
+    const area = state.skinPreview.area || 'desk';
+    const skin = SKINS[area].find(s => s.id === state.skinPreview.id) || SKINS[area][0];
+    const owned = activeProfile.skins[area].includes(skin.id);
+    const equipped = activeProfile.equippedSkins[area] === skin.id;
+    const afford = activeProfile.wallet >= skin.price;
+    const action = equipped ? '使用中' : owned ? '装备' : afford ? `买 ${skin.price}` : `还差 ${skin.price - activeProfile.wallet}`;
+    const disabled = equipped || (!owned && !afford);
+    return `<div class="skin-preview" data-theme="${skin.id}">
+      <div class="sp-awning"></div>
+      <div class="sp-scene">
+        <div class="sp-window"></div>
+        <div class="sp-ticket">ORDER<br><b>01 / 03</b></div>
+        <div class="sp-frog">${charDollInner()}</div>
+        <div class="sp-counter"><span>奶蛙的店 · 黄桃罐头</span></div>
+      </div>
+      <div class="skin-preview-bar">
+        <div><b>${SKIN_AREAS[area]} · ${skin.name}</b><small>${owned ? '已拥有 · 预览中' : '预览效果 · 购买后永久拥有'}</small></div>
+        <button class="mini-btn" type="button" data-skin-apply="${area}:${skin.id}" ${disabled ? 'disabled' : ''}>${action}</button>
+      </div>
+    </div>`;
+  }
+  function renderSkins(){
+    if(!els.skinShop || !activeProfile) return;
+    const groups = Object.keys(SKIN_AREAS).map(area => {
+      const current = SKINS[area].find(s => s.id === activeProfile.equippedSkins[area]) || SKINS[area][0];
+      const opts = SKINS[area].map(s => {
+        const owned = activeProfile.skins[area].includes(s.id);
+        const equipped = activeProfile.equippedSkins[area] === s.id;
+        const selected = state.skinPreview.area === area && state.skinPreview.id === s.id;
+        const afford = activeProfile.wallet >= s.price;
+        return `<button class="skin-choice${selected ? ' active' : ''}${!owned && !afford ? ' locked' : ''}" type="button" data-skin-area="${area}" data-skin-id="${s.id}" data-skin-theme="${s.id}">
+          <span class="swatch"></span>${s.name}<span class="tiny">${equipped ? '使用中' : owned ? '点击预览' : afford ? `${s.price} 金币` : '金币不足'}</span>
+        </button>`;
+      }).join('');
+      return `<div class="skin-group">
+        <div class="skin-group-head"><b>${SKIN_AREAS[area]}</b><span>当前：${current.name}</span></div>
+        <div class="skin-options">${opts}</div>
+      </div>`;
+    }).join('');
+    els.skinShop.innerHTML = skinPreviewHTML() + groups;
+  }
+  function renderHome(){
+    if(!els.homeOverlay || !activeProfile) return;
+    els.homeCoins.textContent = coinText();
+    els.homeOwner.textContent = `店长：${activeProfile.name}`;
+    els.homeTabs.forEach(t => t.classList.toggle('active', t.dataset.homeTab === state.homeTab));
+    $$('.home-panel', els.homeOverlay).forEach(p => { p.hidden = p.dataset.homePanel !== state.homeTab; });
+    renderRoom();
+    renderFurniture();
+    renderCloset();
+    renderSkins();
+    renderCharSkins();
+  }
+  function openHome(tab){
+    if(!activeProfile) return;
+    state.homeTab = tab || 'room';
+    renderHome();
+    els.homeOverlay.classList.add('show');
+    els.homeOverlay.setAttribute('aria-hidden','false');
+    sfx.tap();
+  }
+  function closeHome(){
+    els.homeOverlay.classList.remove('show');
+    els.homeOverlay.setAttribute('aria-hidden','true');
+  }
+  function setHomeTab(tab){
+    if(!['room','furniture','closet','skins'].includes(tab)) return;
+    state.homeTab = tab;
+    renderHome();
+    sfx.tap();
+  }
+  function handleFurniture(id){
+    const f = FURNITURE[id];
+    if(!f || !activeProfile) return;
+    if(rogueActive()){ toast('肉鸽金币只在本局使用，主菜单商店要用普通金币'); sfx.error(); return; }
+    const owned = activeProfile.ownedFurniture.includes(id);
+    if(!owned){
+      if(!spendCoins(f.price, 'global')){ toast('金币不够，先去营业赚一点吧'); sfx.error(); return; }
+      activeProfile.ownedFurniture.push(id);
+      if(activeProfile.placedFurniture.length < 4){
+        activeProfile.placedFurniture.push(id);
+        activeProfile.furniturePositions[id] = activeProfile.furniturePositions[id] || FURN_POS[id] || {x:50,y:70};
+      }
+      sfx.coin();
+    }else{
+      const at = activeProfile.placedFurniture.indexOf(id);
+      if(at >= 0) activeProfile.placedFurniture.splice(at,1);
+      else{
+        if(activeProfile.placedFurniture.length >= 4){ toast('最多同时摆放 4 件家具'); sfx.error(); return; }
+        activeProfile.placedFurniture.push(id);
+        activeProfile.furniturePositions[id] = activeProfile.furniturePositions[id] || FURN_POS[id] || {x:50,y:70};
+      }
+      sfx.tap();
+    }
+    saveProfiles();
+    renderHome();
+  }
+  function handleVariant(spec){
+    if(!activeProfile) return;
+    const [skinId, id] = String(spec).split(':');
+    if(id === 'none'){
+      activeProfile.equippedVariant = activeProfile.equippedVariant || {};
+      delete activeProfile.equippedVariant[skinId];
+      if(typeof syncProfile === 'function') syncProfile();
+      saveProfiles();
+      applyCharSkin(); renderDress(); sfx.tap();
+      toast('已换回原皮形态');
+      return;
+    }
+    const v = skinVariants(skinId).find(x => x.id === id);
+    if(!v) return;
+    if(rogueActive() && !variantOwned(skinId, id)) { toast('肉鸽金币只在本局使用，主菜单商店要用普通金币'); sfx.error(); return; }
+    activeProfile.variants[skinId] = activeProfile.variants[skinId] || [];
+    if(!variantOwned(skinId, id)){
+      if(!spendCoins(v.price, 'global')){ toast('金币不够，先去营业赚一点吧'); sfx.error(); return; }
+      activeProfile.variants[skinId].push(id);
+      sfx.coin();
+    } else sfx.tap();
+    activeProfile.equippedVariant[skinId] = id;
+    if(typeof syncProfile === 'function') syncProfile();
+    saveProfiles();
+    renderDress();
+    toast('已换上「' + v.name + '」');
+  }
+  function handleClothes(spec){
+    if(!skinAllowsParts()){ toast('这套皮肤不能穿帽子 / 上衣，先在变体槽里换变体吧'); sfx.error(); return; }
+    const [kind,id] = String(spec).split(':');
+    if(!CLOTHES[kind] || !activeProfile) return;
+    if(rogueActive() && !(activeProfile.clothes[kind] || []).includes(id)) { toast('肉鸽金币只在本局使用，主菜单商店要用普通金币'); sfx.error(); return; }
+    const item = CLOTHES[kind].find(c => c.id === id);
+    if(!item) return;
+    const owned = activeProfile.clothes[kind].includes(id);
+    if(!owned){
+      if(!spendCoins(item.price, 'global')){ toast('金币不够，先去营业赚一点吧'); sfx.error(); return; }
+      activeProfile.clothes[kind].push(id);
+      sfx.coin();
+    }else sfx.tap();
+    activeProfile.equipped[kind] = id;
+    saveProfiles();
+    renderHome();
+    renderFrogWear();
+    if(els.dressOverlay && els.dressOverlay.classList.contains('show')) renderDress();
+    toast(`${item.name} 已换好`);
+  }
+  function renderFrogWear(){
+    if(!els.frogWear || !activeProfile) return;
+    const head = activeProfile.equipped.head;
+    const top = activeProfile.equipped.top;
+    const frog = els.frogWear.parentElement;
+    if(frog){
+      frog.classList.toggle('has-hat', head !== 'chef');
+      frog.classList.toggle('has-top', top !== 'apron');
+    }
+    els.frogWear.innerHTML = hatHTML(head) + topHTML(top);
+  }
+  function renderDress(){
+    if(!els.dressOverlay || !activeProfile) return;
+    const head = activeProfile.equipped.head;
+    const top = activeProfile.equipped.top;
+    const equippedSkin = charSkinId();
+    const previewSkin = state.dressSkin || equippedSkin;
+    const previewDef = CHAR_SKINS.find(s => s.id === previewSkin) || CHAR_SKINS[0];
+    els.dressCoins.textContent = `${coinText()} 金币`;
+    els.dressDoll.classList.toggle('is-blob', previewSkin === 'blob');
+    els.dressDoll.classList.toggle('has-hat', head !== 'chef');
+    els.dressDoll.classList.toggle('has-top', top !== 'apron');
+    const vEq = variantEquipped(previewSkin);
+    const vDef = vEq ? skinVariants(previewSkin).find(v => v.id === vEq) : null;
+    els.dressDoll.innerHTML = vDef
+      ? `<img class="variant-doll" src="${vDef.img}" alt="">`
+      : `${charDollInner(previewSkin)}${hatHTML(head)}${topHTML(top)}`;
+    const skinGroup = `<div class="dress-section"><h4><span>全套皮肤</span><span>${previewSkin === equippedSkin ? '正在穿' : '预览中'}</span></h4>
+      <div class="dress-row skin-row">${CHAR_SKINS.map(s => {
+        const active = previewSkin === s.id;
+        const worn = equippedSkin === s.id;
+        const art0 = skinArt(s.id);
+        const thumb = art0
+          ? `<span class="di skin-thumb"><img src="${art0.img}" alt=""></span>`
+          : '<span class="di skin-thumb"><svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg></span>';
+        const ownedSkin = skinOwnedFull(s.id);
+        return `<button class="dress-item skin-item${active ? ' active' : ''}${ownedSkin ? '' : ' locked'}" type="button" data-dress-skin="${s.id}">
+          ${thumb}${s.name.replace(' · 全套皮肤','')}
+          <small>${worn ? '正在穿' : active ? '预览中' : (ownedSkin ? '点击预览' : (s.price ? s.price + ' 金币' : '点击预览'))}</small>
+        </button>`;
+      }).join('')}</div>
+      ${previewSkin !== equippedSkin ? `<button class="dress-apply" type="button" data-dress-skin-apply="${previewSkin}">${skinOwnedFull(previewSkin) ? '穿上' : '前往购买'}「${previewDef.name.replace(' · 全套皮肤','')}」${skinOwnedFull(previewSkin) ? '' : ' · ' + (previewDef.price || 0) + ' 金币'}</button>` : ''}
+    </div>`;
+    const group = (kind,title) => `<div class="dress-section"><h4><span>${title}</span><span>${kind === 'head' ? '帽子 / 眼镜' : '上衣'}</span></h4>
+      <div class="dress-row">${CLOTHES[kind].map(item => {
+        const owned = activeProfile.clothes[kind].includes(item.id);
+        const active = activeProfile.equipped[kind] === item.id;
+        return `<button class="dress-item${active ? ' active' : ''}${owned ? '' : ' locked'}" type="button" data-dress="${kind}:${item.id}">
+          <span class="di">${item.icon}</span>${item.name}
+          <small>${active ? '正在穿' : owned ? '点击换上' : item.price + ' 金币'}</small>
+        </button>`;
+      }).join('')}</div></div>`;
+    const variantsForSkin = skinVariants(previewSkin);
+    const variantGroup = variantsForSkin.length ? `<div class="dress-section"><h4><span>变体槽</span><span>${previewDef.name.replace(' · 全套皮肤','')}</span></h4>
+      <div class="dress-row"><button class="dress-item variant-item${variantEquipped(previewSkin) ? '' : ' active'}" type="button" data-variant="${previewSkin}:none">
+        <span class="di">${charDollInner(previewSkin)}</span>原肤形态
+        <small>${variantEquipped(previewSkin) ? '换回原皮' : '正在用'}</small>
+      </button>${variantsForSkin.map(v => {
+        const vOwned = variantOwned(previewSkin, v.id);
+        const vOn = variantEquipped(previewSkin) === v.id;
+        return `<button class="dress-item variant-item${vOn ? ' active' : ''}${vOwned ? '' : ' locked'}" type="button" data-variant="${previewSkin}:${v.id}">
+          <span class="di"><img src="${v.img}" alt=""></span>${v.name}
+          <small>${vOn ? '正在用' : vOwned ? '点击换上' : v.price + ' 金币'}</small>
+        </button>`;
+      }).join('')}</div></div>` : '';
+    const partsLocked = previewSkin !== 'classic';
+    els.dressSlots.innerHTML = skinGroup + (partsLocked ? variantGroup : (group('head','帽子 / 眼镜槽') + group('top','上衣槽')));
+  }
+  function openDress(){
+    if(!activeProfile) return;
+    state.dressSkin = charSkinId();
+    renderDress();
+    els.dressOverlay.classList.add('show');
+    els.dressOverlay.setAttribute('aria-hidden','false');
+    sfx.tap();
+  }
+  function closeDress(){
+    state.dressSkin = null;
+    els.dressOverlay.classList.remove('show');
+    els.dressOverlay.setAttribute('aria-hidden','true');
+  }
+  function handleSkin(area,id){
+    if(!SKINS[area] || !activeProfile) return;
+    if(rogueActive() && !(activeProfile.skins[area] || []).includes(id)) { toast('肉鸽金币只在本局使用，主菜单商店要用普通金币'); sfx.error(); return; }
+    const skin = SKINS[area].find(s => s.id === id);
+    if(!skin) return;
+    const owned = activeProfile.skins[area].includes(id);
+    if(!owned){
+      if(!spendCoins(skin.price, 'global')){ toast('金币不够，先去营业赚一点吧'); sfx.error(); return; }
+      activeProfile.skins[area].push(id);
+      sfx.coin();
+    }else sfx.tap();
+    activeProfile.equippedSkins[area] = id;
+    state.skinPreview = {area, id};
+    saveProfiles();
+    applySkins();
+    renderHome();
+  }
+  function applySkins(){
+    if(!activeProfile || !els.game) return;
+    const area = ['desk','work','kitchen'].includes(state.stage) ? state.stage : 'desk';
+    els.game.dataset.area = area;
+    els.game.dataset.theme = activeProfile.equippedSkins[area] || 'classic';
+  }
+  function charSkinId(){
+    return (activeProfile && activeProfile.charSkin) || 'classic';
+  }
+  const CHANGELOG_SUB = '工坊排序与时间';
+  function syncVersionUI(){
+    const m = (document.title || '').match(/正式版\s*([\d.]+)/);
+    if(!m) return;
+    const v = m[1];
+    if(els.introVersion) els.introVersion.innerHTML = `${v}<br>正式版`;
+    if(els.changelogBtn){
+      els.changelogBtn.textContent = `📝 更新日志 · ${v} ${CHANGELOG_SUB}`;
+    }
+    if(typeof updateButtonLabel === 'function') updateButtonLabel();
+  }
+
+  // ---------------- 检查更新 ----------------
+  // 官网（GitHub Pages）根目录的 version.json 由 src/build.cjs 生成，
+  // 内容和当前这份页面同源同版本；APK 里跑的是本地打包的那份，所以只能去官网比对。
+  const UPDATE_FEED = 'https://ostonefisho.github.io/naiwa-peach-shop/version.json';
+  const UPDATE_PAGE = 'https://ostonefisho.github.io/naiwa-peach-shop/';
+  const UPDATE_APK = 'https://github.com/OStonefishO/naiwa-peach-shop/releases/latest';
+  const updateInfo = { latest: '', url: '', checked: false, state: '' };
+  let updateResetTimer = 0;
+  function localVersion(){
+    const m = (document.title || '').match(/正式版\s*([\d.]+)/);
+    return m ? m[1] : '';
+  }
+  function runningInApp(){
+    return /NaiwaAndroid/.test(navigator.userAgent || '') || !!window.NaiwaApp;
+  }
+  function cmpVersion(a, b){
+    const pa = String(a || '').split('.').map(n => parseInt(n, 10) || 0);
+    const pb = String(b || '').split('.').map(n => parseInt(n, 10) || 0);
+    const n = Math.max(pa.length, pb.length);
+    for(let i = 0; i < n; i++){
+      const x = pa[i] || 0, y = pb[i] || 0;
+      if(x !== y) return x > y ? 1 : -1;
+    }
+    return 0;
+  }
+  function updateButtonLabel(){
+    const btn = els.updateBtn;
+    if(!btn) return;
+    const cur = localVersion();
+    if(updateInfo.state === 'ok'){
+      btn.dataset.state = 'ok';
+      btn.textContent = cur ? `✅ 已是最新 · ${cur}` : '✅ 已是最新';
+      return;
+    }
+    if(updateInfo.state === 'err'){
+      btn.dataset.state = 'err';
+      btn.textContent = '⚠️ 检查失败 · 点我重试';
+      return;
+    }
+    if(updateInfo.latest && cmpVersion(updateInfo.latest, cur) > 0){
+      btn.dataset.state = 'new';
+      btn.textContent = `🎉 新版本 ${updateInfo.latest} · 点我打开`;
+    } else {
+      btn.dataset.state = '';
+      btn.textContent = cur ? `🔄 检查更新 · 当前 ${cur}` : '🔄 检查更新';
+    }
+  }
+  // 结果只在按钮上停留几秒，之后回到默认文案，方便反复点
+  function flashUpdateState(state){
+    updateInfo.state = state;
+    updateButtonLabel();
+    if(updateResetTimer) clearTimeout(updateResetTimer);
+    updateResetTimer = setTimeout(() => {
+      updateResetTimer = 0;
+      updateInfo.state = '';
+      updateButtonLabel();
+    }, 8000);
+  }
+  // ---- 开机静默自检：不打扰玩家，只在标题页「设置」上冒个小红点 ----
+  let autoUpdateChecked = false;
+  function setUpdateDot(on){
+    const btn = els.settingsEntryBtn;
+    if(!btn) return;
+    btn.classList.toggle('has-update', !!on);
+  }
+  async function autoCheckUpdate(){
+    if(autoUpdateChecked) return;
+    autoUpdateChecked = true;
+    if(navigator.onLine === false) return;
+    try{
+      const res = await fetch(`${UPDATE_FEED}?t=${Date.now()}`, { cache: 'no-store' });
+      if(!res.ok) return;
+      const data = await res.json();
+      const latest = String((data && data.version) || '');
+      if(!/^\d+(\.\d+)*$/.test(latest)) return;
+      const cur = localVersion();
+      if(cmpVersion(latest, cur) <= 0){ setUpdateDot(false); return; }
+      updateInfo.latest = latest;
+      updateInfo.url = runningInApp()
+        ? String(data.apk || UPDATE_APK)
+        : String(data.web || UPDATE_PAGE);
+      updateInfo.checked = true;
+      updateInfo.state = '';
+      updateButtonLabel();
+      setUpdateDot(true);
+    }catch(e){
+      // 静默失败：网络不通、被墙、页面离线都当没发生过
+    }
+  }
+  function openUpdatePage(){
+    const cur = localVersion();
+    if(!updateInfo.latest || cmpVersion(updateInfo.latest, cur) <= 0){
+      updateButtonLabel();
+      toast(cur ? `已经是最新版本 ${cur}` : '已经是最新版本');
+      return;
+    }
+    const url = updateInfo.url || (runningInApp() ? UPDATE_APK : UPDATE_PAGE);
+    try { window.open(url, '_blank'); } catch(e){ location.href = url; }
+    toast(`新版本 ${updateInfo.latest}，已打开下载页`);
+  }
+  async function checkUpdate(){
+    const cur = localVersion();
+    if(updateInfo.latest && cmpVersion(updateInfo.latest, cur) > 0){ openUpdatePage(); return; }
+    const btn = els.updateBtn;
+    if(btn){ btn.dataset.state = 'busy'; btn.textContent = '🔄 正在比对版本…'; }
+    try{
+      const res = await fetch(`${UPDATE_FEED}?t=${Date.now()}`, { cache: 'no-store' });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const latest = String((data && data.version) || '');
+      if(!/^\d+(\.\d+)*$/.test(latest)) throw new Error('bad feed');
+      updateInfo.latest = latest;
+      updateInfo.url = runningInApp()
+        ? String(data.apk || UPDATE_APK)
+        : String(data.web || UPDATE_PAGE);
+      updateInfo.checked = true;
+      if(cmpVersion(latest, cur) > 0){
+        updateInfo.state = '';
+        updateButtonLabel();
+        toast(`发现新版本 ${latest}，点按钮打开`);
+      } else {
+        flashUpdateState('ok');
+        toast(`已经是最新版本 ${cur}`);
+      }
+    }catch(e){
+      flashUpdateState('err');
+      toast('检查更新失败，可能是网络问题');
+    }
+  }
+  function skinVariantArt(skinId){
+    const vid = variantEquipped(skinId);
+    if(!vid) return null;
+    const v = skinVariants(skinId).find(x => x.id === vid);
+    return v ? { img: v.img, laugh: v.img } : null;
+  }
+  function renderCharImg(host, useArt){
+    if(!host) return;
+    const art = skinVariantArt(charSkinId()) || skinArt(charSkinId());
+    const useLaugh = useArt && host.classList.contains('summary-frog');
+    const src = useLaugh ? ((art && art.laugh) || CHAR_SKIN_ASSETS.laugh) : ((art && art.img) || CHAR_SKIN_ASSETS.blob);
+    let img = host.querySelector(':scope > img.char-img');
+    if(!useArt){ if(img) img.remove(); host.classList.remove('has-art'); return; }
+    if(!img){
+      img = document.createElement('img');
+      img.className = 'char-img';
+      img.alt = '';
+      img.draggable = false;
+      host.appendChild(img);
+    }
+    host.classList.add('has-art');
+    if(img.getAttribute('src') !== src) img.src = src;
+    img.classList.toggle('is-laugh', useLaugh);
+  }
+  function applyCharSkin(){
+    const id = charSkinId();
+    const useArt = !!(skinArt(id) || skinVariantArt(id));
+    document.body.classList.toggle('char-blob', id === 'blob');
+    document.body.dataset.charSkin = id;
+    document.querySelectorAll('.frog, .room-doll, .summary-frog, .hint-frog, .sp-frog')
+      .forEach(host => renderCharImg(host, useArt));
+  }
+  function ensureLaughAudio(){
+    if(!laughEl){
+      try{
+        laughEl = new Audio(CHAR_SKIN_ASSETS.laughAudio);
+        laughEl.preload = 'auto';
+        laughEl.addEventListener('ended', () => { resumeBgmIfNeeded(); });
+      }catch(e){ laughEl = null; }
+    }
+    applyAudioVolumes();
+    return laughEl;
+  }
+  let laughUnlocked = false;
+  function unlockLaughAudio(){
+    if(laughUnlocked) return;
+    const el = ensureLaughAudio();
+    if(!el) return;
+    try{
+      el.muted = true;
+      const p = el.play();
+      const done = () => { try{ el.pause(); el.currentTime = 0; }catch(err){} el.muted = false; laughUnlocked = true; };
+      if(p && p.then) p.then(done).catch(() => { el.muted = false; });
+      else done();
+    }catch(e){}
+  }
+  function flashLaugh(){
+    document.querySelectorAll('.frog, .room-doll, .dress-doll, .summary-frog').forEach(host => {
+      host.classList.remove('laughing');
+      void host.offsetWidth;
+      host.classList.add('laughing');
+      setTimeout(() => host.classList.remove('laughing'), 900);
+    });
+  }
+  function resumeBgmIfNeeded(){
+    if(!musicWanted || !bgmEl || !bgmEl.paused) return;
+    const p = bgmEl.play();
+    if(p && p.catch) p.catch(() => {});
+  }
+  function playBellyLaugh(){
+    const laughArt = skinArt(charSkinId());
+   if(!laughArt || !laughArt.laugh || !state.sound) return;
+    const el = ensureLaughAudio();
+    if(!el) return;
+    const go = attempt => {
+      try{
+        el.currentTime = 0;
+        const p = el.play();
+        if(p && p.then){
+          p.then(() => { flashLaugh(); }).catch(() => {
+            if(attempt < 3) setTimeout(() => go(attempt + 1), 100);
+            else flashLaugh();
+          });
+        }else flashLaugh();
+      }catch(e){
+        if(attempt < 3) setTimeout(() => go(attempt + 1), 100);
+        else flashLaugh();
+      }
+    };
+    go(0);
+  }
+  function handleCharSkin(id){
+    if(!activeProfile) return;
+    const def = CHAR_SKINS.find(s => s.id === id);
+    if(!def) return;
+    if(!def.free && !(activeProfile.skins && activeProfile.skins.skin && activeProfile.skins.skin.includes(id))){
+      if(!spendCoins(def.price || 0, 'global')){ toast('金币不够，再攒攒吧'); return; }
+      activeProfile.skins = activeProfile.skins || {};
+      activeProfile.skins.skin = (activeProfile.skins.skin || []).concat(id);
+    }
+    activeProfile.charSkin = id;
+    saveProfiles();
+    applyCharSkin();
+    renderHome();
+    sfx.tap();
+    toast(id === 'classic' ? '换回奶蛙经典套装' : ('换上了「' + (CHAR_SKINS.find(s => s.id === id) || {}).name + '」'));
+  }
+  function renderCharSkins(){
+    if(!els.charSkinRow || !activeProfile) return;
+    const cur = charSkinId();
+    els.charSkinRow.innerHTML = CHAR_SKINS.map(s => {
+      const active = cur === s.id;
+      const art = skinArt(s.id);
+      const owned = !!s.free || !!(activeProfile.skins && activeProfile.skins.skin && activeProfile.skins.skin.includes(s.id));
+      const thumb = art
+        ? `<img src="${art.img}" alt="">`
+        : `<svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>`;
+      return `<button class="char-skin-card${active ? ' active' : ''}" type="button" data-char-skin="${s.id}">
+        <span class="cs-thumb">${thumb}</span>
+        <span class="cs-copy"><b>${s.name}</b><small>${s.desc}</small></span>
+        <em>${active ? '使用中' : (owned ? '装备' : ((s.price || 0) + ' 金币'))}</em>
+      </button>`;
+    }).join('');
+  }
+
+  /* -------------------- 元素 -------------------- */
+  const els = {};
+  function cacheEls(){
+    const ids = ['game','daySub','coins','soundBtn','stageTabs','orderTicket','speech','guestWrap','canWrap',
+      'deskView','restaurantView','restaurantList','workView','kitchenView','orderStackLeft','orderStackRight','submitRack','deskAvatar','deskGuestName','deskGuestMood','deskStatus',
+      'hint','hintText','patience','patienceFill','patienceTime','canLarge','canSmall','bowlWorkLarge','bowlWorkSmall','syrupNote',
+      'batchStrip','syrupTarget','syrupFill','syrupReadout','pourBtn','kitchenOrder','cutStage','cutStock',
+      'bowlLarge','bowlSmall','potGrid','potNote','alarmNote','footer','resetBtn','sealBtn','serveBtn','toast',
+      'introOverlay','startBtn','introNote','reviewOverlay','reviewStars','reviewTitle','reviewScore','reviewQuote',
+      'scoreGrid','reviewCoins','reviewTip','reviewQueue','perfectStamp','nextBtn','summaryOverlay','summaryTitle','summaryStars',
+      'summaryCoins','summaryCoinsLabel','summaryPerfect','summaryAvg','summaryComment','summaryBest','summarySub','confetti',
+      'summaryRibbon','homeBtn','weekBanner','weekLabel','weekFill','weekValue','weekLeft','bgm','summaryStarsMax',
+      'reviewSpecial','shopBtn','replayBtn','shopOverlay','shopCoins','shopEvent','shopGrid','shopStartBtn','shopBackBtn',
+      'playerName','savePlayerBtn','homeEntryBtn','rankEntryBtn','summaryRankBtn','homeOverlay','homeCoins','homeOwner',
+      'homeTabs','homeRoom','homeRoomTip','furnitureGrid','closetGrid','charSkinRow','skinShop','homeClose','homePlayBtn','homeRankBtn',
+      'leaderboardOverlay','leaderboardList','leaderboardClose','leaderboardTitle','leaderboardSub','leaderboardFoot','rankTabs',
+      'reviewEarlyBtn','summaryEarlyBtn','shopEarlyBtn','settingsEarlyBtn','confirmOverlay','confirmCancel','confirmOk',
+      'jarSwitchBtn','toppingChips','toppingQtyRow','toppingMinus','toppingQtyVal','toppingPlus',
+      'shopTabs','shopWallet','shopExpandGrid','shopSyrupGrid','shopFurnGrid','shopSkinGrid','shopSkinSub','itemShopEntryBtn','shopTitle','shopSub',
+      'syrupComposition','pourSeq','stirBtn','alarmTray','alarmTrayItems','discardBtn',
+      'dressEntryBtn','dressOverlay','dressCoins','dressDoll','dressSlots','introVersion',
+      'dressClose','dressDoneBtn','frogWear','orderRod',
+      'saveEntryBtn','saveOverlay','saveClose','saveExport','saveImport','copySaveBtn','downloadSaveBtn',
+      'importSaveBtn','gistToken','gistSyncBtn','gistRestoreBtn','gistClearBtn','saveStatus',
+      'sbUrl','sbKey','sbAdvanced','sbPin','sbSaveBtn','sbLoadBtn','sbStatus',
+      'modeGroup','modeToggle','modeToggleName','modePanel','shopGroup','shopToggle','shopPanel',
+      'settingsEntryBtn','settingsBtn','settingsOverlay','settingsClose','settingsDone',
+      'setMaster','setMusic','setAlarm','setLaugh','setMasterVal','setMusicVal','setAlarmVal','setLaughVal',
+      'redeemInput','redeemBtn','redeemStatus','devExitBtn',
+      'reviewPersonality','codexEntryBtn','codexOverlay','codexClose','codexTabs','codexBody','codexFromSettings','batchStrip','batchScrollWrap','batchScroll','batchHint',
+      'rogueShopOverlay','rogueShopCoins','rogueShopList','rogueShopNext','shrimpOverlay','shrimpTitle','shrimpSub','shrimpChoices','shrimpSkip','shrimpReroll','shrimpDetail','shrimpConfirm',
+      'eventOverlay','eventIcon','eventTitle','eventDesc','eventContinue','changelogOverlay','changelogClose','changelogDone','changelogBtn','updateBtn',
+      'rogueHudPanel','rogueDayTag','rogueEventLine','rogueItemsBar','buffBagBtn','buffCount','rogueShopBtn','rogueCoinShopBtn',
+      'rogueMarketCoin','rogueMarketBag','buffBagOverlay','buffBagClose','buffBagBody','summaryPauseBtn','devEndDayBtn',
+      'shrimpCabinetBtn','shrimpCabinetMeta','shrimpCabinetOverlay','shrimpCabinetClose','shrimpCabinetBody','shrimpCabinetSub',
+      'startActions','continueBtn','continueLabel','continueMeta','rogueModeCard','rogueBadge','rogueNote',
+      'sbPinState','sbForgetPin',
+      'playerMenuToggle','playerMenu',
+      'settingsPauseBtn','rogueOverlay','rogueTitle','rogueStayBtn','rogueHomeBtn','confirmTitle','confirmCopy','confirmIcon','confirmTip',
+      'tutorialOverlay','tutorialTitle','tutorialText','tutorialStep','tutorialNext'];
+    ids.forEach(id => els[id] = document.getElementById(id));
+    els.panel = $('#panel');
+    els.footer = $('.footer');
+    els.stageTabs = $$('.stage-tab');
+    els.modeCards = $$('.mode-card');
+    els.homeTabs = $$('.home-tab');
+    els.sizeBtns = $$('.size-btn');
+    els.tempChips = $$('[data-temp]');
+  }
+
+  function lockViewport(){
+    const setH = () => {
+      const h = Math.round((window.visualViewport && window.visualViewport.height) || window.innerHeight || document.documentElement.clientHeight);
+      if(h > 200) document.documentElement.style.setProperty('--app-h', h + 'px');
+    };
+    setH();
+    window.addEventListener('resize', setH, {passive:true});
+    window.addEventListener('orientationchange', () => setTimeout(setH, 300), {passive:true});
+    if(window.visualViewport) window.visualViewport.addEventListener('resize', setH, {passive:true});
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('gesturestart', e => e.preventDefault());
+    document.addEventListener('dblclick', e => e.preventDefault());
+    const unlock = () => { ensureAudio(); cueMusic(); };
+    document.addEventListener('touchstart', unlock, {once:true, passive:true});
+    document.addEventListener('pointerdown', unlock, {once:true, passive:true});
+    document.addEventListener('visibilitychange', () => {
+      if(document.hidden) saveRunToProfile();
+      if(!bgmEl) bgmEl = els.bgm;
+      if(!bgmEl) return;
+      if(document.hidden) bgmEl.pause();
+      else cueMusic();
+    });
+    window.addEventListener('pagehide', () => saveRunToProfile());
+  }
+
+  function updateSoundButton(){
+    if(!els.soundBtn) return;
+    els.soundBtn.innerHTML = icon(state.sound ? 'sound' : 'muted');
+    applyAudioVolumes();
+  }
+  function syncSettingsUI(){
+    [['Master','master'],['Music','music'],['Alarm','alarm'],['Laugh','laugh']].forEach(([id,key]) => {
+      const input = els['set' + id];
+      const out = els['set' + id + 'Val'];
+      if(input) input.value = settings[key];
+      if(out) out.textContent = settings[key] + '%';
+    });
+  }
+  function syncDevModeUI(){
+    if(els.redeemStatus){
+      els.redeemStatus.textContent = state.devMode ? '开发者模式已开启 · 金币无限' : '输入兑换码领取内容';
+      els.redeemStatus.className = 'redeem-status' + (state.devMode ? ' ok' : '');
+    }
+    if(els.devExitBtn) els.devExitBtn.hidden = !state.devMode;
+    if(els.devEndDayBtn) els.devEndDayBtn.hidden = !state.devMode || (state.phase !== 'playing' && state.phase !== 'event');
+    if(els.redeemInput) els.redeemInput.placeholder = state.devMode ? '已开启 · 可输入关闭码' : '输入兑换码';
+    if(els.sbAdvanced) els.sbAdvanced.hidden = !state.devMode;
+  }
+  function setDevMode(on){
+    state.devMode = !!on;
+    try {
+      if(state.devMode) localStorage.setItem(DEV_MODE_KEY, '1');
+      else localStorage.removeItem(DEV_MODE_KEY);
+    } catch(e){}
+    if(state.devMode && activeProfile){
+      activeProfile.rogueUnlocked = true;
+      activeProfile.roguePlayed = true;
+      saveProfiles();
+      renderRogueMode();
+    }
+    syncDevModeUI();
+    if(els.redeemStatus){
+      els.redeemStatus.textContent = state.devMode ? '开发者模式已开启 · 金币无限' : '已退出开发者模式';
+      els.redeemStatus.className = 'redeem-status ' + (state.devMode ? 'ok' : '');
+    }
+    syncProfile();
+    updateHud();
+    applyDevBag();
+    syncDevBagUI();
+    if(els.shopOverlay && els.shopOverlay.classList.contains('show')) renderShop();
+  }
+  function redeemCode(){
+    if(!els.redeemInput) return;
+    const raw = (els.redeemInput.value || '').trim();
+    const code = raw.replace(/\s+/g, '');
+    if(code === '奶龙学长模式'){
+      setDevMode(true);
+      els.redeemInput.value = '';
+      sfx.coin();
+      toast('开发者模式已开启：金币无限，买东西不再扣钱');
+      return;
+    }
+    if(code === '关闭奶龙学长模式' || code === '退出奶龙学长模式'){
+      setDevMode(false);
+      els.redeemInput.value = '';
+      sfx.tap();
+      toast('已退出开发者模式');
+      return;
+    }
+    if(els.redeemStatus){
+      els.redeemStatus.textContent = '兑换码无效，请检查后重试';
+      els.redeemStatus.className = 'redeem-status err';
+    }
+    sfx.error();
+  }
+  function openSettings(){
+    syncSettingsUI();
+    syncDevModeUI();
+    // 玩家已经看到设置面板了，标题页上的更新小红点就可以收了
+    try { setUpdateDot(false); } catch(e){}
+    if(els.settingsEarlyBtn){
+      els.settingsEarlyBtn.hidden = !(state.phase === 'playing' || state.phase === 'reviewing');
+    }
+    if(els.settingsPauseBtn) els.settingsPauseBtn.hidden = state.phase !== 'playing';
+    if(!els.settingsOverlay) return;
+    els.settingsOverlay.classList.add('show');
+    els.settingsOverlay.setAttribute('aria-hidden', 'false');
+    try { els.settingsOverlay.style.zIndex = '1300'; } catch(e){}
+    try { if(typeof isPaused === 'function' && isPaused()) hidePausePanel(); } catch(e){}
+    sfx.tap();
+  }
+  function closeSettings(){
+    if(!els.settingsOverlay) return;
+    els.settingsOverlay.classList.remove('show');
+    els.settingsOverlay.setAttribute('aria-hidden', 'true');
+    try { if(typeof isPaused === 'function' && isPaused()) showPausePanel(); } catch(e){}
+  }
+  function setSetting(key, value){
+    if(!(key in settings)) return;
+    settings[key] = clamp(Math.round(Number(value) || 0), 0, 100);
+    saveSettings();
+    syncSettingsUI();
+    applyAudioVolumes();
+  }
+
+  let codexTab = 'personality';
+  function openCodex(tab){
+    codexTab = tab || codexTab || 'personality';
+    renderCodex();
+    if(!els.codexOverlay) return;
+    els.codexOverlay.classList.add('show');
+    els.codexOverlay.setAttribute('aria-hidden', 'false');
+    sfx.tap();
+  }
+  function closeCodex(){
+    if(!els.codexOverlay) return;
+    els.codexOverlay.classList.remove('show');
+    els.codexOverlay.setAttribute('aria-hidden', 'true');
+  }
+  function setCodexTab(tab){
+    codexTab = tab;
+    renderCodex();
+    sfx.tap();
+  }
+  function codexItem(icon, name, desc, tag, locked){
+    return `<div class="codex-item${locked ? ' locked' : ''}">
+      <div class="ci-icon">${locked ? '？' : icon}</div>
+      <div><b>${name}${tag ? `<span class="ci-tag">${tag}</span>` : ''}</b><small>${desc}</small></div>
+    </div>`;
+  }
+  function renderCodex(){
+    if(!els.codexBody) return;
+    const profile = activeProfile || defaultProfile('奶蛙店长');
+    const tabs = els.codexTabs ? [...els.codexTabs.querySelectorAll('[data-codex-tab]')] : [];
+    const rogueTab = tabs.find(t => t.dataset.codexTab === 'rogue');
+    if(rogueTab) rogueTab.hidden = !profile.roguePlayed;
+    if(els.codexTabs) els.codexTabs.classList.toggle('five', !!profile.roguePlayed);
+    if(!profile.roguePlayed && codexTab === 'rogue') codexTab = 'personality';
+    tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.codexTab === codexTab));
+    let html = '';
+    if(codexTab === 'personality'){
+      html = `<div class="codex-note">性格会影响客人的耐心、订单复杂度与评分修正。精英和 BOSS 有固定性格。</div>`;
+      html += PERSONALITY_IDS.map(id => {
+        const p = PERSONALITIES[id];
+        return codexItem(p.icon, p.name, `${p.desc}<br>${p.effect}`, '', false);
+      }).join('');
+    } else if(codexTab === 'normal'){
+      html = `<div class="codex-note">每天在店里随机出现的常客。约一半普通客人没有特殊性格，按普通耐心和订单处理。</div>`;
+      html += GUESTS.map(g => {
+        const info = GUEST_CODEX[g.name] || {icon:'🐾',bio:'奶蛙小店里的常客。'};
+        return codexItem(info.icon, g.name, `${info.bio}<br>50% 无特殊性格 · 50% 随机性格`, '常客', false);
+      }).join('');
+    } else if(codexTab === 'rogue'){
+      html = `<div class="codex-note">肉鸽模式独占内容。辣虾、道具、随机事件与奶鼠都会记录在这里。</div>`;
+      html += `<div class="codex-section-title">辣虾</div>`;
+      html += SHRIMPS.map(s => codexItem(s.rarity === 'curse' ? '🌶️' : '🦐', s.name, s.desc, ROGUE_RARITY[s.rarity].name, false)).join('');
+      html += `<div class="codex-section-title">肉鸽道具</div>`;
+      html += ROGUE_ITEMS.map(i => codexItem('🎁', i.name, i.desc, `${i.price} 肉鸽金币`, false)).join('');
+      html += `<div class="codex-section-title">随机事件</div>`;
+      html += ROGUE_EVENTS.map(e => codexItem(e.type === 'good' ? '🍀' : '☠️', e.name, e.desc, e.type === 'good' ? '幸运' : '霉运', false)).join('');
+      html += `<div class="codex-section-title">肉鸽 BOSS</div>`;
+      html += codexItem('🐭', '奶鼠', '抱着爱心的小老鼠，肉鸽专属 BOSS，会偷走其他客人的小费。', 'BOSS', false);
+    } else if(codexTab === 'items'){
+      html = `<div class="codex-note">食材和罐子买过一次就永久解锁，会出现在后续订单里。</div>`;
+      const topIcons = {mint:'🌿',osmanthus:'🌼',dates:'🫘',goji:'🍒',rock:'🍬',honeysuckle:'🌾'};
+      const jarDesc = {classic:'基础罐型，容量 180 / 300 / 420ml', narrow:'瓶口更窄，倒糖水要更稳', wide:'大口装桃，摆盘更豪放'};
+      html += `<div class="codex-section-title">加料</div>`;
+      html += Object.entries(TOPPINGS).filter(([id]) => id !== 'none').map(([id, t]) => {
+        const unlocked = BASE_TOPPINGS.includes(id) || (profile.unlocks.toppings || []).includes(id);
+        return codexItem(topIcons[id] || '✦', t.name, unlocked ? '已解锁 · 客人可能会点 1–3 勺' : '未解锁 · 在道具商店购买', unlocked ? '已解锁' : '未解锁', !unlocked);
+      }).join('');
+      html += `<div class="codex-section-title">罐子</div>`;
+      html += Object.entries(JARS).map(([id, j]) => {
+        const unlocked = id === 'classic' || (profile.unlocks.jars || []).includes(id);
+        return codexItem('🥫', j.name, unlocked ? (j.desc || jarDesc[id] || '已解锁') : '未解锁 · 在道具商店购买', unlocked ? '已解锁' : '未解锁', !unlocked);
+      }).join('');
+      html += `<div class="codex-section-title">糖浆</div>`;
+      html += SYRUP_IDS.map(id => {
+        const s = SYRUPS[id];
+        const unlocked = id === 'classic' || !!profile.syrups[id];
+        return codexItem('🍯', s.name, unlocked ? s.desc : '未解锁 · 在道具商店购买', unlocked ? '已解锁' : '未解锁', !unlocked);
+      }).join('');
+    } else {
+      const specials = [...ELITE_GUESTS, ...BOSS_GUESTS];
+      html = `<div class="codex-note">只有在店里接待过，才会记录精英与 BOSS 的完整情报。</div>`;
+      html += specials.map(g => {
+        const seen = (g.tier === 'elite' ? profile.seen.elite : profile.seen.boss).includes(g.name);
+        if(!seen){
+          return codexItem('？', '？？？', `尚未遇见 · ${g.tier === 'elite' ? '精英客人' : '周末 BOSS'}`, '', true);
+        }
+        const specialIcons = {pig:'🐷',bigdog:'🐕',chubby:'🐶',sadmouse:'🐭',serious:'🐶',patrick:'⭐',mao:'🐱'};
+        return codexItem(specialIcons[g.kind] || '🐾', g.name, `${g.greet}<br>耐心 ${Math.round(PATIENCE_MS * g.patience / 1000)} 秒 · 奖励 ×${g.coin}`, g.tier === 'elite' ? '精英' : 'BOSS', false);
+      }).join('');
+    }
+    els.codexBody.innerHTML = html;
+  }
+  function toast(text){
+    if(!els.toast) return;
+    els.toast.textContent = text;
+    els.toast.classList.add('show');
+    clearTimeout(state.toastTimer);
+    state.toastTimer = setTimeout(() => els.toast.classList.remove('show'), 2200);
+  }
+  function showSpeech(text, ms=3200){
+    if(!text || !els.speech) return;
+    els.speech.textContent = text;
+    els.speech.classList.remove('show');
+    void els.speech.offsetWidth;
+    els.speech.classList.add('show');
+    clearTimeout(state.speechTimer);
+    state.speechTimer = setTimeout(() => els.speech.classList.remove('show'), ms);
+  }
+  function setGuestMood(mood){
+    els.guestWrap.classList.toggle('sad', mood === 'sad');
+    els.guestWrap.classList.toggle('happy', mood === 'happy');
+  }
+
+  /* -------------------- 订单 -------------------- */
+  function randInt(a,b){ return a + Math.floor(Math.random() * (b - a + 1)); }
+  let lastOrderSig = '';
+  function makeOrder(index, guest, pOverride){
+    if(state.mode === 'custom' && state.customMap) return makeCustomOrder(index, guest, pOverride);
+    const hard = guest && (guest.tier === 'elite' || guest.tier === 'boss');
+    const p = pOverride !== undefined ? pOverride : (state.personality || null);
+    const complex = hard || (p && (p.id === 'patient' || p.id === 'strict'));
+    const simple = p && p.id === 'impatient';
+    let order = null, sig = '';
+    for(let tries=0; tries<16; tries++){
+      const size = ['small','medium','large'][randInt(0,2)];
+      const total = complex ? randInt(3,4) : simple ? 2 : state.day <= 2 ? randInt(2,3) : randInt(2,4);
+      let large = randInt(0,total);
+      if(total >= 2 && Math.random() < (complex ? .88 : simple ? .5 : .78)) large = clamp(large, 1, total-1);
+      const sugar = complex ? randInt(2,3) : simple ? randInt(1,2) : randInt(1,3);
+      const temp = ['ice','room','warm'][randInt(0,2)];
+      const jars = unlockedJars();
+      const jar = jars.length > 1 && Math.random() < .38 ? jars[randInt(1,jars.length-1)] : 'classic';
+      const pool = unlockedToppings().slice();
+      const tops = [];
+      if(pool.length && Math.random() >= (simple ? .42 : .24)){
+        const want = complex ? (Math.random() < .65 ? 2 : 1) : (Math.random() < .35 ? 2 : 1);
+        for(let t=0; t<want && pool.length; t++){
+          const pick = pool.splice(randInt(0,pool.length-1),1)[0];
+          tops.push({id:pick, qty:randInt(1,3)});
+        }
+      }
+      const tolBase = SUGAR[sugar].tol + (guest && guest.tolDelta || 0) + (p && p.id === 'strict' ? -1 : p && p.id === 'petty' ? -1 : p && p.id === 'generous' ? 1 : 0);
+      const tol = Math.max(3, tolBase);
+      const poolS = customStepOn('boil') ? availableSyrups().filter(id => id !== 'death') : ['classic'];
+      const twoSyrupChance = complex ? .82 : simple ? .24 : .58;
+      const sCount = poolS.length > 1 && Math.random() < twoSyrupChance ? 2 : 1;
+      const picked = poolS.slice().sort(() => Math.random() - .5).slice(0, sCount);
+      let ratios = sCount === 2 ? [50,50] : [100];
+      if(sCount === 2){
+        // 更多不同比例：常见 50:50 / 60:40，也有 55:45、65:35、70:30、75:25、80:20 等
+        const pool = [
+          [50,50],[50,50],[50,50],
+          [60,40],[40,60],
+          [55,45],[45,55],
+          [65,35],[35,65],
+          [70,30],[30,70],
+          [75,25],[25,75],
+          [80,20],[20,80]
+        ];
+        // 前期更温和，后期（普通第 8 天以后 / 肉鸽第 2 周以后）更容易出现悬殊比例
+        const spicy = state.mode === 'rogue' ? (state.week || 1) > 1 : (state.day || 1) > 8;
+        const biased = spicy ? pool : pool.filter(r => Math.min(r[0], r[1]) >= 40 && Math.max(r[0], r[1]) <= 60);
+        const pickR = biased[randInt(0, biased.length - 1)];
+        ratios = [pickR[0], pickR[1]];
+      }
+      const syrups = picked.map((id,i) => ({id, ratio:ratios[i]}));
+      const stirChance = complex ? .9 : simple ? .35 : .65;
+      const stirred = sCount === 2 && Math.random() < stirChance;
+      const boilStyle = sCount === 2 ? (Math.random() < .5 ? 'together' : 'separate') : 'single';
+      order = {size, jar, peaches:{large, small:total-large}, sugar, temp, toppings:tops, tol, syrups, stirred, boilStyle};
+      sig = `${size}|${jar}|${large}|${total-large}|${sugar}|${temp}|${tops.map(t=>`${t.id}:${t.qty}`).join(',')}|${syrups.map(s=>`${s.id}${s.ratio}`).join('+')}|${stirred}`;
+      if(sig !== lastOrderSig || tries >= 12) break;
+    }
+    lastOrderSig = sig;
+    return order;
+  }
+  const peachTotal = p => (p.large||0) + (p.small||0);
+  function peachText(p){
+    const l = p.large||0, s = p.small||0;
+    if(l && s) return `${l} 大 + ${s} 小`;
+    if(l) return `${l} 块全是大块`;
+    return `${s} 块全是小块`;
+  }
+  function toppingText(list){
+    if(!list || !list.length) return '不加';
+    return list.map(t => `${(TOPPINGS[t.id] || {name:t.id}).name}×${t.qty || 1}勺`).join(' + ');
+  }
+  function syrupText(o){
+    if(!o.syrups || !o.syrups.length) return '经典糖浆';
+    const names = o.syrups.map(s => `${SYRUPS[s.id].name}${s.ratio}%`).join(' + ');
+    const style = o.syrups.length > 1 ? (o.boilStyle === 'together' ? ' · 一起熬' : ' · 分开熬') : '';
+    return `${names}${o.stirred ? ' · 搅拌' : ' · 分层'}${style}`;
+  }
+  function countPieces(pieces){
+    return pieces.reduce((a,s) => { a[s]++; return a; }, {large:0,small:0});
+  }
+  function findBatch(){
+    if(customActive() && customMap().steps.boil === false){
+      return { id: 'free', sugar: (state.order && state.order.sugar) || 2, quality: 'perfect', types: ['classic'], ratios: { classic: 100 }, free: true };
+    }
+    if(state.selectedBatch == null) return null;
+    return state.batches.find(b => b.id === state.selectedBatch && !b.used) || null;
+  }
+
+  /* -------------------- 渲染 -------------------- */
+  function setStage(stage, silent=false){
+    requestAnimationFrame(() => { try { applyKnifeSkin(); } catch(e){} });
+    if(state.phase !== 'playing' && !silent) return;
+    if(state.pouring) stopPour();
+    state.stage = stage;
+    els.game.dataset.stage = stage;
+    els.stageTabs.forEach(t => t.classList.toggle('active', t.dataset.stage === stage));
+    els.deskView.classList.toggle('active', stage === 'desk');
+    if(els.restaurantView) els.restaurantView.classList.toggle('active', stage === 'restaurant');
+    els.workView.classList.toggle('active', stage === 'work');
+    els.kitchenView.classList.toggle('active', stage === 'kitchen');
+    if(els.orderRod) els.orderRod.hidden = stage !== 'desk';
+    if(stage === 'desk'){ renderDesk(); renderOrderStack(); }
+    if(stage === 'restaurant') renderRestaurant();
+    if(stage === 'work') renderWork();
+    if(stage === 'kitchen') renderKitchen();
+    renderAlarmTray();
+    updateFooter();
+    renderHint();
+    updateHud();
+    applySkins();
+    if(!silent){ sfx.tap(); cueMusic(); }
+    if(!restoringRun && state.phase === 'playing') saveRunToProfile();
+    if(tutorialActive() && !silent){ tutorialStageTip(stage); tutorialScriptStageTip(stage); tutorialStagePointer(stage); }
+    try { renderTutorialTasks(); } catch(e){}
+    try { syncDevBagUI(); } catch(e){}
+  }
+
+  function paintBrand(){
+    const badge = document.querySelector('.brand-badge');
+    const title = document.querySelector('.brand-title');
+    const sub = document.getElementById('daySub');
+    if(!badge || !title) return;
+    const cm = state.mode === 'custom' ? customMap() : null;
+    if(cm && cm.cover){
+      if(!badge.querySelector('img')) badge.innerHTML = '<img alt="">';
+      const img = badge.querySelector('img');
+      if(img.getAttribute('src') !== cm.cover) img.src = cm.cover;
+      badge.querySelectorAll('svg').forEach(x => x.remove());
+    }else if(!badge.querySelector('svg')){
+      badge.innerHTML = '<svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>';
+    }
+    title.textContent = (cm && (cm.name || '').trim()) ? cm.name.trim() : '奶蛙黄桃罐头店';
+    if(sub) sub.classList.toggle('big', !!cm);
+    if(sub) sub.classList.toggle('center', !!cm);
+  }
+
+    function updateHud(){
+    try { paintBrand(); } catch(e){}
+    try { if(els.settingsBtn) setHeaderPause(state.phase === 'playing' || state.phase === 'event' || isPaused()); } catch(e){}
+    if(els.game) els.game.dataset.mode = state.mode || 'normal';
+    if(els.coins) els.coins.textContent = coinText();
+    if(els.devEndDayBtn) els.devEndDayBtn.hidden = !state.devMode || (state.phase !== 'playing' && state.phase !== 'event');
+    if(els.daySub){
+      const label = state.phase === 'intro' ? '准备营业' : state.stage === 'desk' ? '服务台' : state.stage === 'restaurant' ? '餐厅' : state.stage === 'work' ? '工作台' : '厨房';
+      const special = specialForDay(state.day);
+      const mark = special ? (special.type === 'boss' ? ' · BOSS日' : ' · 精英日') : '';
+      if(state.phase === 'intro') els.daySub.textContent = '选择模式 · 准备营业';
+      else if(state.mode === 'endless'){
+        const d = ((state.day - 1) % WEEK_DAYS) + 1;
+        els.daySub.textContent = `无尽 W${state.week} · DAY ${d}/${WEEK_DAYS}${mark} · ${label}`;
+      }else if(state.mode === 'rogue'){
+        const d = ((state.day - 1) % WEEK_DAYS) + 1;
+        els.daySub.textContent = `肉鸽 W${state.week} · DAY ${d}/${WEEK_DAYS}${mark} · ${label}`;
+      }else if(state.mode === 'tutorial'){
+        els.daySub.textContent = `新手 DAY ${state.day}/${TUTORIAL_DAYS} · ${label}`;
+      }else if(state.mode === 'custom'){
+        const cmMapNow = customMap();
+        const cmTotal = cmMapNow.endless === false ? customTotalDays() : NORMAL_DAYS;
+        els.daySub.textContent = `DAY ${state.day}/${cmTotal}${mark} · ${label}`;
+      }else{
+        els.daySub.textContent = `普通 · DAY ${state.day}/${NORMAL_DAYS}${mark} · ${label}`;
+      }
+    }
+    updateWeekBanner();
+  }
+
+  function updateWeekBanner(){
+    if(!els.weekBanner) return;
+    const cmMap = state.mode === 'custom' ? state.customMap : null;
+    const cmShow = !!(cmMap && ((cmMap.missionsOn !== false && (cmMap.missions || []).length) || cmMap.weeklyOn !== false));
+    const show = (state.mode === 'endless' || state.mode === 'rogue' || cmShow) && state.phase !== 'intro';
+    els.weekBanner.hidden = !show;
+    if(!show) return;
+    const wdNow = state.mode === 'custom' ? customWeekDays() : WEEK_DAYS;
+    const left = wdNow - ((state.day - 1) % wdNow);
+    if(state.mode === 'custom'){
+      const list = customTasks();
+      if(list.length){
+        const done = list.filter(t => t.check()).length;
+        els.weekLabel.textContent = `自定义第 ${state.week} 周任务`;
+        els.weekValue.textContent = `${done} / ${list.length}`;
+        els.weekFill.style.width = (done / list.length * 100) + '%';
+        els.weekFill.classList.toggle('met', done === list.length);
+        els.weekLeft.textContent = done === list.length ? '本周任务完成' : `还剩 ${left} 天`;
+        return;
+      }
+    }
+    const devPass = !!state.devMode;
+    const shownEarned = devPass ? Math.max(state.weekEarned, state.weekTarget) : state.weekEarned;
+    const pct = state.weekTarget ? clamp(shownEarned / state.weekTarget * 100, 0, 100) : 0;
+    const ev = state.mode === 'rogue' ? rogueEventToday() : null;
+    els.weekLabel.textContent = state.mode === 'rogue' ? `肉鸽第 ${state.week} 周目标${ev ? ` · 今日：${ev.name}` : ''}` : state.mode === 'custom' ? `自定义第 ${state.week} 周目标` : `第 ${state.week} 周业绩`;
+    els.weekValue.textContent = `${state.weekEarned} / ${state.weekTarget}`;
+    els.weekFill.style.width = pct + '%';
+    els.weekFill.classList.toggle('met', shownEarned >= state.weekTarget);
+    els.weekLeft.textContent = shownEarned >= state.weekTarget ? (devPass ? '开发者模式 · 已达标' : '已达标') : `还剩 ${left} 天`;
+  }
+
+  function renderOrderTicket(){
+    if(!state.guest || !state.order){
+      els.orderTicket.innerHTML = `<div class="ticket-head"><span class="ticket-kicker">WAITING FOR ORDER</span><span class="ticket-name">奶蛙</span></div>
+        <div class="ticket-rule"></div>
+        <div class="ticket-empty" style="padding:22px 4px;text-align:center;font-size:9px;color:#A98556;font-weight:800;line-height:1.7">客人马上就到<br>先准备好黄桃吧～</div>`;
+      return;
+    }
+    const o = state.order;
+    els.orderTicket.innerHTML = `
+      <div class="ticket-head"><span class="ticket-kicker">ORDER ${String(state.guestIndex+1).padStart(2,'0')}/03</span><span class="ticket-name">${state.guest.name}的订单${guestTag(state.guest)}</span></div>
+      <div class="ticket-rule"></div>
+      <div class="ticket-row size">${icon('can')}<span class="row-label">罐型</span><b>${SIZES[o.size].name} · ${JARS[o.jar || 'classic'].name}</b></div>
+      <div class="ticket-row peach">${icon('peach')}<span class="row-label">黄桃</span><b>${peachText(o.peaches)}</b></div>
+      <div class="ticket-row sweet">${icon('drop')}<span class="row-label">糖水</span><b>${SUGAR[o.sugar].name} · ${o.sugar} 勺</b></div>
+      <div class="ticket-row syrup"><svg class="icon"><use href="#i-drop"></use></svg><span class="row-label">糖浆</span><b>${syrupText(o)}</b></div>
+      <div class="ticket-row temp">${icon(o.temp === 'ice' ? 'snow' : o.temp === 'warm' ? 'heat' : 'thermo')}<span class="row-label">温度</span><b>${TEMPS[o.temp]}</b></div>
+      <div class="ticket-row topping">${icon((o.toppings && o.toppings[0]) ? TOPPINGS[o.toppings[0].id].icon : TOPPINGS.none.icon)}<span class="row-label">加料</span><b>${toppingText(o.toppings)}</b></div>`;
+    els.orderTicket.classList.remove('ticket-in');
+    void els.orderTicket.offsetWidth;
+    els.orderTicket.classList.add('ticket-in');
+  }
+
+  function livePersonality(guest){
+    if(!guest) return state.personality;
+    const rec = (state.dayGuests || []).find(d => d && d.guest && (d.guest === guest || d.guest.name === guest.name));
+    return (rec && rec.personality) || state.personality;
+  }
+
+  function liveExtraTag(guest){
+    if(!guest) return '';
+    const rec = (state.dayGuests || []).find(d => d && d.guest && (d.guest === guest || d.guest.name === guest.name));
+    return (rec && rec.extraPersonality === 'depression') ? personalityTag(PERSONALITIES.depression) : '';
+  }
+
+  function renderGuest(){
+    if(!state.guest){ els.guestWrap.innerHTML = ''; return; }
+    els.guestWrap.innerHTML = `<div class="guest-name"><span class="gn-name">${state.guest.name}${guestTag(state.guest)}</span><span class="gn-tags">${personalityTag(livePersonality(state.guest))}${liveExtraTag(state.guest)}</span></div>${guestSVG(state.guest, state.guestIndex)}`;
+    els.guestWrap.classList.remove('guest-enter');
+    void els.guestWrap.offsetWidth;
+    els.guestWrap.classList.add('guest-enter');
+  }
+
+  function bullSVG(guest, idx){
+    const id = 'bull' + idx;
+    return `
+    <svg class="guest-svg bull-svg" viewBox="0 0 160 200" role="img" aria-label="客人 ${guest.name}">
+      <defs><linearGradient id="${id}Fur" x1="0" y1="0" x2=".8" y2="1">
+        <stop offset="0" stop-color="#FFD84A"/><stop offset=".65" stop-color="#F0B91F"/><stop offset="1" stop-color="#D59913"/>
+      </linearGradient></defs>
+      <ellipse cx="80" cy="192" rx="43" ry="5" fill="#3A2410" opacity=".14"/>
+      <g class="dog-bob">
+        <path d="M46 112c-15 17-20 48-9 68 9 17 26 14 31-3l7-26z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.4"/>
+        <path d="M114 112c15 17 20 48 9 68-9 17-26 14-31-3l-7-26z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.4"/>
+        <path d="M45 101c0-18 15-32 35-32s35 14 35 32l-2 37c-2 23-15 37-33 37s-31-14-33-37z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.4"/>
+        <ellipse cx="46" cy="188" rx="17" ry="8" fill="#F5CFC8"/>
+        <ellipse cx="114" cy="188" rx="17" ry="8" fill="#F5CFC8"/>
+        <path d="M45 53c-13-5-22 2-20 13 2 10 10 14 22 10z" fill="#E8B21A" stroke="#B57A0C" stroke-width="1.3"/>
+        <path d="M115 53c13-5 22 2 20 13-2 10-10 14-22 10z" fill="#E8B21A" stroke="#B57A0C" stroke-width="1.3"/>
+        <path d="M54 34C46 24 49 12 57 15c7 2 8 10 7 19z" fill="#8D8178" stroke="#60564F" stroke-width="1.3"/>
+        <path d="M106 34c8-10 5-22-3-19-7 2-8 10-7 19z" fill="#8D8178" stroke="#60564F" stroke-width="1.3"/>
+        <path d="M44 53c0-20 16-32 36-32s36 12 36 32c0 17-14 34-36 34S44 70 44 53z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.5"/>
+        <path d="M45 63c0-19 15-30 35-30s35 11 35 30c0 9-6 17-15 22 2-4 2-8 0-11-6 7-13 10-20 10s-14-3-20-10c-2 3-2 7 0 11-9-5-15-13-15-22z" fill="#E7AD17" opacity=".45"/>
+        <ellipse cx="80" cy="77" rx="26" ry="18" fill="#F2C9C0" stroke="#C7938A" stroke-width="1.1"/>
+        <ellipse cx="71" cy="73" rx="3.2" ry="4.2" fill="#6B4A43" opacity=".75"/>
+        <ellipse cx="89" cy="73" rx="3.2" ry="4.2" fill="#6B4A43" opacity=".75"/>
+        <path d="M70 84c6 4 14 4 20 0" fill="none" stroke="#9C655A" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M55 55c6-4 13-4 18-1M87 54c5-3 12-3 18 1" fill="none" stroke="#6C490A" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="65" cy="62" r="3.2" fill="#2B1A08"/><circle cx="95" cy="62" r="3.2" fill="#2B1A08"/>
+        <path d="M38 166c9-3 16 2 17 10M122 166c-9-3-16 2-17 10" fill="none" stroke="#B57A0C" stroke-width="1.5" stroke-linecap="round"/>
+      </g>
+    </svg>`;
+  }
+
+  function bigDogSVG(guest, idx){
+    const id = 'bigdog' + idx;
+    return `
+    <svg class="guest-svg bigdog-svg" viewBox="0 0 160 200" role="img" aria-label="客人 ${guest.name}">
+      <defs><linearGradient id="${id}Fur" x1="0" y1="0" x2=".8" y2="1">
+        <stop offset="0" stop-color="#D8AE72"/><stop offset=".65" stop-color="#BF8C4F"/><stop offset="1" stop-color="#996734"/>
+      </linearGradient></defs>
+      <ellipse cx="80" cy="193" rx="48" ry="5" fill="#3A2410" opacity=".14"/>
+      <g class="dog-bob">
+        <path d="M38 178c-9-17-5-34 8-40 11-5 21 1 24 11l4 20z" fill="url(#${id}Fur)" stroke="#7A4E22" stroke-width="1.4"/>
+        <path d="M122 178c9-17 5-34-8-40-11-5-21 1-24 11l-4 20z" fill="url(#${id}Fur)" stroke="#7A4E22" stroke-width="1.4"/>
+        <path d="M55 123c-3-27 6-46 25-46s28 19 25 46l-3 49c-1 15-10 22-22 22s-21-7-22-22z" fill="url(#${id}Fur)" stroke="#7A4E22" stroke-width="1.4"/>
+        <path d="M46 70c-18-3-27 12-19 24 7 10 17 8 25 1z" fill="#A9703C" stroke="#7A4E22" stroke-width="1.4"/>
+        <path d="M114 70c18-3 27 12 19 24-7 10-17 8-25 1z" fill="#A9703C" stroke="#7A4E22" stroke-width="1.4"/>
+        <path d="M47 57c0-22 15-36 33-36s33 14 33 36c0 16-7 30-18 37-5 4-10 5-15 5s-10-1-15-5c-11-7-18-21-18-37z" fill="url(#${id}Fur)" stroke="#7A4E22" stroke-width="1.5"/>
+        <path d="M52 47c9-7 18-7 26 0M82 47c8-7 17-7 26 0" fill="none" stroke="#5C3A1C" stroke-width="3.2" stroke-linecap="round"/>
+        <circle cx="66" cy="56" r="4" fill="#211307"/><circle cx="94" cy="56" r="4" fill="#211307"/>
+        <ellipse cx="80" cy="76" rx="12" ry="8" fill="#2A1A0D"/>
+        <path d="M50 85c9-7 18-7 27-1l3 12c3 11-5 19-14 19s-17-8-14-19z" fill="#3A1A16" stroke="#5C2C25" stroke-width="1.2"/>
+        <path d="M55 93l8 5-8 5M105 85c-9-7-18-7-27-1l-3 12c-3 11 5 19 14 19s17-8 14-19z" fill="#3A1A16" stroke="#5C2C25" stroke-width="1.2"/>
+        <path d="M52 87l9 4-9 4M108 87l-9 4 9 4M55 105l9 3-9 4M105 105l-9 3 9 4" fill="#FFF6E8" stroke="#D8C2AA" stroke-width="-.5"/>
+        <path d="M56 116c15 7 33 7 48 0" fill="none" stroke="#3A1A16" stroke-width="2" stroke-linecap="round"/>
+        <path d="M32 170c10-4 18 2 18 10M128 170c-10-4-18 2-18 10" fill="none" stroke="#7A4E22" stroke-width="1.6" stroke-linecap="round"/>
+      </g>
+    </svg>`;
+  }
+
+  function chubbySVG(guest, idx){
+    const id = 'chubby' + idx;
+    return `
+    <svg class="guest-svg chubby-svg" viewBox="0 0 160 200" role="img" aria-label="客人 ${guest.name}">
+      <defs><linearGradient id="${id}Fur" x1="0" y1="0" x2=".8" y2="1">
+        <stop offset="0" stop-color="#FFE45C"/><stop offset=".7" stop-color="#F6C92C"/><stop offset="1" stop-color="#D9A812"/>
+      </linearGradient></defs>
+      <ellipse cx="80" cy="193" rx="49" ry="5" fill="#3A2410" opacity=".14"/>
+      <g class="dog-bob">
+        <path d="M30 174c-13-12-15-29-3-38 10-8 24-3 29 9l5 20z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.4"/>
+        <path d="M130 174c13-12 15-29 3-38-10-8-24-3-29 9l-5 20z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.4"/>
+        <path d="M40 118c0-33 18-55 40-55s40 22 40 55c0 37-15 65-40 65s-40-28-40-65z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.5"/>
+        <ellipse cx="80" cy="147" rx="30" ry="32" fill="#FFF2B8"/>
+        <path d="M43 45c-10-14-5-27 7-27 11 0 17 12 19 25z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.4"/>
+        <path d="M117 45c10-14 5-27-7-27-11 0-17 12-19 25z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.4"/>
+        <path d="M45 58c0-19 15-31 35-31s35 12 35 31c0 17-14 31-35 31S45 75 45 58z" fill="url(#${id}Fur)" stroke="#B57A0C" stroke-width="1.5"/>
+        <circle cx="65" cy="55" r="7" fill="#FFF9E4"/><circle cx="95" cy="55" r="7" fill="#FFF9E4"/>
+        <circle cx="65" cy="56" r="3" fill="#31200B"/><circle cx="95" cy="56" r="3" fill="#31200B"/>
+        <ellipse cx="80" cy="72" rx="13" ry="8" fill="#8E4A24"/>
+        <ellipse cx="75" cy="70" rx="3.5" ry="2" fill="#C87B4A"/>
+        <path d="M68 82c8 5 16 5 24 0" fill="none" stroke="#7C3E1C" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M52 118c8 10 19 15 28 15s20-5 28-15" fill="none" stroke="#E3B21C" stroke-width="1.5" stroke-linecap="round"/>
+        <ellipse cx="37" cy="186" rx="16" ry="8" fill="#F2C7A9"/>
+        <ellipse cx="123" cy="186" rx="16" ry="8" fill="#F2C7A9"/>
+      </g>
+    </svg>`;
+  }
+
+  function sadMouseSVG(guest, idx){
+    const id = 'sadmouse' + idx;
+    return `
+    <svg class="guest-svg sadmouse-svg" viewBox="0 0 160 200" role="img" aria-label="客人 ${guest.name}">
+      <defs><linearGradient id="${id}Fur" x1="0" y1="0" x2=".8" y2="1">
+        <stop offset="0" stop-color="#96AFD8"/><stop offset=".7" stop-color="#7895C4"/><stop offset="1" stop-color="#5E7BA8"/>
+      </linearGradient></defs>
+      <ellipse cx="80" cy="193" rx="48" ry="5" fill="#3A2410" opacity=".14"/>
+      <g class="dog-bob">
+        <path d="M50 188c-16-6-23-25-16-43 6-17 17-27 32-28h28c15 1 26 11 32 28 7 18 0 37-16 43z" fill="url(#${id}Fur)" stroke="#4D648A" stroke-width="1.5"/>
+        <path d="M50 70c0-24 14-39 30-39s30 15 30 39c0 21-13 36-30 36S50 91 50 70z" fill="url(#${id}Fur)" stroke="#4D648A" stroke-width="1.5"/>
+        <path d="M50 48c-9-9-7-19 3-19 8 0 11 8 11 17zM110 48c9-9 7-19-3-19-8 0-11 8-11 17z" fill="#7C9BCB" stroke="#4D648A" stroke-width="1.3"/>
+        <circle cx="66" cy="62" r="7" fill="#1E2630"/><circle cx="94" cy="62" r="7" fill="#1E2630"/>
+        <circle cx="69" cy="59" r="2.4" fill="#fff"/><circle cx="97" cy="59" r="2.4" fill="#fff"/>
+        <ellipse cx="80" cy="78" rx="9" ry="6" fill="#D9B2C2"/>
+        <path d="M73 91c5-2 10-2 14 0" fill="none" stroke="#4D648A" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M40 100l-20-3M41 108l-22 3M120 100l20-3M119 108l22 3" stroke="#4D648A" stroke-width="1.2" stroke-linecap="round"/>
+        <ellipse cx="62" cy="151" rx="15" ry="18" fill="#E9B7C8"/>
+        <ellipse cx="98" cy="151" rx="15" ry="18" fill="#E9B7C8"/>
+        <rect x="68" y="140" width="24" height="32" rx="4" fill="#2B2B33" stroke="#16161C" stroke-width="2"/>
+        <path d="M72 147h16" stroke="#6B6B78" stroke-width="1.2"/>
+        <ellipse cx="47" cy="185" rx="16" ry="8" fill="#E9B7C8"/>
+        <ellipse cx="113" cy="185" rx="16" ry="8" fill="#E9B7C8"/>
+      </g>
+    </svg>`;
+  }
+
+  function maoCatSVG(guest, idx){
+    const id = 'mao' + idx;
+    return `
+    <svg class="guest-svg mao-svg" viewBox="0 0 160 200" role="img" aria-label="客人 ${guest.name}">
+      <defs><linearGradient id="${id}Fur" x1="0" y1="0" x2=".8" y2="1">
+        <stop offset="0" stop-color="#F2B96B"/><stop offset=".7" stop-color="#DE9A4B"/><stop offset="1" stop-color="#BE7630"/>
+      </linearGradient></defs>
+      <ellipse cx="80" cy="193" rx="47" ry="5" fill="#3A2410" opacity=".14"/>
+      <g class="dog-bob">
+        <path d="M47 129c-15 10-20 29-13 46 6 14 19 20 31 14l10-6z" fill="url(#${id}Fur)" stroke="#93551D" stroke-width="1.4"/>
+        <path d="M113 129c15 10 20 29 13 46-6 14-19 20-31 14l-10-6z" fill="url(#${id}Fur)" stroke="#93551D" stroke-width="1.4"/>
+        <path d="M48 94c0-27 14-45 32-45s32 18 32 45c0 34-14 57-32 57S48 128 48 94z" fill="url(#${id}Fur)" stroke="#93551D" stroke-width="1.5"/>
+        <path d="M42 45c-4-13 4-21 13-15l16 12 9-5 9 5 16-12c9-6 17 2 13 15l-8 23-50 0z" fill="url(#${id}Fur)" stroke="#93551D" stroke-width="1.5"/>
+        <ellipse cx="61" cy="66" rx="10" ry="6" fill="#FFF4D8"/>
+        <ellipse cx="99" cy="66" rx="10" ry="6" fill="#FFF4D8"/>
+        <circle cx="61" cy="67" r="4.2" fill="#3A2814"/><circle cx="99" cy="67" r="4.2" fill="#3A2814"/>
+        <path d="M48 55c5-3 11-3 16 0M96 55c5-3 11-3 16 0" fill="none" stroke="#6C4119" stroke-width="2" stroke-linecap="round"/>
+        <ellipse cx="80" cy="83" rx="14" ry="10" fill="#FFF4D8"/>
+        <path d="M80 79l-4 4h8z" fill="#D67B72"/>
+        <path d="M80 84v5M75 89c2 2 8 2 10 0" fill="none" stroke="#8B5A38" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M46 78l-18-4M46 84l-20 2M114 78l18-4M114 84l20 2" stroke="#7A4A24" stroke-width="1.2" stroke-linecap="round"/>
+        <path d="M55 113c7 4 15 4 22 0M83 113c7 4 15 4 22 0" fill="none" stroke="#B8791F" stroke-width="1.3" stroke-linecap="round"/>
+        <path d="M120 170c9-2 14 3 13 10-1 6-7 8-13 5" fill="none" stroke="#93551D" stroke-width="5" stroke-linecap="round"/>
+      </g>
+    </svg>`;
+  }
+
+  function authorPhotoSrc(){
+    const img = document.querySelector('.maker img');
+    return img ? img.src : 'avatar.jpg';
+  }
+  function guestSVG(guest, idx){
+    if(guest.kind === 'author') return `<img class="guest-svg author-photo" src="${authorPhotoSrc()}" alt="${guest.name}">`;
+    if(guest.kind === 'naishu'){
+      const n = document.querySelector('#naishuAsset');
+      return `<img class="guest-svg naishu-photo" src="${n ? n.src : ''}" alt="奶鼠">`;
+    }
+    if(guest.kind === 'cat') return catSVG(guest, idx);
+    if(guest.kind === 'pig') return pigSVG(guest, idx);
+    if(guest.kind === 'bird') return birdSVG(guest, idx);
+    if(guest.kind === 'serious') return seriousDogSVG(guest, idx);
+    if(guest.kind === 'sponge') return spongeSVG(guest, idx);
+    if(guest.kind === 'patrick') return patrickSVG(guest, idx);
+    if(guest.kind === 'plane') return planeCatSVG(guest, idx);
+    if(guest.kind === 'bull') return bullSVG(guest, idx);
+    if(guest.kind === 'bigdog') return bigDogSVG(guest, idx);
+    if(guest.kind === 'chubby') return chubbySVG(guest, idx);
+    if(guest.kind === 'sadmouse') return sadMouseSVG(guest, idx);
+    if(guest.kind === 'mao') return maoCatSVG(guest, idx);
+    return dogSVG(guest, idx);
+  }
+
+  function catSVG(guest, idx){
+    const id = 'cat' + idx;
+    return `
+    <svg class="guest-svg cat-svg" viewBox="0 0 160 200" role="img" aria-label="客人 ${guest.name}">
+      <defs>
+        <linearGradient id="${id}Fur" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#E3B277"/><stop offset=".62" stop-color="#C98B4E"/><stop offset="1" stop-color="#A96A34"/>
+        </linearGradient>
+        <linearGradient id="${id}Can" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#F4F7F5"/><stop offset=".5" stop-color="#C7D0CD"/><stop offset="1" stop-color="#9AA6A2"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="80" cy="192" rx="46" ry="6" fill="#3A2410" opacity=".12"/>
+      <g class="dog-bob">
+        <path d="M114 158c23 1 32-13 25-27-5-10-16-10-19-3-2 6 4 9 8 6 4 8-4 15-17 16z" fill="url(#${id}Fur)" stroke="#8D572A" stroke-width="1.3"/>
+        <path d="M78 104c-25 2-38 25-33 50 4 24 17 38 34 38 18 0 32-15 34-39 2-25-11-47-35-49z" fill="url(#${id}Fur)" stroke="#8D572A" stroke-width="1.3"/>
+        <ellipse cx="80" cy="160" rx="25" ry="27" fill="#FFF0D7" opacity=".95"/>
+        <path d="M52 49 45 22c-1-5 4-8 8-4l18 18z" fill="url(#${id}Fur)" stroke="#8D572A" stroke-width="1.3"/>
+        <path d="M108 49 116 23c2-5-3-9-7-5l-19 18z" fill="url(#${id}Fur)" stroke="#8D572A" stroke-width="1.3"/>
+        <path d="M50 36l3-9 9 9zM110 36l-3-9-9 9z" fill="#F1A3A8"/>
+        <ellipse cx="80" cy="67" rx="41" ry="37" fill="url(#${id}Fur)" stroke="#8D572A" stroke-width="1.4"/>
+        <path d="M57 39c7 6 14 8 23 8M83 36c9 1 17 4 24 9" fill="none" stroke="#8C5528" stroke-width="4.5" stroke-linecap="round" opacity=".65"/>
+        <path d="M65 96c4 5 9 7 15 7s11-2 15-7c-3 13-8 19-15 19s-12-6-15-19z" fill="#FFF5E4"/>
+        <ellipse cx="80" cy="83" rx="21" ry="15" fill="#FFF3DD"/>
+        <g>
+          <ellipse cx="62" cy="66" rx="12.5" ry="13.5" fill="#2E2118"/>
+          <ellipse cx="98" cy="66" rx="12.5" ry="13.5" fill="#2E2118"/>
+          <circle cx="58" cy="62" r="4.2" fill="#FFFDF4"/><circle cx="94" cy="62" r="4.2" fill="#FFFDF4"/>
+          <circle cx="68" cy="72" r="2.3" fill="#FFFDF4"/><circle cx="104" cy="72" r="2.3" fill="#FFFDF4"/>
+        </g>
+        <path d="M76 82h8l-4 5z" fill="#E58A9E" stroke="#C96F84" stroke-width="1"/>
+        <path d="M80 87c0 5 3 8 7 8M80 87c0 5-3 8-7 8" fill="none" stroke="#7E4D2C" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M82 94c7-4 13 0 12 6-1 5-7 7-11 5-4-2-5-8-1-11z" fill="#F08FA5" stroke="#D56F88" stroke-width="1"/>
+        <path d="M64 94c0 8 0 14 1 18" fill="none" stroke="#BFE7F2" stroke-width="2.2" stroke-linecap="round" opacity=".9"/>
+        <circle cx="65" cy="114" r="2.4" fill="#BFE7F2" opacity=".95"/>
+        <g stroke="#7A4B28" stroke-width="1" opacity=".8">
+          <path d="M52 82l-17-3M53 88l-18 4M108 82l17-3M107 88l18 4"/>
+        </g>
+        <g transform="rotate(-5 80 137)">
+          <rect x="66" y="122" width="28" height="48" rx="6" fill="url(#${id}Can)" stroke="#7C8985" stroke-width="1.2"/>
+          <rect x="66" y="134" width="28" height="19" fill="#3F7F52"/>
+          <path d="M74 141h12M74 146h8" stroke="#F7E5A9" stroke-width="2" stroke-linecap="round"/>
+          <ellipse cx="69" cy="169" rx="9" ry="7" fill="#D69A55" stroke="#A66C31" stroke-width="1"/>
+          <ellipse cx="92" cy="167" rx="9" ry="7" fill="#D69A55" stroke="#A66C31" stroke-width="1"/>
+        </g>
+      </g>
+    </svg>`;
+  }
+
+  function pigSVG(guest, idx){
+    const id = 'pig' + idx;
+    return `
+    <svg class="guest-svg pig-svg" viewBox="0 0 160 200" role="img" aria-label="客人 ${guest.name}">
+      <defs>
+        <linearGradient id="${id}Skin" x1=".2" y1="0" x2=".8" y2="1">
+          <stop offset="0" stop-color="#FBE7E1"/><stop offset=".55" stop-color="#F0C9C3"/><stop offset="1" stop-color="#DDA8A3"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="80" cy="193" rx="44" ry="6" fill="#3A2410" opacity=".12"/>
+      <g class="dog-bob">
+        <path d="M106 158c18-6 27 2 22 12-4 8-14 7-16 1 7-1 8-5 2-5z" fill="none" stroke="#C98D87" stroke-width="5" stroke-linecap="round"/>
+        <path d="M64 140c-10 8-13 26-10 45 2 9 13 9 16 1l4-29zM96 140c10 8 13 26 10 45-2 9-13 9-16 1l-4-29z" fill="url(#${id}Skin)" stroke="#C98D87" stroke-width="1.3"/>
+        <path d="M60 185c-6 1-8 6-4 8h17v-8zM100 185c6 1 8 6 4 8H87v-8z" fill="#D79B95"/>
+        <path d="M78 88c-29 3-42 32-35 62 5 20 18 31 37 31s33-12 37-32c6-30-9-58-39-61z" fill="url(#${id}Skin)" stroke="#C98D87" stroke-width="1.4"/>
+        <ellipse cx="80" cy="154" rx="29" ry="30" fill="#FFF1EA" opacity=".85"/>
+        <path d="M54 108c-11 2-17 14-14 27 2 9 8 14 13 12l7-23zM106 108c11 2 17 14 14 27-2 9-8 14-13 12l-7-23z" fill="url(#${id}Skin)" stroke="#C98D87" stroke-width="1.3"/>
+        <path d="M54 44c-7-9-19-10-22-3-3 6 4 19 14 24 6 3 11 0 12-5 1-5-1-10-4-16zM106 44c7-9 19-10 22-3 3 6-4 19-14 24-6 3-11 0-12-5-1-5 1-10 4-16z" fill="url(#${id}Skin)" stroke="#C98D87" stroke-width="1.3"/>
+        <path d="M80 25c-25 0-44 17-44 39 0 21 18 37 44 37s44-16 44-37c0-22-19-39-44-39z" fill="url(#${id}Skin)" stroke="#C98D87" stroke-width="1.4"/>
+        <path d="M47 52c3-20 16-33 33-33 18 0 31 12 35 32-22-5-46-5-68 1z" fill="#45413B"/>
+        <g fill="#5C5750" opacity=".45">
+          <circle cx="56" cy="37" r="1.3"/><circle cx="65" cy="30" r="1.2"/><circle cx="76" cy="27" r="1.4"/>
+          <circle cx="88" cy="28" r="1.2"/><circle cx="99" cy="33" r="1.3"/><circle cx="108" cy="41" r="1.2"/>
+        </g>
+        <ellipse cx="62" cy="58" rx="5" ry="4.2" fill="#3E322C"/>
+        <ellipse cx="98" cy="58" rx="5" ry="4.2" fill="#3E322C"/>
+        <circle cx="63.5" cy="56.5" r="1.4" fill="#FFF7EE"/><circle cx="99.5" cy="56.5" r="1.4" fill="#FFF7EE"/>
+        <path d="M50 50c4-3 9-4 13-2M110 50c-4-3-9-4-13-2" fill="none" stroke="#6C5E56" stroke-width="2" stroke-linecap="round"/>
+        <ellipse cx="80" cy="77" rx="21" ry="16" fill="#F3BDB8" stroke="#D49A96" stroke-width="1.3"/>
+        <ellipse cx="73" cy="77" rx="3.2" ry="4.2" fill="#B97573"/><ellipse cx="87" cy="77" rx="3.2" ry="4.2" fill="#B97573"/>
+        <path d="M68 92c5 5 19 5 24 0" fill="none" stroke="#A35F5B" stroke-width="2" stroke-linecap="round"/>
+        <path d="M46 80c-10 2-16 10-14 18 2 9 12 13 18 9" fill="none" stroke="#C98D87" stroke-width="2"/>
+        <path d="M114 80c10 2 16 10 14 18-2 9-12 13-18 9" fill="none" stroke="#C98D87" stroke-width="2"/>
+      </g>
+    </svg>`;
+  }
+
+  function birdSVG(guest, idx){
+    const id = 'bird' + idx;
+    return `
+    <svg class="guest-svg bird-svg" viewBox="0 0 160 200" role="img" aria-label="客人 ${guest.name}">
+      <defs>
+        <linearGradient id="${id}Feather" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#FFFFFF"/><stop offset=".6" stop-color="#E9EFF0"/><stop offset="1" stop-color="#C3CFD3"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="80" cy="193" rx="38" ry="5" fill="#3A2410" opacity=".12"/>
+      <g class="dog-bob">
+        <path d="M92 151v34M78 153v32" stroke="#8B7455" stroke-width="3.4" stroke-linecap="round"/>
+        <path d="M82 187l-9 4M92 187l9 4" stroke="#8B7455" stroke-width="3" stroke-linecap="round"/>
+        <path d="M107 157c17-3 24-17 17-27-5-7-13-5-14 1-1 5 5 6 8 3 1 6-5 12-14 13z" fill="#BBC9CD" stroke="#8FA0A5" stroke-width="1.2"/>
+        <ellipse cx="86" cy="126" rx="35" ry="46" fill="url(#${id}Feather)" stroke="#9CABB0" stroke-width="1.3"/>
+        <ellipse cx="93" cy="135" rx="20" ry="28" fill="#F7FAFA" opacity=".9"/>
+        <path d="M108 103c18 7 24 26 13 42-7 10-18 12-23 5-5-7 0-14 7-13 4 10 12 4 10-6-2-9-10-16-18-19z" fill="#C9D4D8" stroke="#8FA0A5" stroke-width="1.2"/>
+        <path d="M112 74c-4-20-15-28-28-25-13 3-20 20-14 34 6 15 23 20 35 11 6-5 9-12 7-20z" fill="url(#${id}Feather)" stroke="#9CABB0" stroke-width="1.3"/>
+        <path d="M72 59c8-17 29-20 40-6-9-2-17 0-23 6-6 6-12 8-17 0z" fill="#30383C"/>
+        <path d="M72 73c9-3 16-1 22 4-8 1-14 5-19 11-4-5-5-10-3-15z" fill="#30383C"/>
+        <path d="M67 79l-47 9c-4 1-4 6 1 6l48-5z" fill="#23282B" stroke="#15191B" stroke-width="1"/>
+        <path d="M67 84l-29 13c-3 1-2 5 2 4l31-9z" fill="#3A4347"/>
+        <circle cx="79" cy="72" r="6.4" fill="#F7F2E2" stroke="#283135" stroke-width="1.6"/>
+        <circle cx="77.4" cy="72.4" r="3.3" fill="#23282B"/>
+        <circle cx="76.2" cy="71" r="1.1" fill="#FFF"/>
+        <path d="M72 64c4-3 9-3 13 0" fill="none" stroke="#30383C" stroke-width="2" stroke-linecap="round"/>
+      </g>
+    </svg>`;
+  }
+
+  function seriousDogSVG(guest, idx){
+    const id = 'serious' + idx;
+    return `
+    <svg class="guest-svg serious-svg" viewBox="0 0 160 200" role="img" aria-label="客人 ${guest.name}">
+      <defs>
+        <linearGradient id="${id}Coat" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#F1E4D0"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="80" cy="192" rx="39" ry="6" fill="#3A2410" opacity=".14"/>
+      <g class="dog-bob">
+        <path d="M106 155c13-2 20 3 18 9-2 5-9 5-12 0 5-1 5-4 0-3z" fill="none" stroke="#B79C7E" stroke-width="4" stroke-linecap="round"/>
+        <path d="M78 115c-23 4-34 27-28 52 4 18 14 27 30 27 17 0 27-10 31-28 5-25-8-47-33-51z" fill="url(#${id}Coat)" stroke="#3A3028" stroke-width="2"/>
+        <ellipse cx="80" cy="158" rx="21" ry="22" fill="#FFF9EE"/>
+        <path d="M56 160c-10 2-15 12-12 23 2 8 8 12 12 10l9-21zM104 160c10 2 15 12 12 23-2 8-8 12-12 10l-9-21z" fill="#F4E7D3" stroke="#3A3028" stroke-width="2"/>
+        <path d="M69 163c7-6 15-6 22 0M69 170c7-6 15-6 22 0" fill="none" stroke="#3A3028" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M47 42c-8-8-17-8-19-2-2 5 3 17 12 22 5 3 10 1 11-4 1-5-1-10-4-16zM113 42c8-8 17-8 19-2 2 5-3 17-12 22-5 3-10 1-11-4-1-5 1-10 4-16z" fill="#E5B26A" stroke="#3A3028" stroke-width="2"/>
+        <path d="M80 25c-27 0-46 18-46 40 0 23 19 39 46 39s46-16 46-39c0-22-19-40-46-40z" fill="#FFFCF4" stroke="#3A3028" stroke-width="2.2"/>
+        <path d="M80 25c17 0 31 7 39 18-10-3-20-1-27 5-7 5-13 5-19-1-8-8-20-9-31-4 8-11 21-18 38-18z" fill="#E5B26A" opacity=".9"/>
+        <path d="M55 42c8-5 16-5 23 1M105 42c-8-5-16-5-23 1" fill="none" stroke="#6D5B48" stroke-width="4" stroke-linecap="round"/>
+        <g>
+          <ellipse cx="59" cy="67" rx="15" ry="16" fill="#FFFDF7" stroke="#3A3028" stroke-width="2.2"/>
+          <ellipse cx="101" cy="67" rx="15" ry="16" fill="#FFFDF7" stroke="#3A3028" stroke-width="2.2"/>
+          <ellipse cx="62" cy="69" rx="6.6" ry="8.4" fill="#6E4A2A"/>
+          <ellipse cx="98" cy="69" rx="6.6" ry="8.4" fill="#6E4A2A"/>
+          <circle cx="64" cy="65.5" r="2.5" fill="#FFF"/><circle cx="100" cy="65.5" r="2.5" fill="#FFF"/>
+          <path d="M40 54c9-8 19-9 27-3M120 54c-9-8-19-9-27-3" fill="none" stroke="#2F2923" stroke-width="4" stroke-linecap="round"/>
+          <path d="M46 78c8 4 15 3 20-1M114 78c-8 4-15 3-20-1" fill="none" stroke="#3A3028" stroke-width="2" stroke-linecap="round" opacity=".75"/>
+        </g>
+        <path d="M75 88h10l-5 5z" fill="#3A3028"/>
+        <path d="M80 93c0 4 4 6 8 5M80 93c0 4-4 6-8 5" fill="none" stroke="#3A3028" stroke-width="2" stroke-linecap="round"/>
+        <path d="M66 101c9 4 19 4 28 0" fill="none" stroke="#3A3028" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M59 139c12 9 30 9 42 0M59 148c12 9 30 9 42 0" fill="none" stroke="#3A3028" stroke-width="2.3" stroke-linecap="round"/>
+      </g>
+    </svg>`;
+  }
+
+  function guestTag(guest){
+    if(!guest || !guest.badge) return '';
+    return `<span class="guest-tag ${guest.tier}">${guest.badge}</span>`;
+  }
+
+  function spongeSVG(guest, idx){
+    const id = 'sponge' + idx;
+    return `
+    <svg class="guest-svg sponge-svg" viewBox="0 0 160 200" role="img" aria-label="客人 ${guest.name}">
+      <defs><linearGradient id="${id}Body" x1="0" y1="0" x2=".7" y2="1">
+        <stop offset="0" stop-color="#FFF05C"/><stop offset=".65" stop-color="#F4D92E"/><stop offset="1" stop-color="#D9B81A"/>
+      </linearGradient></defs>
+      <ellipse cx="80" cy="193" rx="43" ry="5" fill="#3A2410" opacity=".13"/>
+      <g class="dog-bob">
+        <path d="M38 154c-13 2-18 18-9 24 9 5 17-5 15-13" fill="none" stroke="#D9B81A" stroke-width="6" stroke-linecap="round"/>
+        <path d="M122 154c13 2 18 18 9 24-9 5-17-5-15-13" fill="none" stroke="#D9B81A" stroke-width="6" stroke-linecap="round"/>
+        <path d="M80 170v13M68 170v13" stroke="#F2D63A" stroke-width="3"/>
+        <rect x="38" y="30" width="84" height="124" rx="15" fill="url(#${id}Body)" stroke="#B99A13" stroke-width="2"/>
+        <g fill="#B9C93A" opacity=".85">
+          <ellipse cx="51" cy="47" rx="5" ry="4" transform="rotate(-16 51 47)"/>
+          <ellipse cx="116" cy="42" rx="4" ry="3.2"/>
+          <ellipse cx="112" cy="63" rx="3.2" ry="2.8"/>
+          <ellipse cx="47" cy="88" rx="3.4" ry="2.6"/>
+          <ellipse cx="118" cy="92" rx="5.2" ry="3.8" transform="rotate(18 118 92)"/>
+          <ellipse cx="52" cy="113" rx="3" ry="2.5"/>
+        </g>
+        <rect x="42" y="112" width="76" height="30" fill="#FFFDF3" stroke="#D8C9A7" stroke-width="1"/>
+        <path d="M70 112l10 10 10-10" fill="#FFFDF3" stroke="#D8C9A7" stroke-width="1"/>
+        <path d="M80 120l-7 9 7 19 7-19z" fill="#E4473E" stroke="#B22A24" stroke-width="1.2"/>
+        <rect x="42" y="142" width="76" height="18" fill="#8A5A2F" stroke="#6B421F" stroke-width="1"/>
+        <path d="M60 142v18M100 142v18" stroke="#6B421F" stroke-width="1.4"/>
+        <g>
+          <ellipse cx="62" cy="71" rx="18" ry="19" fill="#FFFDF5" stroke="#2F3B44" stroke-width="2"/>
+          <ellipse cx="98" cy="71" rx="18" ry="19" fill="#FFFDF5" stroke="#2F3B44" stroke-width="2"/>
+          <circle cx="66" cy="73" r="8.2" fill="#4DB7DF"/>
+          <circle cx="94" cy="73" r="8.2" fill="#4DB7DF"/>
+          <circle cx="67" cy="74" r="4.2" fill="#19242B"/><circle cx="93" cy="74" r="4.2" fill="#19242B"/>
+          <circle cx="69" cy="70" r="2" fill="#FFF"/><circle cx="95" cy="70" r="2" fill="#FFF"/>
+          <path d="M46 54l9-5M114 54l-9-5" stroke="#1F2A32" stroke-width="2" stroke-linecap="round"/>
+        </g>
+        <path d="M80 85c-3 6-7 9-7 13 0 4 3 6 7 6s7-2 7-6c0-4-4-7-7-13z" fill="#F3C84B" stroke="#C49A22" stroke-width="1.2"/>
+        <path d="M50 100c9 18 51 18 60 0" fill="#FFF" stroke="#6A3A20" stroke-width="2.2"/>
+        <path d="M50 100c9 18 51 18 60 0" fill="none" stroke="#4A2A18" stroke-width="2"/>
+        <rect x="63" y="100" width="14" height="17" rx="2" fill="#FFF" stroke="#CBBFA8" stroke-width="1"/>
+        <rect x="83" y="100" width="14" height="17" rx="2" fill="#FFF" stroke="#CBBFA8" stroke-width="1"/>
+        <path d="M70 100v17M90 100v17" stroke="#CBBFA8" stroke-width="1"/>
+        <circle cx="45" cy="74" r="3.2" fill="#EDD550" opacity=".8"/><circle cx="115" cy="74" r="3.2" fill="#EDD550" opacity=".8"/>
+      </g>
+    </svg>`;
+  }
+
+  function patrickSVG(guest, idx){
+    const id = 'patrick' + idx;
+    return `
+    <svg class="guest-svg patrick-svg" viewBox="0 0 160 200" role="img" aria-label="客人 ${guest.name}">
+      <defs><linearGradient id="${id}Skin" x1=".2" y1="0" x2=".8" y2="1">
+        <stop offset="0" stop-color="#F79AA0"/><stop offset=".58" stop-color="#E98089"/><stop offset="1" stop-color="#D76672"/>
+      </linearGradient></defs>
+      <ellipse cx="80" cy="193" rx="50" ry="6" fill="#3A2410" opacity=".13"/>
+      <g class="dog-bob">
+        <path d="M80 22l64 70-18 92-46-27-46 27-18-92z" fill="url(#${id}Skin)" stroke="#B95260" stroke-width="2"/>
+        <g fill="#D46F7A" opacity=".55">
+          <ellipse cx="54" cy="88" rx="3" ry="2.2"/><ellipse cx="108" cy="76" rx="2.6" ry="2"/>
+          <ellipse cx="98" cy="118" rx="2.2" ry="1.8"/><ellipse cx="52" cy="127" rx="2.4" ry="1.8"/>
+        </g>
+        <g>
+          <ellipse cx="65" cy="73" rx="13" ry="15" fill="#FFFDF8" stroke="#3F2B22" stroke-width="2"/>
+          <ellipse cx="95" cy="73" rx="13" ry="15" fill="#FFFDF8" stroke="#3F2B22" stroke-width="2"/>
+          <ellipse cx="67" cy="76" rx="5.6" ry="7" fill="#2A2320"/><ellipse cx="93" cy="76" rx="5.6" ry="7" fill="#2A2320"/>
+          <circle cx="68.5" cy="72.5" r="1.8" fill="#FFF"/><circle cx="94.5" cy="72.5" r="1.8" fill="#FFF"/>
+          <path d="M48 53c5-5 13-6 20-3M112 53c-5-5-13-6-20-3" fill="none" stroke="#3A2A22" stroke-width="4" stroke-linecap="round"/>
+        </g>
+        <path d="M69 94c4-4 18-4 22 0-1 13-5 19-11 19s-10-6-11-19z" fill="#7E3A3A" stroke="#5E2B2B" stroke-width="1.2"/>
+        <path d="M62 96c7 5 29 5 36 0" fill="none" stroke="#5E2B2B" stroke-width="2" stroke-linecap="round"/>
+        <path d="M57 121c15 4 31 4 46 0l-3 27c-13 5-27 5-40 0z" fill="#B6D957" stroke="#7D9C33" stroke-width="1.6"/>
+        <g fill="#B18BD6" opacity=".9">
+          <path d="M61 126c8 4 13 4 20 1l2 10c-7 3-14 3-20 0z"/>
+          <path d="M94 132c5 1 9 0 12-1l-1 11c-4 2-8 2-12 0z"/>
+        </g>
+        <path d="M66 154v22M94 154v22" stroke="#E98089" stroke-width="14" stroke-linecap="round"/>
+        <path d="M55 181c-8 0-10 9-2 10h17l1-10zM105 181c8 0 10 9 2 10H90l-1-10z" fill="#E98089" stroke="#B95260" stroke-width="1.2"/>
+        <ellipse cx="80" cy="139" rx="3" ry="2" fill="#B95260"/>
+      </g>
+    </svg>`;
+  }
+
+  function planeCatSVG(guest, idx){
+    const id = 'plane' + idx;
+    return `
+    <svg class="guest-svg plane-svg" viewBox="0 0 160 200" role="img" aria-label="客人 ${guest.name}">
+      <defs><linearGradient id="${id}Fur" x1="0" y1="0" x2=".5" y2="1">
+        <stop offset="0" stop-color="#A9A6A4"/><stop offset=".55" stop-color="#8F8B88"/><stop offset="1" stop-color="#6F6B68"/>
+      </linearGradient></defs>
+      <ellipse cx="80" cy="193" rx="40" ry="5" fill="#3A2410" opacity=".12"/>
+      <g class="dog-bob">
+        <path d="M56 140c-17 0-24 20-14 32 6 7 15 5 18-2 3-8-4-12-9-9" fill="none" stroke="#777270" stroke-width="7" stroke-linecap="round"/>
+        <path d="M60 112c-18 7-24 32-15 51 7 15 20 23 35 23s29-8 36-24c8-19 2-43-16-50-12-5-28-5-40 0z" fill="#F7F2EA" stroke="#8B8178" stroke-width="1.4"/>
+        <path d="M39 70c-9-4-17-13-16-20 1-6 9-8 18-4l14 8-5 17zM121 70c9-4 17-13 16-20-1-6-9-8-18-4l-14 8 5 17z" fill="url(#${id}Fur)" stroke="#6F6B68" stroke-width="1.4"/>
+        <path d="M41 57c-5-2-9-6-9-9 0-2 3-3 7-1l8 4zM119 57c5-2 9-6 9-9 0-2-3-3-7-1l-8 4z" fill="#E7A3A9"/>
+        <path d="M80 26c-29 0-49 20-49 44 0 24 20 43 49 43s49-19 49-43c0-24-20-44-49-44z" fill="#FBF7F0" stroke="#8B8178" stroke-width="1.4"/>
+        <path d="M80 26c-17 0-30 6-39 16 8-3 17-1 23 4 7 6 14 5 21-1 5-4 12-5 18-3 5 1 9 4 14 8-7-15-20-24-37-24z" fill="url(#${id}Fur)" opacity=".95"/>
+        <path d="M49 66c10-9 24-11 34-6" fill="none" stroke="#7D7670" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+        <g>
+          <ellipse cx="62" cy="79" rx="16" ry="18" fill="#FFFDF8" stroke="#5F5752" stroke-width="1.8"/>
+          <ellipse cx="98" cy="79" rx="16" ry="18" fill="#FFFDF8" stroke="#5F5752" stroke-width="1.8"/>
+          <ellipse cx="63" cy="81" rx="8" ry="10" fill="#3A2E28"/><ellipse cx="97" cy="81" rx="8" ry="10" fill="#3A2E28"/>
+          <circle cx="66" cy="77" r="3" fill="#FFF"/><circle cx="100" cy="77" r="3" fill="#FFF"/>
+          <circle cx="60" cy="86" r="2" fill="#FFF" opacity=".8"/><circle cx="94" cy="86" r="2" fill="#FFF" opacity=".8"/>
+        </g>
+        <path d="M76 94c3-2 5-2 8 0l-4 4z" fill="#D78B92"/>
+        <path d="M80 98c0 4-3 6-6 5M80 98c0 4 3 6 6 5" fill="none" stroke="#6D5C54" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M58 40l-9-12M61 38l-5-14M102 40l9-12M99 38l5-14" stroke="#8B8178" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M55 157c8-7 17-7 25 0M80 157c8-7 17-7 25 0" fill="none" stroke="#C9BEB2" stroke-width="2" stroke-linecap="round"/>
+        <path d="M50 113c-9 2-13 11-11 20M110 113c9 2 13 11 11 20" fill="none" stroke="#8B8178" stroke-width="1.4"/>
+      </g>
+    </svg>`;
+  }
+
+  function dogSVG(guest, idx){
+    const id = 'dog' + idx;
+    const acc = guest.accessory;
+    const cap = acc === 'cap' ? `
+      <g transform="rotate(-6 88 38)">
+        <path d="M58 39c-2-13 10-24 27-24 16 0 27 9 28 20-19 4-37 6-55 4z" fill="${guest.cap || '#4E8CC9'}" stroke="#2F6096" stroke-width="1.5"/>
+        <path d="M55 39c2-5 9-6 17-4l22 4c-3 6-11 8-20 7l-16-3z" fill="${guest.cap || '#4E8CC9'}" stroke="#2F6096" stroke-width="1.4"/>
+        <path d="M84 20c5 2 8 7 8 13" fill="none" stroke="#7EB3E4" stroke-width="2" stroke-linecap="round" opacity=".7"/>
+      </g>` : '';
+    const glasses = acc === 'glasses' ? `
+      <g fill="none" stroke="#5B3D24" stroke-width="1.8">
+        <circle cx="62" cy="65" r="9.2" fill="rgba(255,255,255,.13)"/>
+        <circle cx="84" cy="61" r="9.2" fill="rgba(255,255,255,.13)"/>
+        <path d="M71 64l4-1M53 64l-7-2M93 60l6-2"/>
+      </g>` : '';
+    return `
+    <svg class="guest-svg" viewBox="0 0 160 200" role="img" aria-label="客人 ${guest.name}">
+      <defs>
+        <radialGradient id="${id}Body" cx="38%" cy="28%" r="80%">
+          <stop offset="0" stop-color="${guest.body}"/><stop offset=".68" stop-color="${guest.body}"/><stop offset="1" stop-color="${guest.bodyDark}"/>
+        </radialGradient>
+        <linearGradient id="${id}Belly" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="${guest.belly}"/><stop offset="1" stop-color="#FFE3A5"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="78" cy="192" rx="49" ry="6" fill="#3A2410" opacity=".12"/>
+      <g class="dog-bob">
+        <g class="dog-tail"><path d="M114 143c20-4 33-16 31-33-1-9-7-14-12-13-6 1-7 8-4 13 5 9-1 17-17 21z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.2"/></g>
+        <path d="M78 96c-22 0-36 21-34 45 2 32 12 47 37 47s37-16 38-45c1-24-15-47-41-47z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.4"/>
+        <ellipse cx="80" cy="158" rx="25" ry="24" fill="url(#${id}Belly)" opacity=".9"/>
+        <path d="M57 175c-1 9 6 13 14 13M99 177c0 8-6 12-14 12" fill="none" stroke="${guest.bodyDark}" stroke-width="6" stroke-linecap="round"/>
+        <path d="M56 181c-4 1-6 5-4 8 2 2 6 2 10 1l10-2-1-5-8-3z" fill="${guest.bodyDark}"/>
+        <path d="M100 181c4 1 6 5 4 8-2 2-7 2-11 1l-9-2 1-5 8-3z" fill="${guest.bodyDark}"/>
+        <path d="M84 94c-16 0-28 11-29 26-1 14 9 25 25 25 16 0 26-10 26-24 0-17-8-27-22-27z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.3"/>
+        <path d="M62 42c-8-17-22-25-31-16-10 10 1 27 18 36 7 4 14 4 17 0 3-4 1-11-4-20z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.2"/>
+        <path d="M105 40c7-17 21-25 31-16 11 9 1 27-16 37-7 4-14 4-18 0-3-4-2-11 3-21z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.2"/>
+        <path d="M89 34c-20 0-37 15-38 36-1 20 15 35 37 35 20 0 37-15 37-34 0-21-16-37-36-37z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.4"/>
+        <path d="M52 60c-14 0-25 8-27 20-2 13 9 22 24 22 11 0 20-6 24-14 2-5 1-10-2-14-5-7-11-14-19-14z" fill="url(#${id}Body)" stroke="${guest.bodyDark}" stroke-width="1.3"/>
+        <ellipse cx="31" cy="79" rx="13" ry="10.5" fill="#B13A17" stroke="#8C2D11" stroke-width="1.2"/>
+        <ellipse cx="27" cy="75" rx="4.1" ry="2.6" fill="#D96A42" opacity=".6" transform="rotate(-18 27 75)"/>
+        <g><ellipse cx="64" cy="62" rx="6.7" ry="7.3" fill="#3B2413"/><ellipse cx="86" cy="58" rx="6.7" ry="7.3" fill="#3B2413"/>
+          <circle cx="61.8" cy="59" r="2.1" fill="#FFF8E8"/><circle cx="83.8" cy="55" r="2.1" fill="#FFF8E8"/>
+          <circle cx="66.5" cy="65" r="1" fill="#FFF8E8" opacity=".55"/><circle cx="88.5" cy="61" r="1" fill="#FFF8E8" opacity=".55"/></g>
+        <g class="brow-sad" stroke="#5A3A22" stroke-width="1.6" stroke-linecap="round"><path d="M56 50l10 4M93 46l-10 4"/></g>
+        <path class="mouth-happy" d="M34 94c5 5 12 5 17 0" fill="none" stroke="#5B3820" stroke-width="2" stroke-linecap="round"/>
+        <path class="mouth-sad" d="M33 99c6-5 13-5 18 0" fill="none" stroke="#5B3820" stroke-width="2" stroke-linecap="round"/>
+        <ellipse class="cheek" cx="52" cy="79" rx="7" ry="3.5" fill="#FF9B79" opacity=".3"/>
+        <ellipse class="cheek" cx="95" cy="75" rx="7" ry="3.5" fill="#FF9B79" opacity=".3"/>
+        <path d="M56 104c12 7 30 7 42-1" fill="none" stroke="#2E8B57" stroke-width="5" stroke-linecap="round" opacity=".95"/>
+        <path d="M95 106c8 3 11 9 9 15" fill="none" stroke="#2E8B57" stroke-width="3.5" stroke-linecap="round" opacity=".8"/>
+        ${cap}${glasses}
+      </g>
+    </svg>`;
+  }
+
+  function peachLayout(n){
+    const out = [], per = 4;
+    for(let i=0;i<n;i++){
+      const row = Math.floor(i/per), col = i%per, count = Math.min(per, n-row*per);
+      out.push([70 + (col-(count-1)/2)*19, 114 - row*14]);
+    }
+    return out;
+  }
+  function toppingDecor(){
+    const list = state.can.toppings || [];
+    if(!list.length) return '';
+    return list.map((t,i) => {
+      const q = Math.max(1, t.qty || 1);
+      const shift = i ? ` transform="translate(${i*4} ${i*3})"` : '';
+      let art = '';
+      if(t.id === 'mint'){
+        art = `<g transform="translate(70 44) rotate(-12)">
+          <path d="M0 0c-12-2-18-11-15-20 10-1 18 7 15 20z" fill="#4F9C60" stroke="#347243" stroke-width=".9"/>
+          <path d="M4 2c10-5 20-2 24 6-7 8-18 7-24-6z" fill="#64AF70" stroke="#347243" stroke-width=".9"/>
+          <path d="M-8-14c3 5 5 9 7 14" fill="none" stroke="#A9D7A5" stroke-width="1.2" stroke-linecap="round"/></g>`;
+      }else if(t.id === 'osmanthus'){
+        art = `<g fill="#FFD45A" stroke="#E59C1A" stroke-width=".5">
+          <circle cx="53" cy="48" r="2.1"/><circle cx="60" cy="42" r="1.7"/><circle cx="68" cy="49" r="1.9"/>
+          <circle cx="77" cy="43" r="1.6"/><circle cx="85" cy="49" r="2"/><circle cx="72" cy="56" r="1.5"/></g>`;
+      }else{
+        const spots = [[54,48],[64,43],[75,48],[85,44],[59,56],[80,57]];
+        if(t.id === 'dates'){
+          art = `<g>${spots.slice(0,q+2).map((s,j)=>`<ellipse cx="${s[0]}" cy="${s[1]}" rx="5.8" ry="4" fill="#9C3B28" stroke="#6D2418" stroke-width=".7" transform="rotate(${j%2?12:-10} ${s[0]} ${s[1]})"/><path d="M${s[0]-3} ${s[1]-1}c2-1 4-1 5 0" stroke="#D88162" stroke-width=".8" fill="none"/>`).join('')}</g>`;
+        }else if(t.id === 'goji'){
+          art = `<g>${spots.slice(0,q+2).map((s,j)=>`<ellipse cx="${s[0]}" cy="${s[1]}" rx="3.1" ry="4.3" fill="#E24A2E" stroke="#A72816" stroke-width=".6" transform="rotate(${j%2?18:-14} ${s[0]} ${s[1]})"/><circle cx="${s[0]-1}" cy="${s[1]-1}" r=".8" fill="#FFBC9E"/>`).join('')}</g>`;
+        }else if(t.id === 'rock'){
+          art = `<g>${spots.slice(0,q+1).map((s,j)=>`<rect x="${s[0]-4}" y="${s[1]-4}" width="8" height="8" rx="1.6" fill="#F2FCFF" fill-opacity=".78" stroke="#BFE4EA" stroke-width=".7" transform="rotate(${j%2?15:-12} ${s[0]} ${s[1]})"/>`).join('')}</g>`;
+        }else if(t.id === 'honeysuckle'){
+          art = `<g>${spots.slice(0,q+1).map((s,j)=>`<g transform="translate(${s[0]} ${s[1]})"><circle r="2.6" fill="#FFF4C2" stroke="#E0C35A" stroke-width=".5"/><path d="M0-2.6l1.6-3M2.5-1l3-.8M2 1.7l2.2 2M-2 1.5l-2.4 2M-2.6-1l-3-.8" stroke="#FFF4C2" stroke-width="1.6" stroke-linecap="round"/></g>`).join('')}</g>`;
+        }
+      }
+      return art ? `<g${shift}>${art}</g>` : '';
+    }).join('');
+  }
+  function renderCan(){
+    const c = state.can;
+    const scaleClass = c.size ? `size-${c.size}` : '';
+    const jarClass = c.size ? `jar-${c.jar || 'classic'}` : '';
+    els.canWrap.className = 'can-wrap ' + scaleClass + ' ' + jarClass + (c.size ? '' : ' empty') + (c.sealed ? ' sealed' : '');
+    const baseScale = c.size === 'small' ? .84 : c.size === 'large' ? 1.05 : .95;
+    els.canWrap.style.setProperty('--canScale', baseScale * ((JARS[c.jar] || JARS.classic).scale || 1));
+    if(!c.size){
+      els.canWrap.innerHTML = `<div class="empty-can"><div class="outline"></div><div class="lid-line"></div><span>选个罐型<br>开始装罐</span></div>`;
+      return;
+    }
+    const pieces = c.pieces;
+    const positions = peachLayout(pieces.length).slice().sort((a,b) => b[1]-a[1]);
+    const peachG = positions.map((p,i) => {
+      const large = pieces[i] === 'large';
+      const rx = large ? 17 : 11.5, ry = large ? 12 : 8.2;
+      return `<g transform="translate(${p[0]} ${p[1]}) rotate(${i % 2 ? 5 : -6})">
+        <ellipse cx="0" cy="0" rx="${rx}" ry="${ry}" fill="url(#canPeachGrad)" stroke="#DA7422" stroke-width=".8"/>
+        <path d="M-9-4c4-4 11-5 16-2" fill="none" stroke="#FFE2A1" stroke-width="${large?1.8:1.3}" stroke-linecap="round" opacity=".75"/>
+        <path d="M-4 0c3 3 8 4 12 2" fill="none" stroke="#DD7B28" stroke-width="1.1" stroke-linecap="round" opacity=".6"/>
+      </g>`;
+    }).join('');
+
+    const syrupY = 93 - clamp(c.syrup,0,100) * 0.51;
+    const syrupH = Math.max(0, 132 - syrupY);
+    const hasSyrup = c.syrup > 0;
+    const iceCubes = c.temp === 'ice' ? `<g class="ice-shine">
+      <rect x="43" y="57" width="13" height="13" rx="3" transform="rotate(-12 49 63)" fill="#E6FAFF" stroke="#A9D8E5" stroke-width="1" opacity=".8"/>
+      <rect x="76" y="51" width="11" height="11" rx="3" transform="rotate(14 81 56)" fill="#E6FAFF" stroke="#A9D8E5" stroke-width="1" opacity=".75"/>
+      <rect x="62" y="44" width="9" height="9" rx="2.5" transform="rotate(-8 66 48)" fill="#F2FDFF" stroke="#A9D8E5" stroke-width=".9" opacity=".7"/></g>` : '';
+    const steam = c.temp === 'warm' ? `<g fill="none" stroke="#FFF7E7" stroke-width="2.2" stroke-linecap="round" opacity=".7">
+      <path class="steam" d="M53 35c-4-7 4-10 0-17"/><path class="steam s2" d="M83 34c4-7-4-10 0-17"/></g>` : '';
+    const toppingArt = toppingDecor();
+    const jarId = c.jar || 'classic';
+    const isGold = jarId === 'gold';
+    const mouth = jarId === 'narrow' ? 37 : jarId === 'wide' ? 48 : isGold ? 43.5 : 43;
+    const bw = 46, topY = 35, botY = 159;
+    const metal = isGold
+      ? ['#A9761F', '#FFF3C6', '#E0B54A', '#FFF8DC', '#9C6C18']
+      : ['#B9B3A6', '#F5F1E6', '#D5CEC0', '#F4EFE4', '#AFA99C'];
+    const metalOffsets = [0, .18, .5, .8, 1];
+    const lidA = isGold ? '#C79A33' : '#DCD6C9';
+    const lidB = isGold ? '#F7E4A8' : '#F4F0E5';
+    const lidStroke = isGold ? '#8E6216' : '#8B8375';
+    const rimStroke = isGold ? '#FFF0BE' : '#FAF6EB';
+    const lid = c.sealed ? `<g class="lid-group">
+      <ellipse cx="70" cy="36" rx="${mouth - 1.5}" ry="12.5" fill="${lidA}" stroke="${lidStroke}" stroke-width="1.6"/>
+      <ellipse cx="70" cy="34" rx="${mouth - 6}" ry="9.6" fill="${lidB}" stroke="${isGold ? '#B98B2A' : '#AAA295'}" stroke-width="1.2"/>
+      <ellipse cx="70" cy="34" rx="${Math.max(12, mouth - 13)}" ry="6.4" fill="none" stroke="${isGold ? '#E7CE86' : '#D0C9BB'}" stroke-width="1"/>
+      <path d="M${70 + mouth - 29} 33c7 0 12 2 12 3.5s-5 3-12 3" fill="none" stroke="${lidStroke}" stroke-width="2.2" stroke-linecap="round"/>
+      <circle cx="80" cy="36" r="1.4" fill="#8F887B"/>
+      <g transform="translate(99 139) rotate(8)"><circle cx="0" cy="0" r="11" fill="#FFF5D8" stroke="#D9B76F" stroke-width="1.2"/>
+        <circle cx="0" cy="0" r="8.2" fill="#FFD23F" stroke="#D6A00E" stroke-width=".8"/>
+        <circle cx="-3" cy="-2" r="1.5" fill="#5B3D1D"/><circle cx="3" cy="-2" r="1.5" fill="#5B3D1D"/>
+        <path d="M-2 2c1.5 1.5 3.5 1.5 5 0" fill="none" stroke="#5B3D1D" stroke-width="1" stroke-linecap="round"/></g></g>` : '';
+    const jarTint = isGold
+      ? `<g class="jar-tint"><path d="M${70 - bw + 7} ${topY + 22}l4 ${botY - topY - 40}" stroke="rgba(255,255,255,.55)" stroke-width="3.5" stroke-linecap="round" opacity=".5"/>
+         <path d="M${70 + bw - 10} ${topY + 30}l3 ${botY - topY - 52}" stroke="rgba(120,80,10,.28)" stroke-width="2.6" stroke-linecap="round" opacity=".7"/></g>`
+      : '';
+
+    els.canWrap.innerHTML = `
+      <svg viewBox="0 0 140 185" role="img" aria-label="${SIZES[c.size].name}黄桃罐头">
+        <defs>
+          <linearGradient id="canMetalDyn" x1="0" y1="0" x2="1" y2="0">${metal.map((col, i) => `<stop offset="${metalOffsets[i]}" stop-color="${col}"/>`).join('')}</linearGradient>
+          <linearGradient id="canLabelDyn" x1="0" y1="0" x2="0" y2="1">${isGold ? '<stop offset="0" stop-color="#B0831F"/><stop offset="1" stop-color="#8A6212"/>' : '<stop offset="0" stop-color="#3C8C5D"/><stop offset="1" stop-color="#226242"/>'}</linearGradient>
+          <radialGradient id="canPeachGrad" cx="38%" cy="30%" r="80%"><stop offset="0" stop-color="#FFD56F"/><stop offset=".5" stop-color="#FFB245"/><stop offset="1" stop-color="#EE7C28"/></radialGradient>
+          <linearGradient id="syrupGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD76B" stop-opacity=".82"/><stop offset="1" stop-color="#F19A2D" stop-opacity=".9"/></linearGradient>
+          <clipPath id="canOpenClip"><path d="M29 37c0 6 18 10 41 10s41-4 41-10l-3 94c-9 6-23 9-38 9s-29-3-38-9z"/></clipPath>
+        </defs>
+        <ellipse cx="70" cy="178" rx="46" ry="6.5" fill="#3A2410" opacity=".13"/>
+        <path d="M${70 - mouth} ${topY} L${70 - bw} ${botY} c0 10 ${bw - 26} 17 ${bw} 17 s${bw} -7 ${bw} -17 L${70 + mouth} ${topY} z" fill="url(#canMetalDyn)" stroke="${isGold ? '#8E6216' : '#8B8375'}" stroke-width="1.5"/>
+        ${jarTint}
+        <ellipse cx="70" cy="${topY}" rx="${mouth}" ry="13" fill="${isGold ? '#FBF0CF' : '#EFEADD'}" stroke="${isGold ? '#8E6216' : '#8B8375'}" stroke-width="1.4"/>
+        <ellipse cx="70" cy="${topY}" rx="${Math.max(10, mouth - 8)}" ry="9" fill="none" stroke="${isGold ? '#C79A33' : '#C9C2B2'}" stroke-width="1"/>
+        <g clip-path="url(#canOpenClip)">
+          <rect x="24" y="35" width="92" height="115" fill="#F8E5B3"/>
+          <rect id="canSyrupRect" x="24" y="${syrupY}" width="92" height="${syrupH}" fill="url(#syrupGrad)"/>
+          <g id="canSyrupLayers"></g>
+          <ellipse id="canSyrupSurface" cx="70" cy="${syrupY}" rx="44" ry="9" fill="#FFE08A" opacity="${hasSyrup ? .75 : 0}"/>
+          ${peachG}${iceCubes}${toppingArt}${steam}
+        </g>
+        <path d="M26 93h88v53c0 13-19 19-44 19s-44-6-44-19z" fill="url(#canLabelDyn)"/>
+        <path d="M28 84h84v11H28z" fill="${isGold ? '#F3CE69' : '#F6DD78'}" opacity=".92"/>
+        ${isGold ? '<text x="70" y="92.6" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="7" font-weight="900" letter-spacing="3.6" fill="#7C5310">GOLD</text>' : ''}
+        <path d="M35 97h70" stroke="rgba(255,255,255,.22)" stroke-width="1"/>
+        <text x="70" y="116" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="12.5" font-weight="900" letter-spacing=".9" fill="${isGold ? '#FFF6DA' : '#FFFFFF'}">YELLOW</text>
+        <text x="70" y="130" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="12.5" font-weight="900" letter-spacing=".9" fill="${isGold ? '#FFF6DA' : '#FFFFFF'}">PEACH</text>
+        <text x="70" y="147" text-anchor="middle" font-family="'Microsoft YaHei',sans-serif" font-size="10" font-weight="900" letter-spacing="1.3" fill="${isGold ? '#FFEFA8' : '#FFE672'}">黄桃罐头</text>
+        <path d="M51 154c4 0 6 2 6 5s-3 5-7 5c-5 0-9-3-8-7 1-4 5-6 9-3z" fill="#F7D24B"/>
+        <path d="M55 151c0-2 1-3 3-4 0 2-1 3-3 4z" fill="#B7D990"/>
+        <ellipse cx="70" cy="${topY}" rx="${mouth}" ry="13" fill="none" stroke="${rimStroke}" stroke-width="4"/>
+        <ellipse cx="70" cy="${topY}" rx="${mouth}" ry="13" fill="none" stroke="${isGold ? '#8E6216' : '#8A8273'}" stroke-width="1.2"/>
+        ${lid}
+      </svg>`;
+  }
+  function mixSyrupColors(ids){
+    let r=0,g=0,b=0,n=0;
+    ids.forEach(id => {
+      const hex = (SYRUPS[id] || SYRUPS.classic).color.replace('#','');
+      if(hex.length === 6){ r += parseInt(hex.slice(0,2),16); g += parseInt(hex.slice(2,4),16); b += parseInt(hex.slice(4,6),16); n++; }
+    });
+    if(!n) return '#F3BC45';
+    const to = v => Math.round(v/n).toString(16).padStart(2,'0');
+    return '#' + to(r) + to(g) + to(b);
+  }
+  function updateSyrupVisual(){
+    const c = state.can;
+    const rect = document.getElementById('canSyrupRect');
+    const surf = document.getElementById('canSyrupSurface');
+    const layers = document.getElementById('canSyrupLayers');
+    if(!rect || !surf || !layers) return;
+    const y = 93 - clamp(c.syrup,0,100) * .51;
+    const h = Math.max(0,132-y);
+    rect.setAttribute('y', y); rect.setAttribute('height', h);
+    surf.setAttribute('cy', y);
+    surf.setAttribute('opacity', c.syrup > 0 ? .75 : 0);
+    const parts = SYRUP_IDS.map(id => ({id, v:c.components[id] || 0})).filter(x => x.v > .05);
+    const total = parts.reduce((s,x) => s+x.v, 0);
+    if(c.syrup <= 0 || total <= 0){ layers.innerHTML = ''; return; }
+    if(c.stirred){
+      rect.setAttribute('fill', mixSyrupColors(parts.map(x => x.id)));
+      rect.setAttribute('opacity', '1');
+      layers.innerHTML = '';
+      surf.setAttribute('fill', mixSyrupColors(parts.map(x => x.id)));
+      return;
+    }
+    rect.setAttribute('fill', 'rgba(248,229,179,.55)');
+    rect.setAttribute('opacity', '1');
+    let offset = 0;
+    const visibleH = Math.max(0, 93 - y);
+    layers.innerHTML = parts.map(part => {
+      const ph = visibleH * part.v / total;
+      const py = 93 - offset - ph;
+      offset += ph;
+      return `<rect x="24" y="${py.toFixed(2)}" width="92" height="${Math.max(.5,ph).toFixed(2)}" fill="${SYRUPS[part.id].color}" opacity=".9"/>`;
+    }).join('');
+    surf.setAttribute('fill', SYRUPS[parts[0].id].color);
+  }
+  function bumpCan(){
+    els.canWrap.classList.remove('bump');
+    void els.canWrap.offsetWidth;
+    els.canWrap.classList.add('bump');
+  }
+
+  function renderPatience(ratio){
+    if(!els.patienceFill) return;
+    const r = clamp(ratio == null ? state.patience : ratio, 0, 1);
+    els.patienceFill.style.width = (r * 100).toFixed(1) + '%';
+    els.patience.classList.toggle('low', r < .25);
+    const remain = Math.max(0, state.deadline - performance.now());
+    const sec = Math.ceil(remain / 1000);
+    els.patienceTime.textContent = state.phase === 'intro' ? '1:40' : `${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`;
+  }
+
+  const NEG_PERSONALITY = ['strict','irritable','petty','impatient'];
+  function canUseWolfClub(){
+    if(!rogueActive()) return false;
+    if(!(state.rogue.items && state.rogue.items.wolfClub > 0)) return false;
+    const pid = state.personality && state.personality.id;
+    return !!pid && NEG_PERSONALITY.includes(pid);
+  }
+  function useWolfClub(){
+    if(!canUseWolfClub()){ toast('这一单的客人不需要狼牙棒'); return; }
+    state.rogue.items.wolfClub -= 1;
+    if(state.rogue.items.wolfClub <= 0) delete state.rogue.items.wolfClub;
+    state.personality = PERSONALITIES.generous;
+    const dg = (state.dayGuests || [])[state.guestIndex];
+    if(dg) dg.personality = PERSONALITIES.generous;
+    const rec = (state.orders || []).find(o => o.id === state.activeOrderId);
+    if(rec) rec.personality = PERSONALITIES.generous;
+    toast('狼牙棒生效：客人变得大方了，评分更宽松');
+    renderGuest(); renderDesk(); renderRogueHud(); sfx.coin();
+  }
+  function renderDesk(){
+    if(!state.guest) return;
+    els.deskAvatar.innerHTML = guestSVG(state.guest, state.guestIndex);
+    els.deskGuestName.innerHTML = `${state.guest.name}${guestTag(state.guest)}${personalityTag(livePersonality(state.guest))}${liveExtraTag(state.guest)}`;
+    const remain = Math.max(0, state.deadline - performance.now());
+    els.deskGuestMood.textContent = state.guest.tier === 'boss'
+      ? (state.can.sealed ? '检查中…这次能不能通过？' : '认真检查中 · 耐心很短')
+      : state.guest.tier === 'elite'
+        ? (state.can.sealed ? '精英客人正在验货' : '精英客人 · 要求更严')
+        : state.can.sealed ? '看到罐头，眼睛都亮了' : remain < 25000 ? '有点着急了…' : '正在等你出餐';
+    let text = '';
+    if(state.can.sealed && !orderOnRack()) text = `<b>罐头已经封好啦！</b>把上面的订单拖到下面的「订单架」，再点「交给客人」。`;
+    else if(state.can.sealed) text = `<b>订单已经放上订单架。</b>点下面的「交给客人」出餐吧。`;
+    else if(!state.can.size) text = `还没开始装罐。先去<b>厨房</b>切黄桃、熬糖水，再回<b>工作台</b>。`;
+    else{
+      const miss = [];
+      if(!state.can.pieces.length) miss.push('黄桃');
+      if(!state.can.syrup) miss.push('糖水');
+      if(!state.can.temp) miss.push('温度');
+      if(!state.can.toppingTouched) miss.push('加料');
+      text = miss.length ? `还差：<b>${miss.join('、')}</b>。回工作台继续装罐吧。` : `都配齐了，去工作台点「封盖」，再回来出餐。`;
+    }
+    els.deskStatus.innerHTML = text;
+    if(tutorialActive() && state.can.sealed && !orderOnRack()){
+      const sid = `d${state.day}-submit`;
+      if(!state.tutorial) state.tutorial = { seen:{} };
+      if(!state.tutorial.seen || !state.tutorial.seen[sid]){
+        state.tutorial.seen = state.tutorial.seen || {};
+        state.tutorial.seen[sid] = true;
+        tutorialForceTip('封好了，把订单拖到订单架', '按住左边那张订单卡，拖到下面的「订单架」松手，再点「交给客人」出餐。');
+      }
+    }
+  }
+
+  function renderWork(){
+    if(!state.order) return;
+    const c = state.can;
+    els.sizeBtns.forEach(b => {
+      const on = c.size === b.dataset.size;
+      b.classList.toggle('active', on);
+      b.disabled = c.sealed;
+    });
+    const counts = countPieces(c.pieces);
+    els.canLarge.textContent = counts.large;
+    els.canSmall.textContent = counts.small;
+    if(els.bowlWorkLarge) els.bowlWorkLarge.textContent = state.bowl.large;
+    if(els.bowlWorkSmall) els.bowlWorkSmall.textContent = state.bowl.small;
+    els.tempChips.forEach(b => { b.classList.toggle('active', c.temp === b.dataset.temp); b.disabled = c.sealed; });
+    if(els.jarSwitchBtn){
+      const jar = JARS[c.jar || 'classic'];
+      const unlocked = unlockedJars().length;
+      els.jarSwitchBtn.innerHTML = `${icon('can')}<span>${jar.name}</span><small>${unlocked > 1 ? '点此切换罐子' : '拓展店铺可解锁新罐'}</small>`;
+      els.jarSwitchBtn.disabled = c.sealed;
+    }
+    const tops = c.toppings || [];
+    let focus = state.toppingFocus;
+    if(!focus || !tops.some(t => t.id === focus)) focus = tops.length ? tops[0].id : null;
+    state.toppingFocus = focus;
+    if(els.toppingChips){
+      const noneActive = c.toppingTouched && !tops.length;
+      els.toppingChips.innerHTML = `<button class="chip ${noneActive ? 'active' : ''}" type="button" data-topping="none" ${c.sealed ? 'disabled' : ''}>✕ 不加</button>` + unlockedToppings().map(id => {
+        const tp = TOPPINGS[id];
+        const item = tops.find(t => t.id === id);
+        return `<button class="chip ${item ? 'active' : ''}" type="button" data-topping="${id}" ${c.sealed ? 'disabled' : ''}>${icon(tp.icon)}${tp.name}${item ? ` ×${item.qty}` : ''}</button>`;
+      }).join('');
+    }
+    if(els.toppingQtyRow){
+      const focusItem = tops.find(t => t.id === focus);
+      const showQty = !!focusItem && !c.sealed;
+      els.toppingQtyRow.hidden = !showQty;
+      const label = els.toppingQtyRow.querySelector('span');
+      if(label) label.textContent = focusItem ? `${TOPPINGS[focus].name}份量` : '份量';
+      if(els.toppingQtyVal) els.toppingQtyVal.textContent = focusItem ? focusItem.qty : 1;
+    }
+
+    const freeBoil = customActive() && customMap().steps.boil === false;
+    const visibleBatches = state.batches.filter(b => !b.used);
+    if(freeBoil){
+      els.batchStrip.innerHTML = '<button class="batch-chip active perfect" type="button" disabled>大锅标准糖浆 · 无限供应<small>地图关闭了熬糖，直接用这锅</small></button>';
+    }else if(!visibleBatches.length){
+      els.batchStrip.innerHTML = `<span class="batch-empty">还没有熬好的糖水，先去厨房熬一锅。</span>`;
+    }else{
+      els.batchStrip.innerHTML = visibleBatches.map(b => {
+        const label = b.quality === 'thin' ? '偏生（也能用）' : b.quality === 'burnt' ? '焦苦（也能用）' : '火候完美';
+        const mixLabel = batchMixLabel(b);
+        return `<button class="batch-chip ${state.selectedBatch === b.id ? 'active' : ''} ${b.quality || ''}" type="button" data-batch="${b.id}" ${c.sealed ? 'disabled' : ''}>
+          ${mixLabel} · ${b.sugar} 勺 · ${label}<small>糖水 #${b.id}${b.sugar === state.order.sugar ? ' · 对味' : ''}</small>
+        </button>`;
+      }).join('');
+    }
+    if(els.batchHint){
+      const hasBad = visibleBatches.some(b => b.quality && b.quality !== 'perfect') && !c.sealed;
+      els.batchHint.hidden = !hasBad;
+    }
+    const sb = SUGAR[state.order.sugar];
+    const tol = state.order.tol || sb.tol;
+    els.syrupTarget.style.left = (sb.target - tol) + '%';
+    els.syrupTarget.style.width = (tol * 2) + '%';
+    els.syrupFill.style.width = clamp(c.syrup,0,100) + '%';
+    const inZone = Math.abs(c.syrup - sb.target) <= tol;
+    els.syrupFill.classList.toggle('in-zone', inZone);
+    els.syrupReadout.textContent = Math.round(c.syrup) + '%';
+    const selBatch = findBatch();
+    els.syrupNote.textContent = selBatch
+      ? `已选：${batchMixLabel(selBatch)} · ${selBatch.sugar} 勺 · ${selBatch.quality === 'thin' ? '偏生' : selBatch.quality === 'burnt' ? '焦苦' : '火候完美'}`
+      : '选一锅熬好的糖水';
+    els.pourBtn.disabled = c.sealed || !findBatch() || c.syrup >= 100;
+    els.pourBtn.classList.toggle('pouring', state.pouring);
+    renderSyrupComposition();
+    renderPourSeq();
+    updateFooter();
+    requestAnimationFrame(updateBatchScroll);
+  }
+
+  function updateBatchScroll(){
+    if(!els.batchStrip || !els.batchScroll) return;
+    const max = Math.max(0, els.batchStrip.scrollWidth - els.batchStrip.clientWidth);
+    if(els.batchScrollWrap) els.batchScrollWrap.hidden = max < 2;
+    els.batchScroll.max = max;
+    els.batchScroll.value = els.batchStrip.scrollLeft;
+  }
+
+  function batchMixLabel(b){
+    const types = (b.types && b.types.length) ? b.types : ['classic'];
+    if(types.length === 1) return SYRUPS[types[0]].name;
+    const r = b.ratios || {[types[0]]:50, [types[1]]:50};
+    return types.map(id => `${SYRUPS[id].name.replace('糖浆','')}${Math.round(r[id] != null ? r[id] : 50)}%`).join(' + ');
+  }
+  function renderPourSeq(){
+    if(!els.pourSeq) return;
+    const c = state.can;
+    const log = Array.isArray(c.pourLog) ? c.pourLog : [];
+    if(!log.length){ els.pourSeq.innerHTML = ''; els.pourSeq.hidden = true; return; }
+    els.pourSeq.hidden = false;
+    const steps = log.map((entry, idx) => {
+      const types = entry.types || ['classic'];
+      const r = entry.ratios || {};
+      const label = types.length === 1
+        ? SYRUPS[types[0]].name
+        : types.map(id => `${SYRUPS[id].name.replace('糖浆','')}${Math.round(r[id] != null ? r[id] : 50)}%`).join('+');
+      return `<span class="seq-chip"><i>${idx + 1}</i>${label}<b>${Math.round(entry.amount)}%</b></span>`;
+    }).join('<em class="seq-arrow">→</em>');
+    els.pourSeq.innerHTML = `<span class="seq-title">倒入顺序</span>${steps}`;
+  }
+
+  function renderSyrupComposition(){
+    if(!els.syrupComposition) return;
+    const o = state.order, c = state.can;
+    if(!o){ els.syrupComposition.innerHTML = ''; return; }
+    const targetTotal = SUGAR[o.sugar].target;
+    const expected = o.syrups || [{id:'classic',ratio:100}];
+    const caliperBonus = rogueActive() ? 1.5 * shrimpLevel('caliper') : 0;
+    const tol = (o.tol || SUGAR[o.sugar].tol) + caliperBonus;
+    els.syrupComposition.innerHTML = expected.map(s => {
+      const comp = c.components[s.id] || 0;
+      const target = targetTotal * s.ratio / 100;
+      const pct = clamp(comp / 100 * 100, 0, 100);
+      const tgt = clamp(target, 0, 100);
+      const zoneStart = clamp(target - tol, 0, 100);
+      const zoneWidth = clamp(tol * 2, 0, 100 - zoneStart);
+      const ok = Math.abs(comp - target) <= tol;
+      return `<div class="comp-item">
+        <div class="comp-top"><span>${SYRUPS[s.id].name}</span><b>${Math.round(comp)} / ${Math.round(target)}%${ok?' ✓':''}</b></div>
+        <div class="comp-track"><div class="comp-fill" style="width:${pct}%;background:${SYRUPS[s.id].color}"></div><i class="comp-zone" style="left:${zoneStart}%;width:${zoneWidth}%"></i><i class="comp-target" style="left:${tgt}%"></i></div>
+      </div>`;
+    }).join('');
+    const two = expected.length > 1;
+    const poured = expected.filter(s => (c.components[s.id] || 0) > 0).length;
+    if(els.stirBtn){
+      els.stirBtn.disabled = !!c.sealed || !(c.syrup > 0);
+      els.stirBtn.style.display = (state.order && (state.order.syrups || []).length <= 1) ? 'none' : '';
+    els.stirBtn.classList.toggle('on', !!c.stirred);
+      els.stirBtn.textContent = c.stirred ? '已搅拌 · 点一下恢复分层' : '搅拌一下';
+    }
+  }
+
+  function toggleStir(){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    if(!(state.can.syrup > 0)){ toast('先倒糖水，才谈得上搅拌'); return; }
+    tutFlag('stir');
+    state.can.stirred = !state.can.stirred;
+    updateSyrupVisual();
+    renderWork();
+    sfx.tap();
+  }
+
+  const KNIFE_COLORS = {wood:'#8A5A32', mint:'#62B79A', sakura:'#E39AAE', gold:'#E8B53A'};
+  function applyKnifeSkin(){
+    let knife = 'wood';
+    try { knife = (shopUpgrades().knife) || 'wood'; } catch(e){}
+    const color = KNIFE_COLORS[knife] || KNIFE_COLORS.wood;
+    document.querySelectorAll('.knife-deco,.mini-knife').forEach(el => {
+      el.style.setProperty('--knife-handle', color);
+      el.style.setProperty('--sw', color);
+      el.classList.remove('knife-mint','knife-sakura','knife-gold');
+      if(knife !== 'wood') el.classList.add('knife-' + knife);
+    });
+  }
+  function renderKitchen(){
+    setTimeout(applyKnifeSkin, 0);
+    if(!state.order) return;
+    const o = state.order;
+    els.kitchenOrder.innerHTML = `订单：<b>${SIZES[o.size].name} · ${JARS[o.jar || 'classic'].name}</b> · 黄桃 <b>${peachText(o.peaches)}</b> · ${SUGAR[o.sugar].name}（${o.sugar} 勺） · 糖浆 <b>${syrupText(o)}</b> · 加料 ${toppingText(o.toppings)}`;
+    els.cutStock.textContent = '不限';
+    els.bowlLarge.textContent = state.bowl.large;
+    els.bowlSmall.textContent = state.bowl.small;
+    els.cutStage.classList.remove('knife-mint','knife-sakura','knife-gold');
+    const kNow = shopUpgrades().knife || 'wood'; if(kNow !== 'wood') els.cutStage.classList.add('knife-' + kNow);
+    const alarms = (shopUpgrades().alarms || 0);
+    const assigned = state.pots.filter(p => p.alarm).length;
+    els.alarmNote.textContent = alarms > 0
+      ? `闹钟 ${alarms} 个 · 已设置 ${assigned} 个：把闹钟拖到锅上，进入火候区前会响铃。`
+      : '没有闹钟：盯着绿色火候区，自己数秒关火。';
+    els.potNote.textContent = `绿色区 ${BOIL_MIN}%–${BOIL_MAX}% · 太早太晚都会失败`;
+    renderPots();
+    renderAlarmTray();
+  }
+
+  function renderAlarmTray(){
+    if(!els.alarmTray || !els.alarmTrayItems) return;
+    const total = (shopUpgrades().alarms || 0);
+    const assigned = state.pots.filter(p => p.alarm).length;
+    const free = Math.max(0, total - assigned);
+    els.alarmTray.hidden = state.stage !== 'kitchen' || total <= 0;
+    els.alarmTrayItems.innerHTML = Array.from({length: free}, (_,i) =>
+      `<div class="alarm-token" draggable="true" data-alarm="${i}" title="拖到锅炉上设置闹钟">⏰</div>`).join('');
+  }
+  function togglePotAlarm(potId){
+    ensureAudio();
+    const p = state.pots[potId];
+    if(!p) return;
+    if(p.alarm){ removeAlarm(potId); toast('闹钟已收回'); return; }
+    assignAlarm(potId);
+  }
+  function assignAlarm(potId){
+    const p = state.pots[potId];
+    if(!p || p.alarm) return;
+    const assigned = state.pots.filter(x => x.alarm).length;
+    if(assigned >= ((shopUpgrades().alarms || 0))){ toast('没有空闲闹钟了，去道具商店再买一个'); return; }
+    p.alarm = true;
+    p.alarmFired = false;
+    tutFlag('alarm');
+    sfx.ding();
+    toast(`闹钟已放到熬糖锅 ${potId+1}，到火候区会响`);
+    renderPots();
+    renderAlarmTray();
+  }
+
+  function removeAlarm(potId, quiet){
+    const p = state.pots[potId];
+    if(!p || !p.alarm) return;
+    p.alarm = false;
+    p.alarmFired = false;
+    renderPots();
+    renderAlarmTray();
+    if(!quiet){
+      sfx.tap();
+      toast(`闹钟已从熬糖锅 ${potId+1} 收回，可以拖到其他锅或放回托盘`);
+    }
+  }
+  function moveAlarm(fromId, toId){
+    if(fromId === toId) return;
+    const from = state.pots[fromId];
+    const to = state.pots[toId];
+    if(!from || !to || !from.alarm) return;
+    if(to.alarm){ toast('那口锅已经有闹钟了'); return; }
+    from.alarm = false;
+    from.alarmFired = false;
+    to.alarm = true;
+    to.alarmFired = false;
+    sfx.ding();
+    toast(`闹钟已移到熬糖锅 ${toId+1}`);
+    renderPots();
+    renderAlarmTray();
+  }
+
+  function potStatusText(p){
+    if(p.status === 'heating') return '熬制中';
+    if(!p.sugar) return '先加糖';
+    return `已加 ${p.sugar} 勺糖`;
+  }
+  function renderPots(){
+    let html = '';
+    const customRun = state.mode === 'custom';
+    const up = shopUpgrades();
+    const totalSlots = customRun ? potCap() : 4;
+    for(let i=0;i<totalSlots;i++){
+      if(i >= up.pots){
+        html += `<div class="pot-empty">锅位 ${i+1}<br>去金币商店买锅</div>`;
+        continue;
+      }
+      const p = state.pots[i];
+        const types = availableSyrups().map(id =>
+        `<button class="pot-type ${p.types.includes(id) ? 'on' : ''}" type="button" data-pot-type="${id}" data-pot="${i}" ${p.status !== 'idle' ? 'disabled' : ''}>${SYRUPS[id].name.replace('糖浆','')}</button>`).join('');
+      let actions = '';
+      if(p.status === 'heating'){
+        actions = `<button class="primary" type="button" data-pot-stop="${i}">关火出锅</button>`;
+      }else{
+        actions = `<button type="button" data-pot-sugar="-1" data-pot="${i}" ${p.sugar<=0?'disabled':''}>−</button>
+          <button type="button" data-pot-sugar="1" data-pot="${i}" ${p.sugar>=3?'disabled':''}>糖+</button>
+          <button class="primary" type="button" data-pot-start="${i}" ${p.sugar<1?'disabled':''}>开火</button>`;
+      }
+      const alarm = `<button class="pot-bell ${p.alarm ? 'on' : ''}" type="button" data-pot-bell="${i}" title="${p.alarm ? '点击收回闹钟' : '点击放上闹钟（也可以从闹钟栏拖过来）'}">${p.alarm ? '🔔' : '＋'}</button>`;
+      let mixRow = '';
+      if(p.types.length > 1){
+        const vals = potMixList(p);
+        mixRow = '<div class="pot-mix2-wrap">' + p.types.map((sid, idx) => {
+          const name = SYRUPS[sid].name.replace('糖浆',''), color = SYRUPS[sid].color, val = vals[idx];
+          return `<div class="pot-mix2" data-pot-mix2-row="${i}" data-mix2-idx="${idx}" style="--p:${val}%;--c:${color}">
+            <span class="pm2-name"><i class="mix-dot" style="background:${color}"></i>${name}<b data-mix2-val="${idx}">${val}%</b></span>
+            <button class="mix-step" type="button" data-mix2-step="-1" data-pot="${i}" data-idx="${idx}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="减少 1%">−</button>
+            <input type="range" min="0" max="100" step="1" value="${val}" data-pot-mix2="${i}" data-idx="${idx}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="${name}比例">
+            <button class="mix-step" type="button" data-mix2-step="1" data-pot="${i}" data-idx="${idx}" ${p.status !== 'idle' ? 'disabled' : ''} aria-label="增加 1%">＋</button>
+          </div>`;
+        }).join('') + '</div>';
+      }
+      html += `<div class="pot-card" data-status="${p.status}" data-pot-drop="${i}">
+        <div class="pot-head"><b>熬糖锅 ${i+1}</b><span class="pot-sugar">${alarm}</span></div>
+        <div class="pot-types">${types}</div>
+        ${mixRow}
+        <div class="pot-gauge"><div class="pot-zone"></div><div class="pot-fill" id="potFill${i}" style="width:${p.progress}%"></div></div>
+        <div class="pot-meta"><span>${potStatusText(p)}</span><b id="potPct${i}">${Math.round(p.progress)}%</b></div>
+        <div class="pot-actions">${actions}</div>
+      </div>`;
+    }
+    els.potGrid.innerHTML = html;
+  }
+  function updatePotVisuals(){
+    state.pots.forEach(p => {
+      if(p.status !== 'heating') return;
+      const fill = document.getElementById('potFill'+p.id);
+      const pct = document.getElementById('potPct'+p.id);
+      if(fill) fill.style.width = clamp(p.progress,0,100) + '%';
+      if(pct) pct.textContent = Math.round(p.progress) + '%';
+    });
+  }
+
+  function renderHint(){
+    if(state.phase === 'intro'){ els.hintText.textContent = '先看看今天的订单吧'; return; }
+    if(state.phase !== 'playing') return;
+    let text = '';
+    if(state.stage === 'desk'){
+      text = state.can.sealed ? '封好啦，点下面的「交给客人」' : '服务台：客人正在等，去工作台或厨房准备';
+    }else if(state.stage === 'work'){
+      const c = state.can, o = state.order;
+      if(!c.size) text = '第 1 步：按订单挑一个罐型';
+      else if(countPieces(c.pieces).large + countPieces(c.pieces).small === 0) text = '第 2 步：把切好的黄桃放进罐子';
+      else if(!findBatch()) text = '第 3 步：去厨房熬一锅糖水';
+      else if(c.syrup <= 0) text = '选一锅糖水，按住倒到绿色目标区';
+      else if(!c.temp) text = '第 4 步：按订单选温度';
+      else if(!c.toppingTouched) text = '第 5 步：按订单选加料（可多选）';
+      else text = c.sealed ? '封盖完成，去服务台交给客人吧' : '都配好啦，点「封盖」，再回服务台';
+    }else{
+      const o = state.order;
+      const need = peachTotal(o.peaches);
+      const have = state.bowl.large + state.bowl.small;
+      if(state.batches.length && have >= need) text = '糖水和黄桃都备好了，回工作台装罐吧';
+      else if(have >= need) text = '黄桃够了，接下来加糖熬糖水';
+      else text = `先切黄桃：订单要 ${peachText(o.peaches)}`;
+    }
+    els.hintText.textContent = text;
+    els.hint.classList.toggle('pulse', state.stage === 'desk' && state.can.sealed);
+  }
+
+  function updateFooter(){
+    const sealed = state.can.sealed;
+    const show = (el,on) => { el.style.display = on ? '' : 'none'; };
+    show(els.resetBtn, state.stage === 'work' && !sealed);
+    show(els.sealBtn, state.stage === 'work' && !sealed);
+    show(els.serveBtn, true);
+    if(state.stage === 'desk'){
+      const racked = orderOnRack();
+      els.footer.style.gridTemplateColumns = '1fr';
+      els.serveBtn.innerHTML = sealed
+        ? (racked ? `${icon('arrow')}交给客人` : `${icon('ticket')}先放订单架`)
+        : `${icon('arrow')}还没做好`;
+      els.serveBtn.disabled = !sealed;
+    }else if(state.stage === 'work'){
+      els.footer.style.gridTemplateColumns = sealed ? '1fr' : '0.8fr 1.2fr 1fr';
+      els.resetBtn.innerHTML = `${icon('refresh')}重做`;
+      els.sealBtn.innerHTML = `${icon('lid')}封盖`;
+      els.sealBtn.disabled = false;
+      els.serveBtn.innerHTML = `${icon('arrow')}${sealed ? '去服务台' : '出餐'}`;
+      els.serveBtn.disabled = !sealed;
+    }else if(state.stage === 'restaurant'){
+      els.footer.style.gridTemplateColumns = '1fr';
+      if(state.activeOrderId){
+        els.serveBtn.innerHTML = `${icon('arrow')}回服务台`;
+        els.serveBtn.disabled = false;
+      }else{
+        els.serveBtn.innerHTML = `${icon('ticket')}先接单`;
+        els.serveBtn.disabled = true;
+      }
+    }else{
+      els.footer.style.gridTemplateColumns = '1fr';
+      els.serveBtn.innerHTML = `${icon('arrow')}去工作台`;
+      els.serveBtn.disabled = false;
+    }
+  }
+
+  function updateTabBadges(){
+    els.stageTabs.forEach(t => t.classList.remove('alert'));
+    if(state.can.sealed) $('.stage-tab[data-stage="desk"]').classList.add('alert');
+    if(state.batches.length && state.stage !== 'work') $('.stage-tab[data-stage="work"]').classList.add('alert');
+    if((state.dayGuests || []).some(d => !d.accepted && !d.served) && state.stage !== 'restaurant') $('.stage-tab[data-stage="restaurant"]').classList.add('alert');
+  }
+
+  function renderRestaurant(){
+    if(!els.restaurantList) return;
+    const list = state.dayGuests || [];
+    if(!list.length){
+      els.restaurantList.innerHTML = '<div class="restaurant-note">今天还没有客人。按「开始营业」后，客人会陆续来到餐厅。</div>';
+      return;
+    }
+    els.restaurantList.innerHTML = list.map(dg => {
+      const active = dg.orderId && dg.orderId === state.activeOrderId;
+      const st = dg.served ? '已出餐' : active ? '正在做' : dg.accepted ? '已接单' : '等待接单';
+      const cls = dg.served ? 'served' : active ? 'active' : '';
+      const o = dg.order;
+      const brief = `${SIZES[o.size].name} · ${peachText(o.peaches)} · ${SUGAR[o.sugar].name}`;
+      const p = dg.personality;
+      const ptag = p ? `<span class="rest-tag" style="color:${p.color}">${p.icon} ${p.name}</span>` : '<span class="rest-tag">普通</span>';
+      const btn = dg.served ? '<button class="rest-accept" disabled>已出餐</button>'
+        : active ? '<button class="rest-accept" disabled>正在做</button>'
+        : dg.accepted ? `<button class="rest-accept" data-activate-order="${dg.orderId}">查看订单</button>`
+        : `<button class="rest-accept" data-accept-guest="${dg.index}">接单</button>`;
+      return `<div class="rest-card ${cls}" data-rest-index="${dg.index}"${dg.guest.tier && dg.guest.tier !== 'normal' ? ' data-elite="1"' : ''}>
+        <div class="rest-avatar">${guestSVG(dg.guest, dg.index)}</div>
+        <div class="rest-copy"><b>${dg.guest.name}${guestTag(dg.guest)}${ptag}${dg.extraPersonality === 'depression' ? personalityTag(PERSONALITIES.depression) : ''}</b><small>${st} · ${brief}</small><small>${p ? p.effect : '按普通耐心等待'}${dg.extraPersonality === 'depression' ? ' · 只要死亡之糖' : ''}</small></div>
+        ${btn}
+      </div>`;
+    }).join('');
+  }
+
+  function renderOrderStack(){
+    const wrapL = els.orderStackLeft, wrapR = els.orderStackRight;
+    if(!wrapL || !wrapR) return;
+    const open = state.orders.filter(o => !o.served);
+    const mini = o => `<button class="order-mini ${o.id === state.activeOrderId ? 'active' : ''}" data-order-id="${o.id}" type="button">${o.guest.name}<br>${o.id.toString().padStart(2,'0')}</button>`;
+    const left = open.filter((_,i) => i % 2 === 0);
+    const right = open.filter((_,i) => i % 2 === 1);
+    wrapL.innerHTML = left.map(mini).join('');
+    wrapR.innerHTML = right.map(mini).join('');
+    // 客人变多时把订单架整体撑高，保证左右置物棍的订单都能摆开、不被裁掉
+    const board = document.querySelector('.order-board');
+    if(board){
+      const rows = Math.max(left.length, right.length);
+      board.style.minHeight = `${Math.min(190, 48 + Math.max(0, rows - 2) * 22)}px`;
+      board.classList.toggle('many', rows > 2);
+    }
+    if(els.submitRack){
+      const racked = orderOnRack();
+      els.submitRack.classList.toggle('has-order', racked);
+      els.submitRack.classList.remove('drop');
+      els.submitRack.innerHTML = racked
+        ? `<svg class="icon"><use href="#i-ticket"></use></svg><b>${state.guest ? state.guest.name : '订单'} · ${String(state.activeOrderId).padStart(2,'0')}</b><em>订单已就位 · 点此出餐</em>`
+        : `<svg class="icon"><use href="#i-ticket"></use></svg><b>订单架</b><em>把订单拖到这里出餐</em>`;
+    }
+  }
+
+  function renderDoubaoHelper(){
+    const scene = els.game ? els.game.querySelector('.scene') : null;
+    if(!scene) return;
+    let helper = scene.querySelector('.helper-doubao');
+    if(rogueHas('doubao')){
+      if(!helper){
+        helper = document.createElement('div');
+        helper.className = 'helper-doubao';
+        const n = document.querySelector('#doubaoAsset');
+        helper.innerHTML = `<img src="${n ? n.src : ''}" alt="帮手豆包">`;
+        scene.appendChild(helper);
+      }
+    }else if(helper){ helper.remove(); }
+  }
+  function renderAll(){
+    setTimeout(() => { try { renderTutorialTasks(); } catch(e){} }, 0);
+    updateHud();
+    renderDoubaoHelper();
+    renderOrderTicket();
+    renderGuest();
+    renderCan();
+    renderPatience(state.patience);
+    renderOrderStack();
+    renderRestaurant();
+    renderRogueHud();
+    setStage(state.stage, true);
+    updateTabBadges();
+  }
+
+  /* -------------------- 游戏流程 -------------------- */
+  function pickGuest(index){
+    const special = specialForDay(state.day);
+    if(special && special.slot === index) return special.guest;
+    if(index === 0 && !state.todayGuests.includes(AUTHOR_GUEST.name) && isAuthorDay(state.day)) return makeAuthorGuest();
+    const pool = GUESTS.filter(g => !state.todayGuests.includes(g.name));
+    return pool.length ? pool[randInt(0, pool.length - 1)] : GUESTS[randInt(0, GUESTS.length - 1)];
+  }
+
+  function setupDayGuests(){
+    state.dayGuests = [];
+    state.todayGuests = [];
+    state.orders = [];
+    state.activeOrderId = null;
+    state.rackOrderId = null;
+    state.orderSeq = 0;
+    state.queueInfo = null;
+    if(state.mode === 'custom'){ setupCustomDay(); return; }
+    if(tutorialActive()){
+      applyTutorialDay();
+      const sc = tutorialScript() || {};
+      const list = (sc.guests || [{name:'小黄'},{name:'阿蓝'}]).slice(0, GUEST_COUNT);
+      list.forEach((spec, i) => {
+        const eliteSpec = spec.tier === 'elite';
+        let base = guestByName(spec.name);
+        if(eliteSpec && base.tier !== 'elite'){
+          base = ELITE_GUESTS.find(g => g.name === spec.name) || ELITE_GUESTS[0];
+        }
+        const guest = Object.assign({}, base, spec.tier ? {tier:spec.tier} : {}, spec.personality ? {personality:spec.personality} : {});
+        if(spec.tier === 'elite') guest.tier = 'elite';
+        const p = spec.personality ? PERSONALITIES[spec.personality] : (guest.tier !== 'normal' ? personalityFor(guest) : null);
+        state.todayGuests.push(guest.name);
+        markSeen(guest);
+        let patienceMs = personalityPatience(p, guest);
+        patienceMs = Math.round(patienceMs * 1.6);
+        const order = makeOrder(i, guest, p);
+        if(spec.order && spec.order.complex){
+          order.toppings = [{id:'mint', qty:2}, {id:'osmanthus', qty:1}, {id:'rock', qty:1}];
+          order.jar = 'narrow';
+          order.temp = 'warm';
+        }
+        if(spec.order && spec.order.mix){
+          order.syrups = [{id:'classic', ratio:60}, {id:'honey', ratio:40}];
+          order.stirred = true;
+          order.boilStyle = 'separate';
+          order.toppings = [{id:'mint', qty:2}];
+          order.temp = 'ice';
+        }
+        state.dayGuests.push({index:i, guest, personality:p, patienceMs, order, accepted:false, served:false, queuePenalty:0, orderId:null});
+      });
+      if(sc.autoAccept != null){
+        setTimeout(() => { if(tutorialActive() && state.phase === 'playing') acceptGuest(sc.autoAccept, {auto:true}); }, 260);
+      }
+      return;
+    }
+    const extra = rogueActive() ? Math.min(3, shrimpLevel('influencer')) : 0;
+    const count = GUEST_COUNT + extra;
+    const naishuDay = rogueActive() && rogueEventToday() && rogueEventToday().id === 'naishu';
+    for(let i=0;i<count;i++){
+      let guest = pickGuest(i);
+      state.todayGuests.push(guest.name);
+      const p = personalityFor(guest);
+      markSeen(guest);
+      const patienceMs = personalityPatience(p, guest);
+      const order = makeOrder(i, guest, p);
+      state.dayGuests.push({index:i, guest, personality:p, patienceMs, order, accepted:false, served:false, queuePenalty:0, orderId:null});
+    }
+    if(naishuDay){
+      // 奶鼠来袭：作为「额外客人」插在队尾，不替换任何原有客人
+      const guest = {...NAISHU_GUEST};
+      state.todayGuests.push(guest.name);
+      const p = personalityFor(guest);
+      markSeen(guest);
+      const idx = state.dayGuests.length;
+      state.dayGuests.push({index:idx, guest, personality:p, patienceMs:personalityPatience(p, guest), order:makeOrder(idx, guest, p), accepted:false, served:false, queuePenalty:0, orderId:null});
+      toast('奶鼠来袭！多了一位不速之客，优先招待它，否则它会偷小费');
+    }
+    if(rogueActive() && availableSyrups().includes('death')){
+      // 拿到死亡之糖后，会偶尔出现「重度抑郁症」客人：大约每 8~12 位客人里出 1 位
+      const r = state.rogue;
+      if(!r.depNext) r.depNext = randInt(8, 12);
+      if(typeof r.depSeen !== 'number') r.depSeen = 0;
+      let converted = false;
+      const markDep = (dg, extra) => {
+        if(extra){
+          dg.extraPersonality = 'depression';
+        }else{
+          dg.personality = PERSONALITIES.depression;
+          dg.patienceMs = personalityPatience(dg.personality, dg.guest);
+        }
+        if(!dg.order.syrups || !dg.order.syrups.length) dg.order.syrups = [{id:'classic', ratio:100}];
+        dg.order.deathRequirement = true;
+      };
+      for(const dg of state.dayGuests){
+        if(converted) break;
+        const special = !!(dg.guest && (dg.guest.kind === 'naishu' || dg.guest.tier === 'boss' || dg.guest.tier === 'elite'));
+        if(special){
+          // BOSS / 精英 / 事件客人：作为「第二性格」叠加，不占用普通客人的计数
+          if(Math.random() < .2) markDep(dg, true);
+          continue;
+        }
+        r.depSeen += 1;
+        if(r.depSeen < r.depNext) continue;
+        markDep(dg, false);
+        converted = true;
+        r.depSeen = 0;
+        r.depNext = randInt(8, 12);
+      }
+    }
+    if(rogueActive() && (state.rogue.items.personality || 0) > 0 && state.dayGuests[0]){
+      state.rogue.items.personality -= 1;
+      const dg = state.dayGuests[0];
+      dg.personality = PERSONALITIES[PERSONALITY_IDS[randInt(0, PERSONALITY_IDS.length - 1)]];
+      dg.patienceMs = personalityPatience(dg.personality, dg.guest);
+      dg.order = makeOrder(0, dg.guest, dg.personality);
+      toast('性格改造器生效：第一位客人的性格被随机改变了');
+    }
+  }
+
+  function saveActiveOrder(){
+    if(state.activeOrderId == null) return;
+    const rec = state.orders.find(o => o.id === state.activeOrderId);
+    if(!rec) return;
+    rec.can = state.can;
+    rec.selectedBatch = state.selectedBatch;
+    rec.patienceLeft = Math.max(0, state.deadline - performance.now());
+  }
+
+  function activateOrder(id, opts={}){
+    const rec = state.orders.find(o => o.id === id);
+    if(!rec || rec.served) return;
+    saveActiveOrder();
+    state.activeOrderId = id;
+    if(state.rackOrderId !== id) state.rackOrderId = null;
+    state.guestIndex = rec.guestIndex;
+    state.guest = rec.guest;
+    state.personality = rec.personality;
+    state.order = rec.order;
+    state.can = rec.can;
+    state.selectedBatch = rec.selectedBatch || null;
+    state.patienceMs = rec.patienceMs;
+    state.patienceLeft = rec.patienceLeft == null ? rec.patienceMs : rec.patienceLeft;
+    state.deadline = performance.now() + state.patienceLeft;
+    state.patience = clamp(state.patienceLeft / state.patienceMs, 0, 1);
+    state.pouring = false;
+    state.phase = 'playing';
+    state.stage = opts.keepStage ? state.stage : 'desk';
+    els.game.dataset.stage = state.stage;
+    setGuestMood('idle');
+    renderAll();
+    resetOrderTicket();
+    renderFrogWear();
+    renderDesk();
+    renderWork();
+    renderKitchen();
+    renderRestaurant();
+    updateFooter();
+    renderHint();
+    updateTabBadges();
+    if(!opts.quiet) showSpeech(rec.guest.greet);
+    cueMusic();
+  }
+
+  function acceptGuest(index, opts={}){
+    if(!opts || !opts.auto) tutFlag('accept');
+    const dg = state.dayGuests[index];
+    if(!dg || dg.served) return;
+    if(dg.accepted){ activateOrder(dg.orderId); return; }
+    const id = ++state.orderSeq;
+    const rec = {
+      id, guestIndex:index, guest:dg.guest, personality:dg.personality,
+      order:dg.order, can:emptyCan(), patienceMs:dg.patienceMs, patienceLeft:dg.patienceMs,
+      queueBonus:0, served:false, acceptedAt:performance.now()
+    };
+    state.orders.push(rec);
+    dg.accepted = true;
+    if(rogueActive() && shrimpLevel('autoBoil') && Math.random() < .33){
+      const ids = (rec.order.syrups || [{id:'classic'}]).map(s => s.id);
+      const types = ids.filter((v, i, a) => a.indexOf(v) === i).slice(0, 2);
+      state.batches.push({ id: ++state.batchSeq, sugar: clamp(rec.order.sugar, 1, 3), quality: 'perfect', types, used: 0,
+        ratios: types.length > 1 ? { [types[0]]: 50, [types[1]]: 50 } : { [types[0]]: 100 } });
+      setTimeout(() => toast('自动熬糖机：已经替你熬好一锅完美糖水'), 600);
+    }
+    dg.orderId = id;
+    if(!opts.auto) toast(`已接单：${dg.guest.name}。可以现在做，也可以先去招呼别人。`);
+    if(dg.guest.kind === 'author') toast(`彩蛋客人「奶龙学长」到店！小费 ×${dg.guest.coin.toFixed(1)}`);
+    const special = specialForDay(state.day);
+    if(special && special.slot === index){
+      setTimeout(() => toast(special.type === 'boss'
+        ? `周末 BOSS「${dg.guest.name}」到店：耐心 ${Math.round(dg.patienceMs/1000)} 秒，奖励 ×${dg.guest.coin}！`
+        : `精英客人「${dg.guest.name}」到店：订单更复杂，奖励 ×${dg.guest.coin}！`), 420);
+    }
+    activateOrder(id, {quiet:!!opts.auto});
+    saveRunToProfile();
+    if(tutorialActive() && !opts.auto && state.day === 3){
+      const older = state.orders.filter(o => !o.served && o.id !== id);
+      if(older.length && state.tutorial && !state.tutorial.seen['d3-jumped']){
+        state.tutorial.seen['d3-jumped'] = true;
+        setTimeout(() => tutorialForceTip('这就是插队', '你让后来的客人先做了：被跳过的客人评价里会多一条「被插队」扣分；斤斤计较的客人扣分翻倍。现在先把小黄这单做完，再回去补夜莺师傅的订单。'), 420);
+        setTimeout(() => tutorialPointerHint('d3-work', '#stageTabs [data-stage="work"]', '回「工作台」，把这单做完'), 1400);
+      }
+    }
+  }
+
+  let restoringRun = false;
+  function snapshotRun(){
+    saveActiveOrder();
+    const raw = {
+      v:1, savedAt:Date.now(), mode:state.mode, day:state.day,
+      dayCoins:state.dayCoins, dayStars:state.dayStars, runEarned:state.runEarned,
+      week:state.week, weekEarned:state.weekEarned, weekTarget:state.weekTarget,
+      guestIndex:state.guestIndex, reviews:state.reviews,
+      dayGuests:state.dayGuests, orders:state.orders,
+      activeOrderId:state.activeOrderId, orderSeq:state.orderSeq, rackOrderId:state.rackOrderId,
+      stage:state.stage, bowl:state.bowl, batches:state.batches,
+      selectedBatch:state.selectedBatch, batchSeq,
+      pots:state.pots.map(p => ({...p, startedAt:null})),
+      todayGuests:state.todayGuests, rogue:state.rogue,
+      tutorial:state.tutorial, tutorialCoins:state.tutorialCoins, coins:state.coins, upgrade:state.upgrade
+    };
+    return JSON.parse(JSON.stringify(raw));
+  }
+  function saveRunToProfile(){
+    if(restoringRun || !activeProfile || state.phase !== 'playing' || !state.dayGuests.length) return;
+    activeProfile.run = snapshotRun();
+    saveProfiles();
+  }
+  function clearRun(){
+    if(activeProfile) activeProfile.run = null;
+    if(activeProfile) saveProfiles();
+    renderResumeUI();
+  }
+  function restoreRun(run){
+    if(!run || !MODES[run.mode] || !Array.isArray(run.dayGuests) || !run.dayGuests.length) return false;
+    restoringRun = true;
+    state.mode = run.mode;
+    state.introMode = run.mode;
+    state.day = Number(run.day) || 1;
+    state.dayCoins = Number(run.dayCoins) || 0;
+    state.dayStars = Number(run.dayStars) || 0;
+    state.runEarned = Number(run.runEarned) || 0;
+    state.week = Number(run.week) || 1;
+    state.weekEarned = Number(run.weekEarned) || 0;
+    state.weekTarget = Number(run.weekTarget) || weekTargetFor(state.week);
+    state.reviews = Array.isArray(run.reviews) ? run.reviews : [];
+    state.dayGuests = JSON.parse(JSON.stringify(run.dayGuests));
+    state.orders = JSON.parse(JSON.stringify(run.orders || []));
+    state.orderSeq = Number(run.orderSeq) || state.orders.length;
+    state.todayGuests = Array.isArray(run.todayGuests) ? run.todayGuests : [];
+    state.bowl = run.bowl && typeof run.bowl === 'object' ? {...run.bowl} : {large:0, small:0};
+    state.batches = Array.isArray(run.batches) ? JSON.parse(JSON.stringify(run.batches)) : [];
+    state.selectedBatch = run.selectedBatch == null ? null : run.selectedBatch;
+    state.batchSeq = Number(run.batchSeq) || 0;
+    batchSeq = state.batchSeq;
+    state.pots = Array.isArray(run.pots) && run.pots.length
+      ? run.pots.map(p => {
+          const progress = clamp(Number(p.progress) || 0, 0, 100);
+          return {...p, mixA:clamp(Number(p.mixA) || 0, 0, 100), mixB:clamp(Number(p.mixB) || 0, 0, 100), types:(p.types && p.types.length) ? p.types : ['classic'],
+            progress, alarmFired:!!p.alarmFired,
+            startedAt:p.status === 'heating' ? performance.now() - progress / 100 * boilDuration() : 0};
+        })
+      : makePots();
+    state.stock = Infinity;
+    state.rogue = run.rogue ? JSON.parse(JSON.stringify(run.rogue)) : null;
+    if(run.mode === 'tutorial'){
+      state.tutorial = run.tutorial || { seen:{} };
+      state.tutorialQueue = [];
+      state.tutorialCoins = Number(run.tutorialCoins) || 0;
+      if(run.upgrade) state.upgrade = JSON.parse(JSON.stringify(run.upgrade));
+    }
+    if(state.mode === 'rogue' && state.rogue){
+      state.rogue.upgrades = state.rogue.upgrades || {pots:1, alarms:0, knife:'wood', knives:['wood']};
+      state.rogue.upgrades.pots = clamp(Number(state.rogue.upgrades.pots) || 1, 1, 4);
+      state.rogue.upgrades.alarms = clamp(Number(state.rogue.upgrades.alarms) || 0, 0, 3);
+      if(!state.rogue.upgrades.knives) state.rogue.upgrades.knives = [state.rogue.upgrades.knife || 'wood'];
+      state.rogue.weekTarget = Number(state.rogue.weekTarget) || Number(state.weekTarget) || ROGUE_BASE_TARGET;
+      state.rogue.nextTarget = Number(state.rogue.nextTarget) || rogueGrowthTarget(state.rogue.weekTarget);
+    }
+    state.coins = state.mode === 'rogue' && state.rogue ? state.rogue.coins : (state.mode === 'tutorial' ? (state.tutorialCoins || 0) : (activeProfile ? activeProfile.wallet : 0));
+    if(state.mode === 'rogue' && state.rogue) state.upgrade = state.rogue.upgrades;
+    state.phase = 'playing';
+    state.stage = run.stage || 'desk';
+    state.activeOrderId = null;
+    state.rackOrderId = null;
+    state.queueInfo = null;
+    state.orderTipShown = true;
+    state.pouring = false;
+    state.metaAwarded = false;
+    els.introOverlay.classList.remove('show');
+    els.introOverlay.setAttribute('aria-hidden','true');
+    [els.reviewOverlay, els.summaryOverlay, els.shopOverlay, els.homeOverlay, els.leaderboardOverlay, els.codexOverlay, els.saveOverlay, els.settingsOverlay].forEach(o => {
+      if(o){ o.classList.remove('show'); o.setAttribute('aria-hidden','true'); }
+    });
+    els.game.dataset.stage = state.stage;
+    applySkins();
+    const first = run.activeOrderId != null
+      ? state.orders.find(o => o.id === run.activeOrderId && !o.served)
+      : null;
+    const fallback = first || state.orders.find(o => !o.served);
+    if(!fallback){
+      restoringRun = false;
+      goHome();
+      return false;
+    }
+    activeProfile.run = run;
+    activateOrder(fallback.id, {quiet:true, keepStage:true});
+    state.rackOrderId = run.rackOrderId != null && run.rackOrderId === fallback.id ? run.rackOrderId : null;
+    renderOrderStack();
+    updateFooter();
+    updateHud();
+    saveRunToProfile();
+    restoringRun = false;
+    setTimeout(() => toast('已继续上一局，慢慢来～'), 300);
+    return true;
+  }
+  function resumeRun(){
+    if(!activeProfile || !activeProfile.run){ toast('没有可继续的对局'); renderResumeUI(); return; }
+    ensureAudio();
+    if(!restoreRun(activeProfile.run)) toast('上一局数据不完整，已回到主菜单');
+    cueMusic();
+  }
+  function renderResumeUI(){
+    if(!els.startActions || !els.continueBtn || !els.startBtn) return;
+    const run = activeProfile ? activeProfile.run : null;
+    els.startActions.classList.toggle('has-run', !!run);
+    els.continueBtn.hidden = !run;
+    if(run){
+      const MODE_LABEL = {normal:'普通', endless:'无尽', rogue:'肉鸽', tutorial:'新手', custom:'自定义'};
+      const modeName = MODE_LABEL[run.mode] || '存档';
+      let dayLabel;
+      if(run.mode === 'normal') dayLabel = `DAY ${run.day}/${NORMAL_DAYS}`;
+      else if(run.mode === 'tutorial') dayLabel = `DAY ${((run.day - 1) % 7) + 1}/7`;
+      else dayLabel = `W${run.week} · DAY ${((run.day - 1) % WEEK_DAYS) + 1}/${WEEK_DAYS}`;
+      if(els.continueLabel) els.continueLabel.textContent = `继续${modeName}`;
+      els.continueMeta.textContent = `${modeName} · ${dayLabel}`;
+    }else if(els.continueLabel){
+      els.continueLabel.textContent = '继续上一局';
+      els.continueMeta.textContent = '';
+    }
+    updateStartButton();
+    renderRogueMode();
+  }
+  function updateStartButton(){
+    if(!els.startBtn) return;
+    const hasRun = !!(activeProfile && activeProfile.run);
+    const label = state.introMode === 'custom' ? '自定义模式' : hasRun ? '新开一局' : state.introMode === 'normal' ? `开始 ${NORMAL_DAYS} 天营业` : state.introMode === 'tutorial' ? '开始 7 天新手教学' : state.introMode === 'rogue' ? '开始肉鸽营业' : state.introMode === 'custom' ? '进入自定义模式' : '开始无尽营业';
+    els.startBtn.innerHTML = `${label}${icon('arrow')}`;
+  }
+  function renderRogueMode(){
+    if(!els.rogueModeCard) return;
+    const unlocked = !!(activeProfile && activeProfile.rogueUnlocked);
+    els.rogueModeCard.classList.toggle('locked', !unlocked);
+    if(els.rogueBadge) els.rogueBadge.textContent = unlocked ? '已解锁' : '未解锁';
+    if(els.rogueNote) els.rogueNote.innerHTML = unlocked
+      ? '每周金币指标 · 辣虾 · 随机事件<br>每局重置'
+      : '普通模式完成 2 周后解锁<br>每周指标 · 辣虾 · 随机事件';
+  }
+  function devEndDay(){
+    if(!state.devMode) return;
+    if(state.phase === 'event') closeRogueEventPopup();
+    if(state.phase !== 'playing') return;
+    state.pouring = false;
+    stopAllHeating();
+    (state.dayGuests || []).forEach(d => { d.served = true; });
+    if(rogueActive() && (state.day % WEEK_DAYS === 5 || state.day % WEEK_DAYS === 0)){
+      showShrimpChoice(state.day % WEEK_DAYS === 0 ? 'boss' : 'elite');
+    }else{
+      showSummary();
+    }
+  }
+  function pauseRun(){
+    if(state.phase !== 'playing' && state.phase !== 'summary') return;
+    const fromSummary = state.phase === 'summary';
+    closeSettings();
+    if(els.summaryOverlay){ els.summaryOverlay.classList.remove('show'); els.summaryOverlay.setAttribute('aria-hidden','true'); }
+    if(fromSummary){
+      startNextDay();
+      state.phase = 'playing';
+    }
+    saveRunToProfile();
+    goHome();
+    setTimeout(() => toast('已暂时打烊，主菜单可以继续下一局'), 260);
+  }
+
+  function newCustomer(index){
+    if(index === 0 || !state.dayGuests.length){
+      setupDayGuests();
+      state.phase = 'playing';
+      state.stage = 'desk';
+      els.game.dataset.stage = 'desk';
+      state.selectedBatch = null;
+      state.pouring = false;
+      acceptGuest(0, {auto:true});
+      if(tutorialActive()){
+        const sc = tutorialScript() || {};
+        (sc.intro || []).forEach(t => tutorialTip(t.key, t.title, t.text));
+      }
+      if(rogueActive()) setTimeout(showRogueEventPopup, 350);
+      if(!state.orderTipShown){
+        state.orderTipShown = true;
+        setTimeout(() => toast('小提示：先把订单拖到下面的「订单架」，才能交给客人'), 1800);
+      }
+      return;
+    }
+    if(index === 0) state.todayGuests = [];
+    state.guestIndex = index;
+    state.guest = pickGuest(index);
+    state.todayGuests.push(state.guest.name);
+    if(state.guest.kind === 'author') toast(`彩蛋客人「奶龙学长」到店！小费 ×${state.guest.coin.toFixed(1)}`);
+    state.personality = personalityFor(state.guest);
+    markSeen(state.guest);
+    state.patienceMs = personalityPatience(state.personality, state.guest);
+    state.order = makeOrder(index, state.guest);
+    state.can = emptyCan();
+    state.selectedBatch = null;
+    state.pouring = false;
+    state.patience = 1;
+    state.deadline = performance.now() + state.patienceMs;
+    state.phase = 'playing';
+    state.stage = 'desk';
+    els.game.dataset.stage = 'desk';
+    setGuestMood('idle');
+    renderAll();
+    resetOrderTicket();
+    renderFrogWear();
+    renderDesk();
+    renderWork();
+    renderKitchen();
+    updateFooter();
+    renderHint();
+    updateTabBadges();
+    showSpeech(state.guest.greet);
+    sfx.guest();
+    const special = specialForDay(state.day);
+    if(special && special.slot === index){
+      setTimeout(() => toast(special.type === 'boss'
+        ? `周末 BOSS「${state.guest.name}」到店：耐心 ${Math.round(state.patienceMs/1000)} 秒，奖励 ×${state.guest.coin}！`
+        : `精英客人「${state.guest.name}」到店：订单更复杂，奖励 ×${state.guest.coin}！`), 420);
+    }else if(index === 0 && !state.orderTipShown){
+      state.orderTipShown = true;
+      setTimeout(() => toast('小提示：订单可以拖到右上角的棍子上收纳'), 1800);
+    }
+    cueMusic();
+  }
+
+  function setMenuGroup(toggle, panel, open){
+    if(!toggle || !panel) return;
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    panel.hidden = !open;
+    const group = toggle.closest('.menu-group');
+    if(group) group.classList.toggle('open', open);
+  }
+  function toggleMenuGroup(toggle, panel){
+    const open = toggle.getAttribute('aria-expanded') === 'true';
+    setMenuGroup(toggle, panel, !open);
+    sfx.tap();
+  }
+  function setIntroMode(mode){
+    if(mode === 'rogue' && !(activeProfile && activeProfile.rogueUnlocked)){
+      toast('肉鸽模式未解锁：普通模式完成 2 周后开放');
+      return;
+    }
+    if(!MODES[mode]) return;
+    state.introMode = mode;
+    syncVersionUI();
+    els.modeCards.forEach(card => card.classList.toggle('active', card.dataset.mode === mode));
+    if(els.modeToggleName) els.modeToggleName.textContent = MODES[mode].name;
+    const best = mode === 'normal' ? state.bestNormal : mode === 'endless' ? state.bestEndless : 0;
+    const bestText = mode === 'normal'
+      ? (best ? ` · 最佳周目 ${best} 金币` : '')
+      : mode === 'endless' ? (best ? ` · 最远第 ${best} 周` : '') : mode === 'rogue' ? ' · 辣虾 / 随机事件 / 肉鸽夜市' : '';
+    els.introNote.textContent = (mode === 'normal'
+      ? `普通模式 · ${NORMAL_DAYS} 天后结算总营业额`
+      : mode === 'tutorial' ? '新手模式 · 7 天教学 · 不会因为失误关门'
+      : mode === 'rogue' ? '肉鸽模式 · 每周完成金币指标 · 每局重置'
+      : mode === 'custom' ? '自定义模式 · 客人 / 订单 / 目标 / 评分都能改 · 支持自定义码'
+      : '无尽模式 · 每周业绩递增 · 不达标就关门') + bestText;
+    setMenuGroup(els.modeToggle, els.modePanel, false);
+    updateStartButton();
+    sfx.tap();
+  }
+  function startGame(){
+    resumeGame();
+    setHeaderPause(true);
+    if(state.phase !== 'intro') return;
+    if(state.introMode === 'custom'){ openCmHub(); return; }
+    const run = activeProfile ? activeProfile.run : null;
+    if(run){
+      openConfirm({
+        title:'要新开一局吗？',
+        copy:'新开一局会覆盖当前未完成的对局，保存进度会丢失。想继续上一局请点「继续上一局」。',
+        okText:'新开一局',
+        cancelText:'取消',
+        onOk:() => { clearRun(); beginRun(state.introMode || 'normal'); }
+      });
+      return;
+    }
+    beginRun(state.introMode || 'normal');
+  }
+  function rogueWeekEvents(){
+    const out = {};
+    // 基础：每周 1~2 天随机事件；道具/辣虾各 +1 天，最多 3 天
+    const bonus = (shrimpLevel('bloodCross') ? 1 : 0) + ((state.rogue && state.rogue.items && state.rogue.items.eventCalendar) ? 1 : 0);
+    const count = Math.min(3, 1 + Math.floor(Math.random() * 2) + bonus);
+    // 事件日分散在整周：2 天时必有一天在后半周，避免「周初两天就全部过完」
+    const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+    const days = [];
+    if(count === 1){
+      days.push(pick([1,2,3,4,5,6,7]));
+    }else{
+      days.push(pick([1,2,3]));
+      days.push(pick([5,6,7]));
+      if(count >= 3) days.push(pick([3,4]));
+    }
+    const luckyBoost = shrimpLevel('luckyHorseshoe') ? .25 : 0;
+    days.forEach(day => {
+      const lucky = Math.random() < .5 + luckyBoost;
+      const pool = ROGUE_EVENTS.filter(e => (lucky ? e.type === 'good' : e.type === 'bad') && devEventAllowed(e.id));
+      const ev = pool[Math.floor(Math.random() * pool.length)];
+      if(ev) out[day] = ev.id;
+    });
+    return out;
+  }
+  function rogueWeekDayNow(){ return ((state.day - 1) % WEEK_DAYS) + 1; }
+  function rogueEventDaysAhead(){
+    if(!rogueActive() || !state.rogue.events) return [];
+    const now = rogueWeekDayNow();
+    return Object.keys(state.rogue.events).map(Number).filter(d => d > now).sort((a,b) => a - b);
+  }
+  function addExtraRogueEventDay(){
+    if(!rogueActive()) return false;
+    const events = state.rogue.events;
+    if(Object.keys(events).length >= 3) return false;
+    const free = [1,2,3,4,5,6,7].filter(d => !events[d]);
+    if(!free.length) return false;
+    const ahead = free.filter(d => d >= state.day);
+    const poolDays = ahead.length ? ahead : free;
+    const pick = poolDays[Math.floor(Math.random() * poolDays.length)];
+    const lucky = Math.random() < .5 + (shrimpLevel('luckyHorseshoe') ? .25 : 0);
+    const pool = ROGUE_EVENTS.filter(e => (lucky ? e.type === 'good' : e.type === 'bad') && devEventAllowed(e.id));
+    const ev = pool[Math.floor(Math.random() * pool.length)];
+    if(!ev) return false;
+    events[pick] = ev.id;
+    return true;
+  }
+  function rogueEventToday(){
+    if(!rogueActive()) return null;
+    const id = state.rogue.events[rogueWeekDayNow()];
+    return ROGUE_EVENTS.find(e => e.id === id) || null;
+  }
+  function renderRogueHud(){
+    if(!els.rogueHudPanel) return;
+    if(!rogueActive()){ els.rogueHudPanel.hidden = true; return; }
+    els.rogueHudPanel.hidden = false;
+    const ev = rogueEventToday();
+    const mod = state.day % WEEK_DAYS;
+    const tag = mod === 0 ? 'BOSS日' : mod === 5 ? '精英日' : '普通日';
+    els.rogueDayTag.textContent = tag;
+    els.rogueDayTag.className = `rogue-day-tag ${mod === 0 ? 'boss' : mod === 5 ? 'elite' : ''}`;
+    if(ev){
+      els.rogueEventLine.textContent = `今日事件：${ev.name} · ${ev.desc}`;
+    }else{
+      const ahead = rogueEventDaysAhead();
+      els.rogueEventLine.textContent = ahead.length
+        ? `今日事件：无 · 本周还有 ${ahead.length} 个事件日（第 ${ahead.join('、')} 天）`
+        : '今日事件：无（本周事件日已结束）';
+    }
+    const itemCount = Object.values(state.rogue.items || {}).reduce((s,n) => s + n, 0);
+    if(els.buffCount) els.buffCount.textContent = (state.rogue.shrimp || []).length + itemCount;
+    if(els.rogueItemsBar){
+      const chips = [];
+      if((state.rogue.items.cashback || 0) > 0) chips.push(`<span class="rogue-item-chip">好评返现 ×${state.rogue.items.cashback}<button type="button" data-use-item="cashback">使用</button></span>`);
+      if((state.rogue.items.personality || 0) > 0) chips.push(`<span class="rogue-item-chip">性格改造 ×${state.rogue.items.personality}<button type="button" data-use-item="personality">使用</button></span>`);
+      if((state.rogue.items.reroll || 0) > 0) chips.push(`<span class="rogue-item-chip">再来一份 ×${state.rogue.items.reroll}</span>`);
+      if((state.rogue.items.goldPot || 0) > 0) chips.push(`<span class="rogue-item-chip passive">黄金锅 ×${state.rogue.items.goldPot}</span>`);
+      if((state.rogue.items.wolfClub || 0) > 0) chips.push(`<span class="rogue-item-chip">🐺 狼牙棒 ×${state.rogue.items.wolfClub}<button type="button" data-use-item="wolfClub">使用</button></span>`);
+      if((state.rogue.items.pourGuard || 0) > 0) chips.push(`<span class="rogue-item-chip passive">糖浆隔断板 · 生效中</span>`);
+      if((state.rogue.items.doubao || 0) > 0) chips.push(`<span class="rogue-item-chip passive">豆包 ×${state.rogue.items.doubao}</span>`);
+      if(rogueOwlToday()) chips.push(`<span class="rogue-item-chip passive">糖枭 · 今日生效</span>`);
+      els.rogueItemsBar.innerHTML = chips.join('') || '<span class="rogue-item-chip passive">暂无可用增幅道具</span>';
+    }
+    renderShrimpCabinet();
+  }
+  function shrimpOwnedList(){
+    const src = (state.rogue && state.rogue.shrimp) || [];
+    const map = new Map();
+    src.forEach(id => map.set(id, (map.get(id) || 0) + 1));
+    return SHRIMPS.filter(s => map.has(s.id)).map(s => ({...s, stack: map.get(s.id)}));
+  }
+  function renderShrimpCabinet(){
+    if(!els.shrimpCabinetMeta) return;
+    const owned = shrimpOwnedList();
+    const total = ((state.rogue && state.rogue.shrimp) || []).length;
+    els.shrimpCabinetMeta.textContent = owned.length
+      ? `已收集 ${owned.length} 种 · 共 ${total} 只`
+      : '本局还没有辣虾，去精英日/BOSS日抽';
+  }
+  function openShrimpCabinet(){
+    if(!rogueActive()) return toast('辣虾只在肉鸽模式里收集');
+    const owned = shrimpOwnedList();
+    const total = (state.rogue.shrimp || []).length;
+    if(els.shrimpCabinetBody){
+      els.shrimpCabinetBody.innerHTML = owned.length ? owned.map(s => {
+        const r = ROGUE_RARITY[s.rarity] || {name:'普通', color:'#B9B2A7'};
+        const stack = s.stack > 1 ? `<span class="sc-stack">Lv.${s.stack}</span>` : '';
+        return `<div class="shrimp-card"><span class="sc-ico">🦐</span><span class="sc-main"><b>${s.name}</b><span class="sc-badge" style="background:${r.color}">${r.name}</span>${stack}<small>${s.desc}</small></span></div>`;
+      }).join('') : '<div class="bag-empty">柜子还是空的。每周第 5 天（精英日）和第 7 天（BOSS 日）打烊后，可以从三只辣虾里挑一只。</div>';
+    }
+    if(els.shrimpCabinetSub){
+      els.shrimpCabinetSub.textContent = owned.length
+        ? `本局 ${owned.length} 种 · 共 ${total} 只，同一只可以叠加`
+        : '本局已收集的辣虾';
+    }
+    if(els.shrimpCabinetOverlay){ els.shrimpCabinetOverlay.classList.add('show'); els.shrimpCabinetOverlay.setAttribute('aria-hidden','false'); }
+  }
+  function closeShrimpCabinet(){
+    if(!els.shrimpCabinetOverlay) return;
+    els.shrimpCabinetOverlay.classList.remove('show');
+    els.shrimpCabinetOverlay.setAttribute('aria-hidden','true');
+  }
+  function useRogueItem(id){
+    if(!rogueActive()) return;
+    const n = state.rogue.items[id] || 0;
+    if(n <= 0) return toast('这个道具已经用完了');
+    if(id === 'wolfClub'){
+      if(!canUseWolfClub()){ toast('现在没有需要「狼牙棒」的负面性格客人'); return; }
+      useWolfClub();
+      return;
+    }
+    if(id === 'cashback'){
+      state.rogue.items.cashback = n - 1;
+      state.rogue.cashbackReady = true;
+      toast('好评返现已启用：下一单至少 80 分');
+    }else if(id === 'personality'){
+      state.rogue.items.personality = n - 1;
+      const dg = state.dayGuests[state.guestIndex];
+      if(dg){
+        const cur = (state.personality && state.personality.id) || '';
+        const pool = PERSONALITY_IDS.filter(pid => pid !== cur);
+        const nextId = pool.length ? pool[randInt(0, pool.length - 1)] : PERSONALITY_IDS[0];
+        dg.personality = PERSONALITIES[nextId];
+        state.personality = dg.personality;
+        dg.patienceMs = personalityPatience(dg.personality, dg.guest);
+        state.patienceMs = dg.patienceMs;
+        state.deadline = performance.now() + state.patienceMs;
+        const rec = (state.orders || []).find(o => o.id === state.activeOrderId);
+        if(rec) rec.personality = dg.personality;
+        renderGuest(); renderDesk(); renderRogueHud();
+      }
+      toast('性格改造器生效：当前客人的性格被随机改变');
+    }else{
+      toast('这个道具是被动效果，不需要手动使用');
+      return;
+    }
+    sfx.tap();
+    renderRogueHud();
+    renderWork();
+    renderDesk();
+    saveRunToProfile();
+  }
+  function showRogueEventPopup(){
+    if(!rogueActive()) return;
+    const ev = rogueEventToday();
+    const special = specialForDay(state.day);
+    if((!ev && !special) || state.rogue.eventShownDay === state.day) return;
+    state.rogue.eventShownDay = state.day;
+    state.phase = 'event';
+    state.eventStartedAt = performance.now();
+    const isBoss = state.day % WEEK_DAYS === 0;
+    const isElite = !isBoss && state.day % WEEK_DAYS === 5;
+    const dayTag = isBoss ? 'BOSS 日' : isElite ? '精英日' : '';
+    if(els.eventIcon) els.eventIcon.textContent = isBoss ? '👑' : isElite ? '⭐' : ev && ev.type === 'good' ? '🍀' : '☠️';
+    if(els.eventTitle) els.eventTitle.textContent = ev ? (dayTag ? `${ev.name} · ${dayTag}` : ev.name) : (isBoss ? '今天是 BOSS 日' : '今天是精英日');
+    if(els.eventDesc){
+      let desc = ev ? ev.desc : '';
+      if(special && special.guest) desc += `${desc ? ' · ' : ''}今日来客：${special.type === 'boss' ? 'BOSS ' : '精英 '}${special.guest.name}`;
+      els.eventDesc.textContent = desc;
+    }
+    if(els.eventOverlay){ els.eventOverlay.classList.add('show'); els.eventOverlay.setAttribute('aria-hidden','false'); }
+  }
+  function closeRogueEventPopup(){
+    if(els.eventOverlay){ els.eventOverlay.classList.remove('show'); els.eventOverlay.setAttribute('aria-hidden','true'); }
+    const paused = state.eventStartedAt ? performance.now() - state.eventStartedAt : 0;
+    state.eventStartedAt = 0;
+    if(rogueActive()){
+      state.deadline += paused;
+      state.pots.forEach(p => { if(p.status === 'heating') p.startedAt += paused; });
+    }
+    state.phase = 'playing';
+  }
+  function showBuffBag(){
+    if(!rogueActive() || !els.buffBagBody) return;
+    const sh = state.rogue.shrimp.map((id,i) => {
+      const s = SHRIMPS.find(x => x.id === id);
+      return s ? `<div class="bag-row"><b>${s.name}</b><span>${ROGUE_RARITY[s.rarity].name} · 已叠加</span></div>` : '';
+    }).filter(Boolean);
+    const its = Object.entries(state.rogue.items).filter(([,n]) => n > 0).map(([id,n]) => {
+      const item = ROGUE_ITEMS.find(i=>i.id===id);
+      return item ? `<div class="bag-row"><b>${item.name} ×${n}</b><span>${item.desc}</span></div>` : '';
+    }).filter(Boolean);
+    els.buffBagBody.innerHTML = `${sh.length ? `<div class="bag-kind">辣虾</div>${sh.join('')}` : ''}${its.length ? `<div class="bag-kind">道具</div>${its.join('')}` : ''}${!sh.length && !its.length ? '<div class="bag-empty">袋子还是空的。去精英日/BOSS日抽辣虾，或逛肉鸽夜市。</div>' : ''}`;
+    if(els.buffBagOverlay){ els.buffBagOverlay.classList.add('show'); els.buffBagOverlay.setAttribute('aria-hidden','false'); }
+  }
+  // ===== 开发者物品栏（仅开发者模式 · 肉鸽局内） =====
+  const DEV_BAG_TABS = [
+    {id:'shrimp', name:'辣虾'},
+    {id:'items', name:'增幅道具'},
+    {id:'events', name:'事件'}
+  ];
+  let devBagTab = 'shrimp';
+  let devBagRarity = 'all';
+  function emptyDevBag(){ return { shrimp:{}, items:{}, events:{} }; }
+  function resetDevBag(){
+    if(activeProfile) activeProfile.devBag = emptyDevBag();
+    if(typeof saveProfiles === 'function') saveProfiles();
+    if(document.getElementById('devBagBody')){ try { renderDevBag(); } catch(e){} }
+  }
+  function devBag(create){
+    if(!activeProfile) return emptyDevBag();
+    if(!activeProfile.devBag){
+      if(!create) return emptyDevBag();
+      activeProfile.devBag = emptyDevBag();
+    }
+    const b = activeProfile.devBag;
+    b.shrimp = b.shrimp || {}; b.items = b.items || {}; b.events = b.events || {};
+    return b;
+  }
+  function devEventAllowed(id){
+    if(!state.devMode) return true;
+    const b = activeProfile && activeProfile.devBag;
+    if(!b || !b.events) return false;
+    return b.events[id] === true;
+  }
+  function applyDevBag(){
+    if(!rogueActive()) return;
+    const bag = devBag(false);
+    const arr = [];
+    Object.keys(bag.shrimp || {}).forEach(id => {
+      const meta = SHRIMPS.find(s => s.id === id); if(!meta) return;
+      const n = Math.min(Math.max(0, bag.shrimp[id] | 0), meta.max || 1);
+      for(let i = 0; i < n; i++) arr.push(id);
+    });
+    state.rogue.shrimp = arr;
+    Object.keys(bag.items || {}).forEach(id => {
+      if(!ROGUE_ITEMS.find(i => i.id === id)) return;
+      const n = Math.max(0, bag.items[id] | 0);
+      if(n > 0) state.rogue.items[id] = n; else delete state.rogue.items[id];
+    });
+    if(state.rogue.items.sugarOwl && Number(state.rogue.owlDay) !== Number(state.day)){
+      state.rogue.owlDay = state.day;
+    }
+    // 开发者模式：事件开关是唯一真相——关掉的事件从本周排期里彻底清掉
+    if(state.devMode && state.rogue.events){
+      Object.keys(state.rogue.events).forEach(d => {
+        if(!devEventAllowed(state.rogue.events[d])) delete state.rogue.events[d];
+      });
+    }
+  }
+  function ensureDevBagUI(){
+    if(!els.game) return;
+    if(!document.getElementById('devTab')){
+      const tab = document.createElement('button');
+      tab.id = 'devTab'; tab.type = 'button'; tab.className = 'dev-tab';
+      tab.textContent = '开发者物品栏';
+      tab.addEventListener('click', openDevBag);
+      els.game.appendChild(tab);
+    }
+    if(document.getElementById('devBagOverlay')) return;
+    const ov = document.createElement('div');
+    ov.id = 'devBagOverlay';
+    ov.className = 'overlay bag-overlay';
+    ov.setAttribute('aria-hidden', 'true');
+    ov.innerHTML = `<div class="dev-panel">
+      <button class="codex-close" id="devBagClose" type="button">✕</button>
+      <div class="rogue-kicker">DEV ITEMS</div>
+      <h3>开发者物品栏</h3>
+      <p class="dev-sub">改动立刻生效并存档；退出开发者模式后仍然保留，方便切回玩家视角复测。</p>
+      <div class="dev-tabs" id="devBagTabs"></div>
+      <div id="devBagBody"></div>
+    </div>`;
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e => { if(e.target === ov) closeDevBag(); });
+    ov.querySelector('#devBagClose').addEventListener('click', closeDevBag);
+    ov.querySelector('#devBagTabs').addEventListener('click', e => {
+      const b = e.target.closest('[data-dev-tab]'); if(!b) return;
+      devBagTab = b.dataset.devTab;
+      renderDevBag();
+    });
+    ov.querySelector('#devBagBody').addEventListener('click', onDevBagClick);
+  }
+  function renderDevBag(){
+    ensureDevBagUI();
+    const ov = document.getElementById('devBagOverlay'); if(!ov) return;
+    const tabs = ov.querySelector('#devBagTabs');
+    tabs.innerHTML = DEV_BAG_TABS.map(t => `<button type="button" data-dev-tab="${t.id}" class="${devBagTab === t.id ? 'on' : ''}">${t.name}</button>`).join('');
+    const body = ov.querySelector('#devBagBody');
+    const b = devBag(true);
+    if(devBagTab === 'events'){
+      body.innerHTML = ROGUE_EVENTS.map(e => {
+        const on = b.events[e.id] === true;
+        return `<div class="dev-row"><div class="nm"><b>${e.name} · ${e.type === 'good' ? '好运' : '霉运'}</b><small>${e.desc}</small></div>
+          <button type="button" class="dev-switch ${on ? 'on' : ''}" data-dev-switch="${e.id}" aria-label="开关 ${e.name}"></button></div>`;
+      }).join('');
+      return;
+    }
+    const isShrimp = devBagTab === 'shrimp';
+    const all = isShrimp ? SHRIMPS : ROGUE_ITEMS;
+    let subBar = '';
+    let list = all;
+    if(isShrimp){
+      const rarityIds = ['normal', 'rare', 'legend', 'curse'].filter(r => all.some(s => s.rarity === r));
+      if(devBagRarity !== 'all' && !rarityIds.includes(devBagRarity)) devBagRarity = 'all';
+      subBar = `<div class="dev-subbar">` +
+        `<button type="button" data-dev-rarity="all" class="${devBagRarity === 'all' ? 'on' : ''}">全部 ${all.length}</button>` +
+        rarityIds.map(r => `<button type="button" data-dev-rarity="${r}" class="${devBagRarity === r ? 'on' : ''}" style="--rarity:${ROGUE_RARITY[r].color}">${ROGUE_RARITY[r].name} ${all.filter(s => s.rarity === r).length}</button>`).join('') +
+        `</div>`;
+      if(devBagRarity !== 'all') list = all.filter(s => s.rarity === devBagRarity);
+    }
+    body.innerHTML = subBar + (list.map(m => {
+      const cur = Math.max(0, (isShrimp ? b.shrimp : b.items)[m.id] | 0);
+      const sub = isShrimp ? `${ROGUE_RARITY[m.rarity].name} · ${m.desc}` : m.desc;
+      const max = m.max || 1;
+      return `<div class="dev-row"><div class="nm"><b>${m.name}</b><small>${sub}</small></div>
+        <div class="dev-step">
+          <button type="button" data-dev-step="-1" data-dev-kind="${devBagTab}" data-dev-id="${m.id}" ${cur <= 0 ? 'disabled' : ''}>−</button>
+          <b>${cur}</b>
+          <button type="button" data-dev-step="1" data-dev-kind="${devBagTab}" data-dev-id="${m.id}" ${cur >= max ? 'disabled' : ''}>＋</button>
+        </div></div>`;
+    }).join('') || '<div class="dev-empty">这一类还没有辣虾</div>');
+  }
+  function onDevBagClick(e){
+    const rar = e.target.closest('[data-dev-rarity]');
+    if(rar){
+      devBagRarity = rar.dataset.devRarity || 'all';
+      sfx.tap();
+      renderDevBag();
+      return;
+    }
+    const step = e.target.closest('[data-dev-step]');
+    if(step){
+      const id = step.dataset.devId, kind = step.dataset.devKind, d = Number(step.dataset.devStep);
+      const b = devBag(true);
+      const isShrimp = kind === 'shrimp';
+      const bag = isShrimp ? b.shrimp : b.items;
+      const meta = isShrimp ? SHRIMPS.find(s => s.id === id) : ROGUE_ITEMS.find(i => i.id === id);
+      if(!meta) return;
+      const max = meta.max || 1;
+      const next = clamp((bag[id] | 0) + d, 0, max);
+      bag[id] = next;
+      applyDevBag();
+      saveProfiles();
+      if(rogueActive()){ renderRogueHud(); renderWork(); renderKitchen(); renderDesk(); renderCan(); }
+      renderDevBag();
+      toast(`${meta.name} ×${next}`);
+      sfx.tap();
+      return;
+    }
+    const sw = e.target.closest('[data-dev-switch]');
+    if(sw){
+      const id = sw.dataset.devSwitch;
+      const b = devBag(true);
+      const on = b.events[id] !== true;
+      b.events[id] = on;
+      saveProfiles();
+      if(rogueActive()){
+        state.rogue.events = state.rogue.events || {};
+        if(on){
+          state.rogue.events[rogueWeekDayNow()] = id;
+          state.rogue.eventShownDay = 0;
+          state.rogue.pendingEventShow = true;
+        }else{
+          // 关掉某个事件：把它从整周排期里全部移除，并取消今天待弹出的弹窗
+          Object.keys(state.rogue.events).forEach(d => {
+            if(state.rogue.events[d] === id) delete state.rogue.events[d];
+          });
+          state.rogue.pendingEventShow = false;
+          state.rogue.eventShownDay = state.day;
+          if(state.rogue.today === id) state.rogue.today = null;
+          const ov = document.getElementById('eventOverlay');
+          if(ov && ov.classList.contains('show')) ov.classList.remove('show');
+        }
+        if(on && id === 'naishu' && state.phase === 'playing'){
+          setupDayGuests();
+          renderAll();
+        }
+      }
+      renderDevBag();
+      toast(on ? '已开启：这个事件今天就到' : '已关闭该事件');
+      sfx.tap();
+    }
+  }
+  function openDevBag(){
+    if(!state.devMode) return;
+    devBagTab = devBagTab || 'shrimp';
+    renderDevBag();
+    const ov = document.getElementById('devBagOverlay');
+    if(ov){ ov.classList.add('show'); ov.setAttribute('aria-hidden', 'false'); }
+  }
+  function closeDevBag(){
+    const ov = document.getElementById('devBagOverlay');
+    if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden', 'true'); }
+    if(rogueActive() && state.rogue.pendingEventShow){
+      state.rogue.pendingEventShow = false;
+      setTimeout(() => { try { showRogueEventPopup(); } catch(e){} }, 140);
+    }
+  }
+  function syncDevBagUI(){
+    ensureDevBagUI();
+    const tab = document.getElementById('devTab');
+    if(!tab) return;
+    const show = !!(state.devMode && rogueActive() && (state.phase === 'playing' || state.phase === 'event'));
+    tab.classList.toggle('on', show);
+    if(!show){
+      const ov = document.getElementById('devBagOverlay');
+      if(ov) ov.classList.remove('show');
+    }
+  }
+  function startRogueRun(){
+    state.rogue = {
+      coins:0, totalCoins:0, week:1, weekEarned:0, weekTarget:ROGUE_BASE_TARGET,
+      nextTarget:rogueGrowthTarget(ROGUE_BASE_TARGET),
+      toppings:[], jars:[], syrups:[], items:{}, shrimp:[], events:{}, shopStock:null,
+      pendingShop:null, pendingShrimp:null, rerolls:0, boughtToday:{}, depSeen:0, depNext:0,
+      upgrades:{pots:1, alarms:0, knife:'wood', knives:['wood']}
+    };
+    state.rogue.events = rogueWeekEvents();
+    if(activeProfile){ activeProfile.roguePlayed = true; saveProfiles(); }
+    state.upgrade = state.rogue.upgrades;
+    state.coins = 0;
+  }
+  function rogueMaxScore(){ return 100 + 10 * shrimpLevel('overScore') + 100 * shrimpLevel('plusScore') + 5 * shrimpLevel('highScore'); }
+  function rogueTipMultiplier(){
+    return rogueTipWeekFactor() * (1 + .07 * shrimpLevel('fortune'));
+  }
+  // 小费随本周金币目标同步成长：第 1 周 ×1，之后按 target/400 放大
+  function rogueTipWeekFactor(){
+    const base = ROGUE_BASE_TARGET;
+    const target = Number(state.weekTarget) || base;
+    return clamp(target / base, 1, 80);
+  }
+  function rogueCoinMultiplier(){
+    let m = 1;
+    if(shrimpLevel('challenger')) m *= 1.33;
+    return m;
+  }
+  // ================= 自定义模式 =================
+  const CUSTOM_MAP_VERSION = 1;
+  const CUSTOM_DEFAULTS = {
+    boilSpeed:100, pourSpeed:100,
+    shop:{reset:true, growth:100, prices:{}},
+    version: CUSTOM_MAP_VERSION,
+    name: '我的自定义小店',
+    author: '',
+    cover: '',
+    guestsPerDay: 3,
+    patienceSec: 90,
+    typeWeights: { normal: 70, elite: 20, boss: 10 },
+    personalities: ['strict', 'generous'],
+    pots: 2,
+    syrupMax: 2,
+    steps: { cut: true, boil: true, stir: true, temp: true, topping: true },
+    patienceByPersona: true,
+    endless: true,
+    weeks: 4,
+    weekDays: 7,
+    eliteDay: true,
+    bossDay: true,
+    guestOff: { normal: [], elite: [], boss: [] },
+    order: { complexChance: 35, syrupMin: 1, syrupMax: 2, toppingMin: 0, toppingMax: 2, forceJar: false },
+    weeklyOn: true,
+    weeklyTarget: 800,
+    missionsOn: true,
+    fixedGuests: [],
+    missions: [{ type: 'coins', target: 800 }],
+    weights: { size:100, jar:100, peach:100, kind:100, ratio:100, boil:100, pour:100, stir:100, temp:100, topping:100, speed:100 },
+    enabled: { size:true, jar:true, peach:true, kind:true, ratio:true, boil:true, pour:true, stir:true, temp:true, topping:true, speed:true }
+  };
+  const CM_PERSONAS = ['generous','strict','petty','patient','impatient'];
+  const CM_MISSION_TYPES = ['coins','served','perfect','mixed','richTopping','wideJar','narrowJar','honey','honeysuckle','maple','mint','osmanthus','goji','rock'];
+  const CM_MISSION_LABEL = {
+    coins: '本周赚到 X 金币', served: '完成 X 单出餐', perfect: '拿下 X 次完美出餐',
+    mixed: '用混合糖浆出 X 单', richTopping: '加 3 种以上小料 X 单',
+    wideJar: '使用 X 次广口罐', narrowJar: '使用 X 次窄口罐',
+    honey: '使用 X 次蜂蜜糖浆', honeysuckle: '使用 X 次金银花糖浆', maple: '使用 X 次枫糖浆',
+    mint: '使用 X 次薄荷', osmanthus: '使用 X 次桂花', goji: '使用 X 次枸杞', rock: '使用 X 次冰糖'
+  };
+  const CM_WEIGHT_KEYS = ['size','jar','peach','kind','ratio','boil','pour','stir','temp','topping','speed'];
+  const CM_WEIGHT_LABEL = { size:'罐型', jar:'罐子', peach:'黄桃', kind:'糖浆种类', ratio:'糖浆比例', boil:'熬糖火候', pour:'倒糖量', stir:'搅拌', temp:'温度', topping:'加料', speed:'出餐速度' };
+
+  const CM_MISSION_TEMPLATES = [
+    { key: 'syrup', name: '糖浆大师', missions: [{ type: 'mixed', target: 3 }, { type: 'honey', target: 3 }, { type: 'honeysuckle', target: 2 }] },
+    { key: 'topping', name: '小料狂人', missions: [{ type: 'richTopping', target: 3 }, { type: 'mint', target: 3 }, { type: 'goji', target: 2 }] },
+    { key: 'perfect', name: '完美主义', missions: [{ type: 'perfect', target: 5 }, { type: 'served', target: 8 }] },
+    { key: 'mixed', name: '混搭大师', missions: [{ type: 'mixed', target: 5 }, { type: 'richTopping', target: 3 }] },
+    { key: 'steady', name: '稳健经营', missions: [{ type: 'coins', target: 1200 }, { type: 'served', target: 10 }] }
+  ];
+  const CM_MISSION_SHORT = { coins:'赚金币', served:'出餐单数', perfect:'完美出餐', mixed:'混合糖浆', richTopping:'三料以上', wideJar:'广口罐', narrowJar:'窄口罐', honey:'蜂蜜', honeysuckle:'金银花', maple:'枫糖浆', mint:'薄荷', osmanthus:'桂花', goji:'枸杞', rock:'冰糖' };
+  function cloneJSON(o){ return JSON.parse(JSON.stringify(o)); }
+  function cmPathGet(obj, path){ return path.split('.').reduce((o,k) => (o == null ? o : o[k]), obj); }
+  function cmPathSet(obj, path, val){
+    const keys = path.split('.');
+    let cur = obj;
+    for(let i=0;i<keys.length-1;i++){ cur[keys[i]] = cur[keys[i]] || {}; cur = cur[keys[i]]; }
+    cur[keys[keys.length-1]] = val;
+  }
+  function clampNum(v, min, max){ v = Number(v); if(!isFinite(v)) v = min; return Math.max(min, Math.min(max, v)); }
+
+  let gpTab = 'normal';
+  function guestThumb(g, gi){
+    const html = guestSVG(g, gi) || '';
+    if(html.trim().startsWith('<img')) return html;
+    const withNs = html.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+    return '<img class="gp-img" alt="" src="data:image/svg+xml;charset=utf-8,' + encodeURIComponent(withNs) + '">';
+  }
+  function gpPoolOf(tier){
+    if(tier === 'elite') return ELITE_GUESTS;
+    if(tier === 'boss') return BOSS_GUESTS;
+    return GUESTS;
+  }
+  function guestPoolSummary(m){
+    const off = (m && m.guestOff) || {};
+    return ['normal','elite','boss'].map(t => {
+      const all = gpPoolOf(t).length;
+      const n = all - ((off[t] || []).length);
+      const label = t === 'normal' ? '普通' : t === 'elite' ? '精英' : 'BOSS';
+      return label + ' ' + n + '/' + all;
+    }).join(' · ');
+  }
+  function renderCmGuestPool(){
+    const card = document.getElementById('gpCard');
+    if(!card || !cmDraft) return;
+    const off = ((cmDraft.guestOff || {})[gpTab] || []);
+    const pool = gpPoolOf(gpTab);
+    const rows = pool.map((g, gi) => {
+      const on = !off.includes(g.name);
+      return '<div class="gp-row ' + (on ? '' : 'off') + '">' +
+        '<div class="gp-thumb">' + guestThumb(g, gi) + '</div>' +
+        '<div class="gp-info"><b>' + escapeHtml(g.name) + (g.personalityTag ? ' · ' + escapeHtml(String(g.personalityTag)) : '') + '</b>' +
+        '<small>' + escapeHtml((g.greet || g.desc || '').slice(0, 40)) + '</small></div>' +
+        '<button type="button" class="cm-switch-btn" data-gp-toggle="' + escapeHtml(g.name) + '" style="border:0;background:none;padding:0">' + cmSwitch(on) + '</button>' +
+      '</div>';
+    }).join('') || '<div class="gp-empty">这一类没有客人</div>';
+    card.innerHTML = '<div class="cm-head"><b>出现的客人</b><small>关掉的客人这一类里就不会再刷出来</small></div>' +
+      '<div class="gp-tabs">' + ['normal','elite','boss'].map(t => {
+        const label = t === 'normal' ? '普通客人' : t === 'elite' ? '精英客人' : 'BOSS 客人';
+        const n = gpPoolOf(t).length - (((cmDraft.guestOff || {})[t] || []).length);
+        return '<button type="button" class="gp-tab ' + (gpTab === t ? 'on' : '') + '" data-gp-tab="' + t + '">' + label + ' ' + n + '/' + gpPoolOf(t).length + '</button>';
+      }).join('') + '</div>' +
+      '<div class="gp-list">' + rows + '</div>' +
+      '<div class="cm-actions"><button type="button" class="cm-btn primary" data-gp-done="1">完成</button></div>';
+  }
+  function openCmGuestPool(){
+    if(!cmDraft) return;
+    let ov = document.getElementById('gpOverlay');
+    if(!ov){
+      ov = document.createElement('div');
+      ov.id = 'gpOverlay';
+      ov.className = 'overlay';
+      ov.innerHTML = '<div class="cm-sheet" id="gpCard" style="max-width:430px"></div>';
+      ov.addEventListener('click', ev => { if(ev.target === ov) closeCmGuestPool(); });
+      document.body.appendChild(ov);
+    }
+    gpTab = 'normal';
+    renderCmGuestPool();
+    ov.classList.add('show');
+    ov.setAttribute('aria-hidden', 'false');
+  }
+  function closeCmGuestPool(){
+    const ov = document.getElementById('gpOverlay');
+    if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden', 'true'); }
+    renderCustomEditor();
+  }
+  function onCmGuestPoolClick(ev){
+    const tab = ev.target.closest('[data-gp-tab]');
+    if(tab){ gpTab = tab.dataset.gpTab; renderCmGuestPool(); return; }
+    if(ev.target.closest('[data-gp-done]')){ closeCmGuestPool(); return; }
+    const tg = ev.target.closest('[data-gp-toggle]');
+    if(tg){
+      const name = tg.dataset.gpToggle;
+      if(!cmDraft.guestOff) cmDraft.guestOff = { normal: [], elite: [], boss: [] };
+      const arr = cmDraft.guestOff[gpTab] = cmDraft.guestOff[gpTab] || [];
+      const i = arr.indexOf(name);
+      if(i >= 0) arr.splice(i, 1); else arr.push(name);
+      renderCmGuestPool();
+    }
+  }
+  function normalizeCustomMap(raw){
+    const out = cloneJSON(CUSTOM_DEFAULTS);
+    if(!raw || typeof raw !== 'object') return out;
+    out.version = CUSTOM_MAP_VERSION;
+    out.name = String(raw.name || out.name).slice(0, 24);
+    out.author = String(raw.author || '').slice(0, 16);
+    out.cover = String(raw.cover || '');
+    out.guestsPerDay = Math.round(clampNum(raw.guestsPerDay != null ? raw.guestsPerDay : out.guestsPerDay, 1, 8));
+    out.patienceSec = Math.round(clampNum(raw.patienceSec != null ? raw.patienceSec : out.patienceSec, 3, 3600));
+    out.pots = Math.round(clampNum(raw.pots != null ? raw.pots : out.pots, 1, 20));
+    out.syrupMax = Math.round(clampNum(raw.syrupMax != null ? raw.syrupMax : out.syrupMax, 1, 6));
+    if(raw.steps && typeof raw.steps === 'object'){
+      ['cut','boil','stir','temp','topping'].forEach(k => { out.steps[k] = raw.steps[k] !== false; });
+    }
+    out.patienceByPersona = raw.patienceByPersona !== false;
+    out.boilSpeed = Math.round(clampNum(raw.boilSpeed != null ? raw.boilSpeed : out.boilSpeed, 10, 400));
+    out.pourSpeed = Math.round(clampNum(raw.pourSpeed != null ? raw.pourSpeed : out.pourSpeed, 10, 400));
+    const rs = (raw.shop && typeof raw.shop === 'object') ? raw.shop : {};
+    out.shop = { reset: rs.reset !== false, growth: Math.round(clampNum(rs.growth != null ? rs.growth : 100, 50, 500)), prices: (rs.prices && typeof rs.prices === 'object') ? rs.prices : {} };
+    out.endless = raw.endless !== false;
+    out.weeks = Math.round(clampNum(raw.weeks != null ? raw.weeks : out.weeks, 1, 12));
+    out.weekDays = Math.round(clampNum(raw.weekDays != null ? raw.weekDays : out.weekDays, 1, 14));
+    out.eliteDay = raw.eliteDay !== false;
+    out.bossDay = raw.bossDay !== false;
+    if(raw.guestOff && typeof raw.guestOff === 'object'){
+      ['normal','elite','boss'].forEach(t => {
+        out.guestOff[t] = Array.isArray(raw.guestOff[t]) ? raw.guestOff[t].filter(n => typeof n === 'string').slice(0, 40) : [];
+      });
+    }
+    out.weeklyOn = raw.weeklyOn !== false;
+    out.missionsOn = raw.missionsOn !== false;
+    if(Array.isArray(raw.fixedGuests)){
+      out.fixedGuests = raw.fixedGuests.filter(g => g && g.day).slice(0, 12).map(g => ({
+        day: Math.round(clampNum(g.day, 1, NORMAL_DAYS)),
+        tier: ['normal','elite','boss'].includes(g.tier) ? g.tier : 'normal',
+        personality: CM_PERSONAS.includes(g.personality) ? g.personality : ''
+      }));
+    }
+    out.weeklyTarget = Math.round(clampNum(raw.weeklyTarget != null ? raw.weeklyTarget : out.weeklyTarget, 0, 999999));
+    if(Array.isArray(raw.missions)){
+      out.missions = raw.missions.filter(x => x && CM_MISSION_TYPES.includes(x.type))
+        .slice(0, 6)
+        .map(x => ({ type: x.type, target: Math.round(clampNum(x.target != null ? x.target : 1, 1, 99999)) }));
+    }
+    if(raw.typeWeights){
+      ['normal','elite','boss'].forEach(k => { out.typeWeights[k] = Math.round(clampNum(raw.typeWeights[k] != null ? raw.typeWeights[k] : out.typeWeights[k], 0, 100)); });
+    }
+    if(Array.isArray(raw.personalities)) out.personalities = raw.personalities.filter(id => CM_PERSONAS.includes(id));
+    if(raw.steps) ['cut','stir','temp','topping'].forEach(k => { out.steps[k] = raw.steps[k] !== false; });
+    if(raw.order){
+      out.order.complexChance = Math.round(clampNum(raw.order.complexChance != null ? raw.order.complexChance : out.order.complexChance, 0, 100));
+      out.order.syrupMin = Math.round(clampNum(raw.order.syrupMin != null ? raw.order.syrupMin : out.order.syrupMin, 1, out.syrupMax));
+      out.order.syrupMax = Math.round(clampNum(raw.order.syrupMax != null ? raw.order.syrupMax : out.order.syrupMax, out.order.syrupMin, out.syrupMax));
+      out.order.toppingMin = Math.round(clampNum(raw.order.toppingMin != null ? raw.order.toppingMin : out.order.toppingMin, 0, 6));
+      out.order.toppingMax = Math.round(clampNum(raw.order.toppingMax != null ? raw.order.toppingMax : out.order.toppingMax, out.order.toppingMin, 6));
+      out.order.forceJar = !!raw.order.forceJar;
+    }
+    if(raw.weights) CM_WEIGHT_KEYS.forEach(k => { out.weights[k] = Math.round(clampNum(raw.weights[k] != null ? raw.weights[k] : out.weights[k], 0, 200)); });
+    if(raw.enabled) CM_WEIGHT_KEYS.forEach(k => { out.enabled[k] = raw.enabled[k] !== false; });
+    return out;
+  }
+  function customActive(){ return state.mode === 'custom' && !!state.customMap; }
+  function customMap(){ return state.customMap || CUSTOM_DEFAULTS; }
+  function customWeekDays(){ return Math.round(clampNum(customActive() ? (customMap().weekDays || 7) : 7, 1, 14)); }
+  function customTotalDays(){ const m = customMap(); return Math.max(1, (m.weeks || 4) * customWeekDays()); }
+
+  let cmDraft = null;
+  function customCodeOf(map){
+    const json = JSON.stringify(map);
+    const b64 = btoa(unescape(encodeURIComponent(json)));
+    return 'NCM1:' + b64;
+  }
+  function decodeCustomCode(code){
+    const raw = String(code || '').trim();
+    if(!raw.startsWith('NCM1:')) throw new Error('自定义码格式不对，应该以 NCM1: 开头');
+    const json = decodeURIComponent(escape(atob(raw.slice(5))));
+    return normalizeCustomMap(JSON.parse(json));
+  }
+  function localMaps(){
+    const p2 = activeProfile;
+    if(!p2) return [];
+    if(!Array.isArray(p2.customMaps)) p2.customMaps = [];
+    return p2.customMaps;
+  }
+  function saveLocalMap(map){
+    const list = localMaps();
+    const idx = list.findIndex(x => x.name === map.name);
+    const copy = cloneJSON(map);
+    copy.savedAt = Date.now();
+    if(idx >= 0) list[idx] = copy; else list.push(copy);
+    if(activeProfile) activeProfile.customMap = cloneJSON(map);
+    saveProfiles();
+  }
+
+  function openCustomEditor(preset){
+    let ov = document.getElementById('customOverlay');
+    if(!ov){
+      ov = document.createElement('div');
+      ov.id = 'customOverlay';
+      ov.className = 'overlay cm-overlay';
+      ov.setAttribute('aria-hidden', 'true');
+      ov.innerHTML = '<div class="cm-sheet" id="cmSheet"></div>';
+      document.body.appendChild(ov);
+      ov.addEventListener('click', e => { if(e.target === ov) closeCustomEditor(); });
+      ov.addEventListener('click', onCustomEditorClick);
+    }
+    cmDraft = normalizeCustomMap(preset || (activeProfile && activeProfile.customMap) || CUSTOM_DEFAULTS);
+    renderCustomEditor();
+    ov.classList.add('show');
+    ov.setAttribute('aria-hidden', 'false');
+  }
+  function closeCustomEditor(){
+    const ov = document.getElementById('customOverlay');
+    if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden', 'true'); }
+  }
+  function cmGuestTierName(t){ return t === 'boss' ? 'BOSS' : t === 'elite' ? '精英' : '普通'; }
+  function cmGuestPersonaName(p){ return p ? (PERSONALITIES[p] ? PERSONALITIES[p].name : p) : '无性格'; }
+  function cmGuestRowsHtml(){
+    const list = (cmDraft && cmDraft.fixedGuests) || [];
+    if(!list.length) return '<div class="cm-guest-empty">还没有指定客人。点下面的「＋ 指定客人」加一条，最多 12 条。</div>';
+    return list.map((g, i) =>
+      '<div class="cm-guest-row">' +
+        '<div class="cg-day"><button type="button" data-cmg="day-" data-idx="' + i + '">−</button><b>第 ' + g.day + ' 天</b><button type="button" data-cmg="day+" data-idx="' + i + '">＋</button></div>' +
+        '<div class="cg-meta"><span class="cg-tier ' + g.tier + '">' + cmGuestTierName(g.tier) + '</span><span class="cg-persona">' + cmGuestPersonaName(g.personality) + '</span></div>' +
+        '<div class="cg-btns"><button type="button" data-cmg="tier" data-idx="' + i + '">换类型</button><button type="button" data-cmg="persona" data-idx="' + i + '">换性格</button><button type="button" class="cg-del" data-cmg="del" data-idx="' + i + '">×</button></div>' +
+      '</div>').join('');
+  }
+  function renderCmGuestModal(){
+    const list = document.getElementById('cmGuestList');
+    if(list) list.innerHTML = cmGuestRowsHtml();
+    const cnt = document.getElementById('cmGuestCount');
+    if(cnt) cnt.textContent = ((cmDraft && cmDraft.fixedGuests) || []).length + ' / 12';
+  }
+  function ensureCmGuestUI(){
+    if(document.getElementById('cmGuestOverlay')) return;
+    const host = document.body;
+    const ov = document.createElement('div');
+    ov.id = 'cmGuestOverlay';
+    ov.className = 'overlay cm-guest-overlay';
+    ov.setAttribute('aria-hidden', 'true');
+    ov.innerHTML = '<div class="cm-guest-card">' +
+      '<div class="cm-guest-head"><div><b>高级客人</b><small>指定第几天来什么客人；没指定的天按权重随机</small></div><button type="button" class="round-btn" data-cmg="close" style="width:26px;height:26px">✕</button></div>' +
+      '<div class="cm-guest-toolbar"><span class="cm-guest-count" id="cmGuestCount">0 / 12</span><button type="button" class="cm-secondary" data-cmg="add">＋ 指定客人</button></div>' +
+      '<div class="cm-guest-list" id="cmGuestList"></div>' +
+      '<div class="cm-guest-actions"><button type="button" class="primary-btn" data-cmg="done">完成</button></div>' +
+      '</div>';
+    host.appendChild(ov);
+    ov.addEventListener('click', e => {
+      if(e.target === ov){ closeCmGuests(); return; }
+      if(e.target.closest('[data-cmg]')) onCmGuestClick(e);
+    });
+  }
+  function openCmGuests(){ ensureCmGuestUI(); renderCmGuestModal(); const ov = document.getElementById('cmGuestOverlay'); ov.classList.add('show'); ov.setAttribute('aria-hidden','false'); }
+  function closeCmGuests(){ const ov = document.getElementById('cmGuestOverlay'); if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); } }
+  function onCmGuestClick(e){
+    const btn = e.target.closest('[data-cmg]');
+    if(!btn) return;
+    const act = btn.dataset.cmg;
+    if(act === 'close' || act === 'done'){ closeCmGuests(); renderCustomEditor(); return; }
+    if(!Array.isArray(cmDraft.fixedGuests)) cmDraft.fixedGuests = [];
+    const list = cmDraft.fixedGuests;
+    const i = Number(btn.dataset.idx);
+    if(act === 'add'){
+      if(list.length >= 12){ toast('最多 12 个指定客人'); return; }
+      list.push({ day: state.day || 1, tier: 'elite', personality: 'strict' });
+    }else if(list[i]){
+      if(act === 'del') list.splice(i, 1);
+      else if(act === 'day+') list[i].day = Math.min(28, list[i].day + 1);
+      else if(act === 'day-') list[i].day = Math.max(1, list[i].day - 1);
+      else if(act === 'tier') list[i].tier = list[i].tier === 'normal' ? 'elite' : list[i].tier === 'elite' ? 'boss' : 'normal';
+      else if(act === 'persona'){ const order = [''].concat(CM_PERSONAS); list[i].personality = order[(order.indexOf(list[i].personality) + 1) % order.length]; }
+    }
+    cmDraft = normalizeCustomMap(cmDraft);
+    renderCmGuestModal();
+    renderCustomEditor();
+  }
+  const WS_TABLE = 'naiwa_maps';
+  function wsCfg(){ try { return sbCfg(); } catch(e){ return { url: SB_DEFAULT_URL, key: SB_DEFAULT_KEY }; } }
+  function wsUrl(path){ const c = wsCfg(); return c.url.replace(/\/+$/,'') + path; }
+  function wsHeaders(extra){
+    const c = wsCfg();
+    return Object.assign({ apikey: c.key, Authorization: 'Bearer ' + c.key, 'Content-Type': 'application/json' }, extra || {});
+  }
+
+  function wsRenderList(){
+    const list = document.getElementById('wsList');
+    if(!list) return;
+    let rows = wsCache || [];
+    const q = String(wsQuery || '').trim().toLowerCase();
+    if(wsFilter === 'fav'){ const fav = wsFavIds(); rows = rows.filter(m => fav.includes(m.id)); }
+    if(wsFilter === 'liked'){ const liked = wsLikeIds(); rows = rows.filter(m => liked.includes(m.id)); }
+    if(q) rows = rows.filter(m => ((m.name||'') + ' ' + (m.author||'') + ' ' + (m.gameplay||'') + ' ' + (m.intro||'')).toLowerCase().includes(q));
+    renderWsFilterBar();
+    if(!rows.length){
+      list.innerHTML = '<div class="cm-guest-empty">' + (q ? '没有搜到「' + escapeHtml(q) + '」相关的地图。' : (wsFilter === 'all' ? '工坊里还没有地图，来当第一个上传的人吧。' : '这里还没有内容。')) + '</div>';
+      return;
+    }
+    const favSet = wsFavIds(), likeSet = wsLikeIds();
+    const pages = Math.max(1, Math.ceil(rows.length / WS_PAGE_SIZE));
+    wsPage = Math.min(Math.max(0, wsPage), pages - 1);
+    const pageRows = rows.slice(wsPage * WS_PAGE_SIZE, wsPage * WS_PAGE_SIZE + WS_PAGE_SIZE);
+    list.innerHTML = pageRows.map((m, i) =>
+      '<div class="ws-card" data-ws-id="' + m.id + '">' +
+        '<div class="ws-rank">' + (wsPage * WS_PAGE_SIZE + i + 1) + '</div>' +
+        '<div class="ws-cover">' + (m.cover ? '<img src="' + m.cover + '" alt="">' : '<span>' + escapeHtml((m.name || '图').slice(0, 1)) + '</span>') + '</div>' +
+        '<div class="ws-main"><b>' + escapeHtml(m.name || '未命名') + '</b><small class="ws-author">' + escapeHtml(m.author || '匿名') + '</small><em class="ws-play">' + escapeHtml((m.gameplay || '作者还没写玩法介绍').slice(0, 40)) + '</em>' +
+          '<div class="ws-stats">👍 ' + (m.likes || 0) + ' · ⬇ ' + (m.plays || 0) + (favSet.includes(m.id) ? ' · ★ 已收藏' : '') + '</div>' + (m.created_at ? '<div class="ws-time">上传于 ' + wsTimeText(m.created_at) + '</div>' : '') + '</div>' +
+        '<div class="ws-btns2">' +
+          '<button type="button" class="ws-mini' + (likeSet.includes(m.id) ? ' on' : '') + '" data-ws-act="like" data-id="' + m.id + '">👍</button>' +
+          '<button type="button" class="ws-mini' + (favSet.includes(m.id) ? ' on' : '') + '" data-ws-act="fav" data-id="' + m.id + '">★</button>' +
+          '<button type="button" class="ws-mini" data-ws-act="detail" data-id="' + m.id + '">详情</button>' +
+          (wsDownloadedIds().includes(String(m.id))
+            ? '<button type="button" class="ws-mini ws-dl done" disabled>已下载</button>'
+            : '<button type="button" class="ws-mini ws-dl" data-ws-act="dl" data-id="' + m.id + '">下载</button>') +
+          ((state.devMode || (m.owner && m.owner === wsDeviceId())) ? '<button type="button" class="ws-mini ws-del" data-ws-act="del" data-id="' + m.id + '">'+((m.owner && m.owner === wsDeviceId()) ? '下架' : '删')+'</button>' : '') +
+        '</div>' +
+      '</div>').join('');
+    const bar = document.getElementById('wsPagerBar');
+    if(bar){
+      bar.innerHTML = pages > 1
+        ? '<button type="button" class="ws-page-btn" data-ws-page="prev" ' + (wsPage <= 0 ? 'disabled' : '') + '>‹ 上一页</button>' +
+          '<span>' + (wsPage + 1) + ' / ' + pages + '</span>' +
+          '<button type="button" class="ws-page-btn" data-ws-page="next" ' + (wsPage >= pages - 1 ? 'disabled' : '') + '>下一页 ›</button>'
+        : '';
+    }
+  }
+  function wsRenderDelete(){ }
+  async function wsDelete(id){
+    const mine = (wsCache || []).find(x => String(x.id) === String(id));
+    if(!state.devMode && !(mine && mine.owner && mine.owner === wsDeviceId())) return toast('只能删除自己上传的地图');
+    try{
+      const res = await fetch(wsUrl('/rest/v1/' + WS_TABLE + '?id=eq.' + encodeURIComponent(id)), { method: 'DELETE', headers: wsHeaders({ Prefer: 'return=minimal' }) });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      wsCache = (wsCache || []).filter(x => String(x.id) !== String(id));
+      const card = document.querySelector('.ws-card[data-ws-id="' + id + '"]');
+      if(card){ card.style.transition = 'opacity .18s, transform .18s'; card.style.opacity = '0'; card.style.transform = 'scale(.98)'; setTimeout(() => { if(card.parentNode) card.remove(); wsRenderList(); }, 200); }
+      else wsRenderList();
+      toast('已从工坊删除这张地图');
+    }catch(err){ toast('删除失败：' + (String(err.message||err).indexOf('401') >= 0 ? '需要先跑删除策略 SQL' : String(err.message || err))); }
+  }
+  async function wsReload(){
+    const list = document.getElementById('wsList');
+    if(!list) return;
+    list.innerHTML = '<div class="cm-guest-empty">正在连接工坊…</div>';
+    const order = WS_SORT_ORDER[wsSort] || WS_SORT_ORDER.hot;
+    const base = '/rest/v1/' + WS_TABLE + '?order=' + order + '&limit=30&select=';
+    const attempts = [
+      'id,name,author,likes,plays,code,cover,intro,gameplay,owner,created_at',
+      'id,name,author,likes,plays,code,cover,intro,gameplay,created_at',
+      'id,name,author,likes,plays,code,cover'
+    ];
+    let lastErr = null;
+    for(const sel of attempts){
+      try{
+        const res = await fetch(wsUrl(base + sel), { headers: wsHeaders() });
+        if(!res.ok) throw new Error('HTTP ' + res.status);
+        let rows = await res.json();
+        if(!Array.isArray(rows)) rows = [];
+        wsCache = rows;
+        if(!rows.length){ list.innerHTML = '<div class="cm-guest-empty">工坊里还没有地图，来当第一个上传的人吧。</div>'; renderWsFilterBar(); return; }
+        wsRenderList();
+        return;
+      }catch(err){ lastErr = err; }
+    }
+    list.innerHTML = '<div class="cm-guest-empty">工坊后端还没开通：先在 Supabase 里跑一次 tools/workshop-supabase.sql，然后刷新。<br><small>' + escapeHtml(String((lastErr && lastErr.message) || lastErr || '')) + '</small></div>';
+  }
+  let wsCache = [];
+  let wsSort = 'hot';
+  let wsQuery = '';
+  let wsPage = 0;
+  const WS_PAGE_SIZE = 10;
+  let wsFilter = 'all';
+  const WS_SORT_ORDER = { hot:'likes.desc,created_at.desc', fresh:'created_at.desc', plays:'plays.desc,created_at.desc' };
+  let wsNetTimer = null;
+  function wsNet(text, done){
+    let el = document.getElementById('wsNet');
+    if(!el){ el = document.createElement('div'); el.id = 'wsNet'; el.className = 'ws-net'; document.body.appendChild(el); }
+    el.textContent = text;
+    el.classList.add('show');
+    el.classList.toggle('ok', !!done && /成功/.test(text));
+    el.classList.toggle('bad', !!done && /失败/.test(text));
+    clearTimeout(wsNetTimer);
+    if(done) wsNetTimer = setTimeout(() => el.classList.remove('show'), 1200);
+  }
+  function wsPatchCard(id, fn){
+    const card = document.querySelector('.ws-card[data-ws-id="' + id + '"]');
+    if(!card) return;
+    const m = (wsCache || []).find(x => String(x.id) === String(id));
+    if(fn) fn(card, m);
+    if(m){
+      const fav = wsFavIds().includes(String(m.id));
+      const st = card.querySelector('.ws-stats');
+      if(st) st.textContent = '👍 ' + (m.likes || 0) + ' · ⬇ ' + (m.plays || 0) + (fav ? ' · ★ 已收藏' : '');
+    }
+  }
+  function wsDownloadedIds(){ try{ return JSON.parse(localStorage.getItem('naiwa_ws_dl') || '[]'); }catch(e){ return []; } }
+  function wsMarkDownloaded(id){ const a = wsDownloadedIds(); if(!a.includes(String(id))){ a.push(String(id)); localStorage.setItem('naiwa_ws_dl', JSON.stringify(a)); } }
+  function wsDoSearch(){
+    const si = document.getElementById('wsSearch');
+    wsQuery = si ? (si.value || '') : '';
+    wsRenderList();
+    const n = document.querySelectorAll('#wsList .ws-card').length;
+    toast(n ? ('搜索成功！找到 ' + n + ' 张地图') : '没有搜到相关地图');
+  }
+  function wsFavIds(){ try{ return JSON.parse(localStorage.getItem('naiwa_ws_fav') || '[]'); }catch(e){ return []; } }
+  function wsLikeIds(){ try{ return JSON.parse(localStorage.getItem('naiwa_ws_like') || '[]'); }catch(e){ return []; } }
+  function wsToggleLocal(key, id){
+    const arr = key === 'naiwa_ws_fav' ? wsFavIds() : wsLikeIds();
+    const i = arr.indexOf(id);
+    const on = i < 0;
+    if(on) arr.push(id); else arr.splice(i, 1);
+    localStorage.setItem(key, JSON.stringify(arr));
+    return on;
+  }
+  function renderWsFilterBar(){
+    const bar = document.getElementById('wsFilterBar');
+    if(!bar) return;
+    bar.innerHTML = '<button type="button" data-ws-filter="all" class="' + (wsFilter === 'all' ? 'on' : '') + '">全部</button>' +
+      '<button type="button" data-ws-filter="fav" class="' + (wsFilter === 'fav' ? 'on' : '') + '">★ 收藏过的</button>' +
+      '<button type="button" data-ws-filter="liked" class="' + (wsFilter === 'liked' ? 'on' : '') + '">👍 点赞过的</button>';
+  }
+  function ensureWsUI(){
+    if(document.getElementById('wsOverlay')) return;
+    const host = document.body;
+    const ov = document.createElement('div');
+    ov.id = 'wsOverlay';
+    ov.className = 'overlay ws-overlay';
+    ov.setAttribute('aria-hidden', 'true');
+    ov.innerHTML = '<div class="ws-card-box">' +
+      '<div class="cm-guest-head"><div><b>创意工坊</b><small>全网玩家上传的地图，下载后直接开一局</small></div><button type="button" class="round-btn" data-ws-act="close" style="width:26px;height:26px">✕</button></div>' +
+      '<div class="ws-toolbar"><div class="ws-sorts"><button type="button" data-ws-act="sort" data-sort="hot" class="' + (wsSort==='hot'?'on':'') + '">热门</button><button type="button" data-ws-act="sort" data-sort="fresh" class="' + (wsSort==='fresh'?'on':'') + '">最新</button><button type="button" data-ws-act="sort" data-sort="plays" class="' + (wsSort==='plays'?'on':'') + '">下载最多</button></div><button type="button" class="cm-secondary" data-ws-act="refresh">刷新</button></div>' +
+      '<div class="ws-search"><span class="ws-lens" data-ws-act="search">🔍</span><input id="wsSearch" placeholder="搜索地图名 / 作者 / 玩法" maxlength="24"><button type="button" class="ws-search-btn" data-ws-act="search">搜索</button></div>' +
+      '<div class="ws-filterbar" id="wsFilterBar"></div>' +
+      '<div class="ws-list" id="wsList"></div>' +
+      '<div class="ws-pager-bar" id="wsPagerBar"></div>' +
+      '</div>';
+    host.appendChild(ov);
+    ov.addEventListener('click', e => {
+      if(e.target === ov){ closeWorkshop(); return; }
+      onWsClick(e);
+    });
+    const si = document.getElementById('wsSearch');
+    if(si){
+      si.addEventListener('input', () => { wsQuery = si.value || ''; wsRenderList(); });
+      si.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); wsDoSearch(); } });
+    }
+  }
+  function openWorkshop(){ ensureWsUI(); const ov = document.getElementById('wsOverlay'); ov.classList.add('show'); ov.setAttribute('aria-hidden','false'); wsReload(); }
+  function closeWorkshop(){ const ov = document.getElementById('wsOverlay'); if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); } }
+  function onWsClick(e){
+    const pager = e.target.closest('[data-ws-page]');
+    if(pager){ wsPage += (pager.getAttribute('data-ws-page') === 'next' ? 1 : -1); wsRenderList(); return; }
+    const fb = e.target.closest('[data-ws-filter]');
+    if(fb){ wsFilter = fb.dataset.wsFilter; wsReload(); return; }
+    const btn = e.target.closest('[data-ws-act]');
+    if(!btn) return;
+    const act = btn.dataset.wsAct;
+    if(act === 'close'){ closeWorkshop(); return; }
+    if(act === 'refresh'){ wsReload(); return; }
+    if(act === 'search'){ wsDoSearch(); return; }
+    if(act === 'upload'){ wsUploadDraft(); return; }
+    if(act === 'sort'){ wsSort = btn.dataset.sort || 'hot'; document.querySelectorAll('.ws-sorts button').forEach(b => b.classList.toggle('on', b.dataset.sort === wsSort)); wsReload(); return; }
+    if(act === 'fav'){ const id = btn.dataset.id; const on = wsToggleLocal('naiwa_ws_fav', id); wsPatchCard(id, card => { const b = card.querySelector('[data-ws-act="fav"]'); if(b) b.classList.toggle('on', on); }); toast(on ? '已收藏，可在「★ 收藏过的」里找到' : '已取消收藏'); return; }
+    if(act === 'detail'){ openWsDetail(btn.dataset.id); return; }
+    if(act === 'dl'){ wsDownload(btn.dataset.id); return; }
+    if(act === 'like'){ wsLike(btn.dataset.id); return; }
+    if(act === 'del'){ wsDelete(btn.dataset.id); return; }
+  }
+  async function wsLike(id){
+    if(wsLikeIds().includes(String(id))) return toast('已经点过赞了');
+    const m = (wsCache || []).find(x => String(x.id) === String(id));
+    if(!m) return;
+    m.likes = (m.likes || 0) + 1;
+    wsToggleLocal('naiwa_ws_like', String(id));
+    wsPatchCard(id, card => { const b = card.querySelector('[data-ws-act="like"]'); if(b) b.classList.add('on'); });
+    wsNet('正在连接创意工坊…');
+    try{
+      const res = await fetch(wsUrl('/rest/v1/rpc/naiwa_map_like'), { method:'POST', headers: wsHeaders(), body: JSON.stringify({ p_id: id }) });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      wsNet('连接成功', true);
+    }catch(err){
+      m.likes = Math.max(0, (m.likes || 1) - 1);
+      wsToggleLocal('naiwa_ws_like', String(id));
+      wsPatchCard(id, card => { const b = card.querySelector('[data-ws-act="like"]'); if(b) b.classList.remove('on'); });
+      wsNet('连接失败', true);
+    }
+  }
+  async function wsDownload(id){
+    const row = (wsCache || []).find(x => String(x.id) === String(id));
+    if(!row) return;
+    try{
+      const map = decodeCustomCode(row.code);
+      if(row.intro) map.intro = row.intro;
+      if(row.gameplay) map.gameplay = row.gameplay;
+      map.author = map.author || row.author || '匿名';
+      const list = localMaps();
+      let name = map.name || '工坊地图';
+      let n = 2;
+      while(list.some(x => x.name === name)){ name = (map.name || '工坊地图') + ' (' + n + ')'; n++; }
+      map.name = name;
+      saveLocalMap(map);
+      wsMarkDownloaded(id);
+      row.plays = (row.plays || 0) + 1;
+      wsPatchCard(id, card => { const b = card.querySelector('[data-ws-act="dl"]'); if(b){ b.textContent = '已下载'; b.disabled = true; b.classList.add('done'); } });
+      toast('已下载「' + map.name + '」到我的地图');
+      fetch(wsUrl('/rest/v1/rpc/naiwa_map_play'), { method:'POST', headers: wsHeaders(), body: JSON.stringify({ p_id: id }) }).catch(()=>{});
+    }catch(err){ toast('地图解析失败，可能版本太新'); }
+  }
+  async function wsUploadDraft(){
+    if(!cmDraft) return;
+    syncDraftFromInputs();
+    openWsUpload(normalizeCustomMap(cmDraft));
+  }
+  function wsDeviceId(){
+    try{
+      let v = localStorage.getItem('naiwa_device');
+      if(!v){ v = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); localStorage.setItem('naiwa_device', v); }
+      return v;
+    }catch(e){ return 'local'; }
+  }
+  function wsHash(str){
+    let h = 5381;
+    for(let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+    return 'h' + (h >>> 0).toString(36);
+  }
+  async function wsCheckDuplicate(code, exceptId){
+    try{
+      const h = wsHash(code), d = wsDeviceId();
+      const q = '/rest/v1/' + WS_TABLE + '?select=id&owner=eq.' + encodeURIComponent(d) + '&code_hash=eq.' + encodeURIComponent(h);
+      const res = await fetch(wsUrl(q), { headers: wsHeaders() });
+      if(!res.ok) return false;
+      const rows = await res.json();
+      if(!Array.isArray(rows)) return false;
+      return rows.some(r => r.id !== exceptId);
+    }catch(e){ return false; }
+  }
+  function wsTimeText(iso){
+    try {
+      const d = new Date(iso);
+      if(isNaN(d.getTime())) return '';
+      const p = n => String(n).padStart(2, '0');
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    } catch(e){ return ''; }
+  }
+  function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  // ================= 自定义中心 / 我的地图 / 上传向导 / 封面裁切 =================
+  let cmHubBuilt = false;
+  function ensureCmHubUI(){
+    if(cmHubBuilt) return;
+    cmHubBuilt = true;
+    const ov = document.createElement('div');
+    ov.id = 'cmHubOverlay';
+    ov.className = 'overlay cm-hub-overlay';
+    ov.setAttribute('aria-hidden', 'true');
+    ov.innerHTML = '<div class="cm-hub-card">' +
+      '<div class="cm-hub-head"><div><b>自定义模式</b><small>上帝黄桃营业 · 你的客人你定规矩</small></div><button type="button" class="round-btn" data-hub="close" style="width:26px;height:26px">✕</button></div>' +
+      '<div class="cm-hub-list">' +
+        '<button type="button" class="cm-hub-item" data-hub="new"><b>创作新地图</b><small>从零调参数：客人、锅、订单、评分</small></button>' +
+        '<button type="button" class="cm-hub-item" data-hub="mine"><b>我的地图</b><small>本地保存的地图：开玩 / 改属性 / 上传</small></button>' +
+        '<button type="button" class="cm-hub-item" data-hub="ws"><b>创意工坊</b><small>全网地图：收藏、点赞、看详情、下载</small></button>' +
+      '</div>' +
+      '<div class="cm-note" id="cmHubHint"></div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e => {
+      if(e.target === ov){ closeCmHub(); return; }
+      const b = e.target.closest('[data-hub]');
+      if(!b) return;
+      const a = b.dataset.hub;
+      if(a === 'close') return closeCmHub();
+      if(a === 'new'){ closeCmHub(); openCustomEditor(); return; }
+      if(a === 'mine'){ closeCmHub(); openMine(); return; }
+      if(a === 'ws'){ closeCmHub(); openWorkshop(); return; }
+    });
+  }
+  function openCmHub(){
+    ensureCmHubUI();
+    const ov = document.getElementById('cmHubOverlay');
+    const hint = document.getElementById('cmHubHint');
+    const maps = localMaps();
+    if(hint) hint.textContent = maps.length ? ('本地已有 ' + maps.length + ' 张地图') : '还没有本地地图，先「创作新地图」吧';
+    ov.classList.add('show'); ov.setAttribute('aria-hidden', 'false');
+  }
+  function closeCmHub(){ const ov = document.getElementById('cmHubOverlay'); if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden', 'true'); } }
+
+  function ensureMineUI(){
+    if(document.getElementById('cmMineOverlay')) return;
+    const ov = document.createElement('div');
+    ov.id = 'cmMineOverlay';
+    ov.className = 'overlay cm-mine-overlay';
+    ov.setAttribute('aria-hidden', 'true');
+    ov.innerHTML = '<div class="cm-mine-card">' +
+      '<div class="cm-hub-head"><div><b>我的地图</b><small>本地保存 · 可以直接开玩，也可以编辑或上传</small></div><button type="button" class="round-btn" data-mine="close" style="width:26px;height:26px">✕</button></div>' +
+      '<div class="cm-mine-list" id="cmMineList"></div>' +
+      '<div class="cm-mine-actions"><button type="button" class="cm-secondary" data-mine="new">＋ 创作新地图</button><button type="button" class="primary-btn" data-mine="close">完成</button></div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e => {
+      if(e.target === ov){ closeMine(); return; }
+      const b = e.target.closest('[data-mine]');
+      if(b){ onMineClick(b); return; }
+      const act = e.target.closest('[data-map-act]');
+      if(act){ onMapRowClick(act); return; }
+    });
+  }
+
+  // ---- 我的地图：已上传地图的管理（更新 / 下架）----
+  let manageIdx = -1;
+  function ensureMapManageUI(){
+    let ov = document.getElementById('cmMapEditOverlay');
+    if(ov) return ov;
+    ov = document.createElement('div');
+    ov.id = 'cmMapEditOverlay';
+    ov.className = 'overlay cm-guest-overlay';
+    ov.setAttribute('aria-hidden', 'true');
+    ov.innerHTML = '<div class="cm-guest-card cm-manage-card" id="cmManageBody"></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e => {
+      const b = e.target.closest('[data-manage]');
+      if(b){ onManageClick(b.dataset.manage); return; }
+      if(e.target === ov) closeMapManage();
+    });
+    return ov;
+  }
+  function openMapManage(idx){
+    manageIdx = idx;
+    const ov = ensureMapManageUI();
+    renderMapManage();
+    ov.classList.add('show'); ov.setAttribute('aria-hidden', 'false');
+  }
+  function closeMapManage(){
+    const ov = document.getElementById('cmMapEditOverlay');
+    if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden', 'true'); }
+    manageIdx = -1;
+  }
+  function manageCoverHtml(m){
+    return m.cover ? '<img src="' + m.cover + '" alt="">' : '<span>默认封面</span>';
+  }
+  function renderManageCover(){
+    const m = localMaps()[manageIdx];
+    const box = document.getElementById('cmManageCover');
+    if(box && m) box.innerHTML = manageCoverHtml(m);
+  }
+  function manageCollect(){
+    const m = localMaps()[manageIdx];
+    if(!m) return null;
+    const g = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+    m.name = g('cmManageName') || m.name || '未命名地图';
+    m.author = g('cmManageAuthor') || '匿名';
+    m.intro = g('cmManageIntro');
+    m.gameplay = g('cmManageGameplay');
+    saveLocalMap(m);
+    return m;
+  }
+  function renderMapManage(){
+    const body = document.getElementById('cmManageBody');
+    if(!body) return;
+    const m = localMaps()[manageIdx];
+    if(!m){ body.innerHTML = ''; return; }
+    const synced = !!m.remoteId;
+    body.innerHTML =
+      '<div class="cm-hub-head"><div><b>编辑地图</b>' +
+        '<small>' + (synced ? '已上架创意工坊 · 改完点「更新地图」才会同步' : '本地地图 · 还没上架') + '</small></div>' +
+        '<button type="button" class="round-btn" data-manage="close" style="width:26px;height:26px">✕</button></div>' +
+      '<div class="ws-up-cover-row">' +
+        '<div class="ws-up-cover" id="cmManageCover">' + manageCoverHtml(m) + '</div>' +
+        '<div class="ws-up-cover-btns">' +
+          '<button type="button" class="cm-secondary" data-manage="pick">选择封面</button>' +
+          '<button type="button" class="cm-secondary" data-manage="crop">重新裁切</button>' +
+          '<button type="button" class="cm-secondary" data-manage="clear">用默认封面</button>' +
+        '</div>' +
+      '</div>' +
+      '<label class="ws-up-label">地图名<input id="cmManageName" value="' + escapeHtml(m.name || '') + '"></label>' +
+      '<label class="ws-up-label">作者<input id="cmManageAuthor" value="' + escapeHtml(m.author || '') + '"></label>' +
+      '<label class="ws-up-label">简介<textarea id="cmManageIntro" rows="2" placeholder="一句话介绍这张地图（可空）">' + escapeHtml(m.intro || '') + '</textarea></label>' +
+      '<label class="ws-up-label">主要玩法<textarea id="cmManageGameplay" rows="2" placeholder="比如：8 位客人、20 口锅、混合糖浆（可空）">' + escapeHtml(m.gameplay || '') + '</textarea></label>' +
+      '<div class="cm-manage-acts">' +
+        '<button type="button" class="primary-btn" data-manage="update">' + (synced ? '更新地图' : '上传到创意工坊') + '</button>' +
+        (synced ? '<button type="button" class="cm-secondary ws-del" data-manage="unpublish">下架地图</button>' : '') +
+      '</div>' +
+      '<div class="ws-up-actions">' +
+        '<button type="button" class="cm-secondary" data-manage="reopen">重新编辑属性</button>' +
+        '<button type="button" class="cm-secondary" data-manage="close">关闭</button>' +
+      '</div>' +
+      '<input type="file" id="cmManageFile" accept="image/*" hidden>';
+    const f = document.getElementById('cmManageFile');
+    if(f) f.onchange = () => {
+      const file = f.files && f.files[0]; if(!file) return;
+      const rd = new FileReader();
+      rd.onload = () => { const mm = localMaps()[manageIdx]; if(!mm) return; openCoverCropper(String(rd.result), d => { mm.cover = d; saveLocalMap(mm); renderManageCover(); }); };
+      rd.readAsDataURL(file);
+      f.value = '';
+    };
+  }
+  
+  async function updateRemoteMap(){
+    const m = localMaps()[manageIdx];
+    if(!m) return;
+    const map = normalizeCustomMap(m);
+    map.name = m.name; map.author = m.author || '匿名';
+    map.cover = m.cover || ''; map.intro = m.intro || ''; map.gameplay = m.gameplay || '';
+    const code = customCodeOf(map);
+    wsNet('正在同步…');
+    try{
+      if(!m.remoteId){
+        const id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        const res = await fetch(wsUrl('/rest/v1/' + WS_TABLE), { method:'POST', headers: wsHeaders({ Prefer:'return=representation' }), body: JSON.stringify({ id, name: map.name, author: map.author, code, cover: map.cover, intro: map.intro, gameplay: map.gameplay, owner: wsDeviceId(), code_hash: wsHash(code) }) });
+        if(!res.ok) throw new Error('HTTP ' + res.status);
+        m.remoteId = id;
+      } else {
+        const base = { name: map.name, author: map.author, code, cover: map.cover };
+        const tries = [
+          Object.assign({}, base, { intro: map.intro, gameplay: map.gameplay, code_hash: wsHash(code) }),
+          Object.assign({}, base, { intro: map.intro, gameplay: map.gameplay }),
+          base
+        ];
+        let lastStatus = 0, okPatch = false;
+        for(const body2 of tries){
+          const r2 = await fetch(wsUrl('/rest/v1/' + WS_TABLE + '?id=eq.' + encodeURIComponent(m.remoteId)), { method:'PATCH', headers: wsHeaders({ Prefer:'return=minimal' }), body: JSON.stringify(body2) });
+          lastStatus = r2.status;
+          if(r2.ok){ okPatch = true; break; }
+        }
+        if(!okPatch) throw new Error('HTTP ' + lastStatus);
+      }
+      saveLocalMap(m);
+      window.__wsErr = null;
+      wsNet(m.remoteId ? '已更新到工坊' : '上传成功！', true);
+      toast(m.remoteId ? '已更新到工坊' : '上传成功！');
+      renderMapManage();
+      renderMine();
+    }catch(err){
+      const msg = String(err && err.message || err);
+      window.__wsErr = msg;
+      const hc = /HTTP (\d+)/.exec(msg);
+      wsNet(hc ? ('同步失败（HTTP ' + hc[1] + '）') : '同步失败！请检查网络', true);
+      toast(hc ? ('同步失败（HTTP ' + hc[1] + '）') : '同步失败，请检查网络');
+    }
+  }
+  async function unpublishMap(){
+    const m = localMaps()[manageIdx];
+    if(!m || !m.remoteId) return;
+    wsNet('正在下架…');
+    try{
+      const res = await fetch(wsUrl('/rest/v1/' + WS_TABLE + '?id=eq.' + encodeURIComponent(m.remoteId)), { method:'DELETE', headers: wsHeaders() });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      delete m.remoteId;
+      saveLocalMap(m);
+      wsNet('已下架', true); toast('已下架，本地地图还留着');
+      renderMapManage(); renderMine();
+    }catch(err){
+      const msg = String(err && err.message || err);
+      window.__wsErr = msg;
+      const hc = /HTTP (\d+)/.exec(msg);
+      wsNet(hc ? ('下架失败（HTTP ' + hc[1] + '）') : '下架失败！请检查网络', true);
+    }
+  }
+  function onManageClick(k){
+    const m = localMaps()[manageIdx];
+    if(k === 'close'){ if(m) manageCollect(); return closeMapManage(); }
+    if(k === 'reopen'){ if(m) manageCollect(); const i = manageIdx; closeMapManage(); openCustomEditor(localMaps()[i]); return; }
+    if(k === 'pick'){ const f = document.getElementById('cmManageFile'); if(f) f.click(); return; }
+    if(k === 'crop'){
+      if(!m || !m.cover){ toast('先选一张封面'); return; }
+      openCoverCropper(m.cover, d => { m.cover = d; saveLocalMap(m); renderManageCover(); });
+      return;
+    }
+    if(k === 'clear'){ if(!m) return; m.cover = ''; saveLocalMap(m); renderManageCover(); return; }
+    if(k === 'update'){ if(!manageCollect()) return; return updateRemoteMap(); }
+    if(k === 'unpublish') return unpublishMap();
+  }
+  function openMine(){ ensureMineUI(); renderMine(); const ov = document.getElementById('cmMineOverlay'); ov.classList.add('show'); ov.setAttribute('aria-hidden','false'); }
+  function closeMine(){ const ov = document.getElementById('cmMineOverlay'); if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); } }
+  function renderMine(){
+    const list = document.getElementById('cmMineList');
+    if(!list) return;
+    const maps = localMaps();
+    if(!maps.length){ list.innerHTML = '<div class="cm-guest-empty">还没有本地地图。点下面的「＋ 创作新地图」开始，调好参数后点「保存地图」就会出现在这里。</div>'; return; }
+    list.innerHTML = maps.map((m, i) =>
+      '<div class="cm-mine-row">' +
+        '<div class="ws-cover cm-mine-cover">' + (m.cover ? '<img src="' + m.cover + '" alt="">' : '<span>' + escapeHtml((m.name || '图').slice(0, 1)) + '</span>') + '</div>' +
+        '<div class="cm-mine-main"><b>' + escapeHtml(m.name || '未命名地图') + '</b><small>' + escapeHtml(m.author || '匿名') + ' · ' + (m.guestsPerDay || 3) + ' 位客人 · ' + (m.pots || 1) + ' 口锅 · 目标 ' + (m.weeklyTarget || 0) + '</small></div>' +
+        '<div class="cm-mine-btns">' +
+          '<button type="button" class="ws-mini ws-dl" data-map-act="play" data-idx="' + i + '">直接开玩</button>' +
+          '<button type="button" class="ws-mini" data-map-act="edit" data-idx="' + i + '">改属性</button>' +
+          ((m.remoteId ? '<button type="button" class="ws-mini ws-edit" data-map-act="manage" data-idx="' + i + '">编辑</button>' : '<button type="button" class="ws-mini" data-map-act="upload" data-idx="' + i + '">上传</button>')) +
+          '<button type="button" class="ws-mini ws-del" data-map-act="del" data-idx="' + i + '">删</button>' +
+        '</div>' +
+      '</div>').join('');
+  }
+  function onMapRowClick(btn){
+    const idx = Number(btn.dataset.idx);
+    const maps = localMaps();
+    const map = maps[idx];
+    if(!map) return;
+    const a = btn.dataset.mapAct;
+    if(a === 'manage'){ openMapManage(idx); return; }
+    if(a === 'edit'){ activeProfile.customMap = cloneJSON(map); saveProfiles(); closeMine(); openCustomEditor(); return; }
+    if(a === 'upload'){ openWsUpload(map); return; }
+    if(a === 'del'){ maps.splice(idx, 1); saveProfiles(); renderMine(); toast('已删除本地地图'); return; }
+    if(a === 'play'){
+      closeMine();
+      const go = () => { if(activeProfile) { activeProfile.customMap = cloneJSON(map); saveProfiles(); } beginRun('custom'); };
+      if(activeProfile && activeProfile.run){
+        openConfirm({ title:'要新开一局吗？', copy:'开始这张地图会覆盖当前未完成的对局。', okText:'开始', cancelText:'取消', onOk:() => { clearRun(); go(); } });
+        return;
+      }
+      go();
+    }
+  }
+  function onMineClick(b){
+    const a = b.dataset.mine;
+    if(a === 'close') return closeMine();
+    if(a === 'new'){ closeMine(); openCustomEditor(); return; }
+  }
+
+  // ---- 上传向导 ----
+  let wsUp = null;
+  function ensureWsUploadUI(){
+    if(document.getElementById('wsUploadOverlay')) return;
+    const ov = document.createElement('div');
+    ov.id = 'wsUploadOverlay';
+    ov.className = 'overlay ws-up-overlay';
+    ov.setAttribute('aria-hidden', 'true');
+    ov.innerHTML = '<div class="ws-up-card">' +
+      '<div class="cm-hub-head"><div><b>上传到创意工坊</b><small>封面 1:1，可拖动裁切；简介和玩法可以留空</small></div><button type="button" class="round-btn" data-up="close" style="width:26px;height:26px">✕</button></div>' +
+      '<div class="ws-up-cover-row"><div class="ws-up-cover" id="wsUpCover"></div><div class="ws-up-cover-btns"><button type="button" class="cm-secondary" data-up="pick">选择封面</button><button type="button" class="cm-secondary" data-up="crop">重新裁切</button><button type="button" class="cm-secondary" data-up="clear">用默认封面</button><input type="file" id="wsUpFile" accept="image/*" hidden></div></div>' +
+      '<label class="ws-up-label">地图名<input class="cm-code" id="wsUpName" maxlength="24" style="min-height:0;font-size:11px"></label>' +
+      '<label class="ws-up-label">作者<input class="cm-code" id="wsUpAuthor" maxlength="16" style="min-height:0;font-size:11px"></label>' +
+      '<label class="ws-up-label">简介<textarea class="cm-code" id="wsUpIntro" rows="2" style="font-size:11px" placeholder="一句话介绍这张地图（可空）"></textarea></label>' +
+      '<label class="ws-up-label">主要玩法<textarea class="cm-code" id="wsUpGameplay" rows="2" style="font-size:11px" placeholder="比如：8 位客人、20 口锅、混合糖浆（可空）"></textarea></label>' +
+      '<div class="ws-up-actions"><button type="button" class="cm-secondary" data-up="close">取消</button><button type="button" class="primary-btn" data-up="submit">上传地图</button></div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e => {
+      if(e.target === ov){ closeWsUpload(); return; }
+      const b = e.target.closest('[data-up]');
+      if(b) onWsUploadClick(b);
+    });
+    const file = document.getElementById('wsUpFile');
+    file.addEventListener('change', () => {
+      const f = file.files && file.files[0];
+      if(!f || !wsUp) return;
+      file.value = '';
+      const url = URL.createObjectURL(f);
+      const img = new Image();
+      img.onload = () => { const src = url; if(wsUp) wsUp.raw = img; URL.revokeObjectURL(src); openCoverCropper(img, d => { if(wsUp){ wsUp.cover = d; renderWsUpCover(); } }); };
+      img.src = url;
+    });
+  }
+  function openWsUpload(map){
+    ensureWsUploadUI();
+    wsUp = { map: cloneJSON(map), cover: map.cover || '', raw: null };
+    const n = document.getElementById('wsUpName'); if(n) n.value = map.name || '';
+    const a = document.getElementById('wsUpAuthor'); if(a) a.value = map.author || '';
+    const i = document.getElementById('wsUpIntro'); if(i) i.value = map.intro || '';
+    const p = document.getElementById('wsUpGameplay'); if(p) p.value = map.gameplay || '';
+    renderWsUpCover();
+    const ov = document.getElementById('wsUploadOverlay'); ov.classList.add('show'); ov.setAttribute('aria-hidden','false');
+  }
+  function renderWsUpCover(){
+    const box = document.getElementById('wsUpCover');
+    if(!box || !wsUp) return;
+    box.innerHTML = wsUp.cover ? '<img src="' + wsUp.cover + '" alt="">' : '<span>默认封面</span>';
+  }
+  function closeWsUpload(){ const ov = document.getElementById('wsUploadOverlay'); if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); } }
+  function onWsUploadClick(b){
+    const a = b.dataset.up;
+    if(a === 'close') return closeWsUpload();
+    if(a === 'pick'){ const f = document.getElementById('wsUpFile'); if(f) f.click(); return; }
+    if(a === 'crop'){ if(wsUp && wsUp.raw) openCoverCropper(wsUp.raw, d => { if(wsUp){ wsUp.cover = d; renderWsUpCover(); } }); else toast('先选一张封面'); return; }
+    if(a === 'clear'){ if(wsUp){ wsUp.cover = ''; renderWsUpCover(); } return; }
+    if(a === 'submit'){ submitWsUpload(); return; }
+  }
+  async function submitWsUpload(){
+    if(!wsUp) return;
+    const name = (document.getElementById('wsUpName') || {}).value || '';
+    const author = (document.getElementById('wsUpAuthor') || {}).value || '匿名';
+    const intro = (document.getElementById('wsUpIntro') || {}).value || '';
+    const gameplay = (document.getElementById('wsUpGameplay') || {}).value || '';
+    if(!name.trim()){ wsNet('给地图起个名字吧', true); toast('给地图起个名字吧'); return; }
+    wsNet('正在上传…');
+    const map = normalizeCustomMap(wsUp.map);
+    map.name = name.trim().slice(0, 24);
+    map.author = author.trim().slice(0, 16) || '匿名';
+    map.cover = wsUp.cover || '';
+    map.intro = intro.slice(0, 120);
+    map.gameplay = gameplay.slice(0, 120);
+    const id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const code = customCodeOf(map);
+    if(await wsCheckDuplicate(code)){
+      wsNet('这张地图已经上传过了，改点参数再传吧', true);
+      toast('这张地图你已经上传过了，改点参数再传吧');
+      return;
+    }
+    const btn = document.querySelector('[data-up="submit"]');
+    if(btn){ btn.disabled = true; btn.textContent = '上传中…'; }
+    try{
+      const res = await fetch(wsUrl('/rest/v1/' + WS_TABLE), {
+        method: 'POST',
+        headers: wsHeaders({ Prefer: 'return=representation' }),
+        body: JSON.stringify({ id: id, name: map.name, author: map.author, code: code, cover: map.cover, intro: map.intro, gameplay: map.gameplay, owner: wsDeviceId(), code_hash: wsHash(code) })
+      });
+      if(!res.ok){
+        let dbg = '';
+        try { dbg = (await res.clone().text()).slice(0, 240); } catch(e){}
+        window.__wsErr = 'HTTP ' + res.status + ' ' + dbg;
+        // 老库可能缺 owner/code_hash/intro/gameplay：逐级降级，保证仍能上传
+        const tries = [
+          { id: id, name: map.name, author: map.author, code: code, cover: map.cover, intro: map.intro, gameplay: map.gameplay },
+          { id: id, name: map.name, author: map.author, code: code, cover: map.cover },
+          { id: id, name: map.name, author: map.author, code: code }
+        ];
+        let ok2 = false, last = res.status;
+        window.__wsDbg = window.__wsDbg || [];
+        window.__wsDbg.push('first:' + res.status);
+        for(const body2 of tries){
+          const res2 = await fetch(wsUrl('/rest/v1/' + WS_TABLE), { method: 'POST', headers: wsHeaders({ Prefer: 'return=representation' }), body: JSON.stringify(body2) });
+          window.__wsDbg.push('retry:' + res2.status);
+          if(res2.ok){ ok2 = true; break; }
+          last = res2.status;
+        }
+        if(!ok2){
+          const body3 = { id: id, name: map.name, author: map.author, code: code };
+          const res3 = await fetch(wsUrl('/rest/v1/' + WS_TABLE), { method: 'POST', headers: wsHeaders({ Prefer: 'return=minimal' }), body: JSON.stringify(body3) });
+          window.__wsDbg.push('minimal:' + res3.status);
+          if(!res3.ok) throw new Error('HTTP ' + res3.status);
+        }
+        wsNet('上传成功！', true);
+      }
+      // 同步回本地地图，方便再编辑
+      map.remoteId = id;
+      saveLocalMap(map);
+      closeWsUpload();
+      wsNet('上传成功！', true);
+      toast('上传成功！');
+      openWorkshop();
+    }catch(err){
+      const msg = String(err && err.message || err);
+      window.__wsErr = msg;
+      const hc = /HTTP (\d+)/.exec(msg);
+      const schemaGap = /PGRST204|Could not find the '.*' column/i.test(msg);
+      const tip = schemaGap ? '上传失败：数据库还缺字段，先执行 tools/workshop-supabase.sql'
+        : hc ? ('上传失败（HTTP ' + hc[1] + '）请重试')
+        : '上传失败！请检查网络后重试';
+      wsNet(tip, true);
+      toast(tip);
+    }finally{
+      if(btn){ btn.disabled = false; btn.textContent = '上传地图'; }
+    }
+  }
+
+  // ---- 封面 1:1 裁切 ----
+  let crop = null;
+  function openCoverCropper(img, cb){
+    let ov = document.getElementById('cropOverlay');
+    if(!ov){
+      ov = document.createElement('div');
+      ov.id = 'cropOverlay';
+      ov.className = 'overlay crop-overlay';
+      ov.setAttribute('aria-hidden', 'true');
+      ov.innerHTML = '<div class="crop-card">' +
+        '<div class="cm-hub-head"><div><b>裁切封面</b><small>拖动图片调整位置，滑块缩放，确认后按 1:1 保存</small></div><button type="button" class="round-btn" data-crop="cancel" style="width:26px;height:26px">✕</button></div>' +
+        '<div class="crop-stage" id="cropStage"><canvas id="cropCanvas" width="300" height="300"></canvas><div class="crop-mask"></div></div>' +
+        '<input type="range" id="cropZoom" min="100" max="300" value="100" class="crop-zoom">' +
+        '<div class="ws-up-actions"><button type="button" class="cm-secondary" data-crop="cancel">取消</button><button type="button" class="primary-btn" data-crop="ok">确定封面</button></div>' +
+        '</div>';
+      document.body.appendChild(ov);
+      ov.addEventListener('click', e => {
+        if(e.target === ov){ closeCropper(); return; }
+        const b = e.target.closest('[data-crop]');
+        if(!b) return;
+        if(b.dataset.crop === 'cancel') return closeCropper();
+        if(b.dataset.crop === 'ok') confirmCrop();
+      });
+      bindCropDrag(ov);
+    }
+    crop = { img: img, scale: 1, x: 0, y: 0, cb: cb };
+    const zoom = document.getElementById('cropZoom'); if(zoom) zoom.value = 100;
+    ov.classList.add('show'); ov.setAttribute('aria-hidden','false');
+    drawCrop();
+  }
+  function closeCropper(){ const ov = document.getElementById('cropOverlay'); if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); } crop = null; }
+  function drawCrop(){
+    if(!crop) return;
+    const cv = document.getElementById('cropCanvas'); if(!cv) return;
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#FFF6E2'; ctx.fillRect(0, 0, W, H);
+    const base = Math.max(W / crop.img.width, H / crop.img.height);
+    const s = base * crop.scale;
+    const w = crop.img.width * s, h = crop.img.height * s;
+    const x = (W - w) / 2 + crop.x, y = (H - h) / 2 + crop.y;
+    ctx.drawImage(crop.img, x, y, w, h);
+  }
+  function bindCropDrag(ov){
+    const stage = document.getElementById('cropStage');
+    if(!stage) return;
+    let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
+    const zoom = document.getElementById('cropZoom');
+    if(zoom) zoom.addEventListener('input', () => { if(!crop) return; crop.scale = Number(zoom.value) / 100; clampCrop(); drawCrop(); });
+    stage.addEventListener('pointerdown', e => { if(!crop) return; dragging = true; sx = e.clientX; sy = e.clientY; ox = crop.x; oy = crop.y; stage.setPointerCapture(e.pointerId); });
+    stage.addEventListener('pointermove', e => { if(!dragging || !crop) return; crop.x = ox + (e.clientX - sx); crop.y = oy + (e.clientY - sy); clampCrop(); drawCrop(); });
+    stage.addEventListener('pointerup', () => { dragging = false; });
+    stage.addEventListener('pointercancel', () => { dragging = false; });
+  }
+  function clampCrop(){
+    if(!crop) return;
+    const cv = document.getElementById('cropCanvas'); if(!cv) return;
+    const W = cv.width, H = cv.height;
+    const base = Math.max(W / crop.img.width, H / crop.img.height);
+    const s = base * crop.scale;
+    const w = crop.img.width * s, h = crop.img.height * s;
+    const maxX = Math.max(0, (w - W) / 2), maxY = Math.max(0, (h - H) / 2);
+    crop.x = Math.max(-maxX, Math.min(maxX, crop.x));
+    crop.y = Math.max(-maxY, Math.min(maxY, crop.y));
+  }
+  function confirmCrop(){
+    if(!crop) return;
+    clampCrop();
+    const out = document.createElement('canvas'); out.width = 360; out.height = 360;
+    const ctx = out.getContext('2d');
+    const cv = document.getElementById('cropCanvas');
+    const base = Math.max(out.width / crop.img.width, out.height / crop.img.height);
+    const s = base * crop.scale;
+    const w = crop.img.width * s, h = crop.img.height * s;
+    const scaleFactor = out.width / cv.width;
+    const x = (out.width - w) / 2 + crop.x * scaleFactor;
+    const y = (out.height - h) / 2 + crop.y * scaleFactor;
+    ctx.drawImage(crop.img, x, y, w, h);
+    const data = out.toDataURL('image/jpeg', 0.82);
+    const cb = crop.cb;
+    closeCropper();
+    if(cb) cb(data);
+  }
+  function openWsDetail(id){
+    const m = (wsCache || []).find(x => x.id === id);
+    if(!m) return;
+    let ov = document.getElementById('wsDetailOverlay');
+    if(!ov){
+      ov = document.createElement('div');
+      ov.id = 'wsDetailOverlay';
+      ov.className = 'overlay ws-overlay ws-detail-overlay';
+      ov.setAttribute('aria-hidden', 'true');
+      ov.innerHTML = '<div class="ws-card-box"><div class="cm-hub-head"><div><b id="wsdName"></b><small id="wsdAuthor"></small></div><button type="button" class="round-btn" data-wsd="close" style="width:26px;height:26px">✕</button></div>' +
+        '<div class="ws-detail-cover" id="wsdCover"></div>' +
+        '<div class="ws-detail-sec"><b>简介</b><p id="wsdIntro"></p></div>' +
+        '<div class="ws-detail-sec"><b>主要玩法</b><p id="wsdPlay"></p></div>' +
+        '<div class="ws-detail-sec"><b>参数</b><p id="wsdParams"></p></div>' +
+        '<div class="ws-up-actions"><button type="button" class="cm-secondary" data-wsd="close">关闭</button><button type="button" class="primary-btn" data-wsd="dl">下载并加入我的地图</button></div></div>';
+      document.body.appendChild(ov);
+      ov.addEventListener('click', e => {
+        if(e.target === ov){ ov.classList.remove('show'); return; }
+        const b = e.target.closest('[data-wsd]');
+        if(!b) return;
+        if(b.dataset.wsd === 'close'){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); return; }
+        if(b.dataset.wsd === 'dl'){ wsDownload(id); ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); return; }
+      });
+    }
+    const d = (x) => document.getElementById(x);
+    const map = (() => { try{ return decodeCustomCode(m.code); }catch(e){ return null; } })();
+    d('wsdName').textContent = m.name || '未命名地图';
+    d('wsdAuthor').textContent = '作者 ' + (m.author || '匿名') + ' · 👍 ' + (m.likes || 0) + ' · ⬇ ' + (m.plays || 0);
+    d('wsdCover').innerHTML = m.cover ? '<img src="' + m.cover + '" alt="">' : '<span>默认封面</span>';
+    d('wsdIntro').textContent = m.intro || '作者还没写简介。';
+    d('wsdPlay').textContent = m.gameplay || '作者还没写玩法介绍。';
+    d('wsdParams').textContent = map ? ('每天 ' + map.guestsPerDay + ' 位客人 · ' + map.pots + ' 口锅 · 耐心 ' + map.patience + ' 秒 · 糖浆 ' + map.syrupMin + '~' + map.syrupMax + ' 份 · 复杂订单 ' + map.complexPct + '%') : '地图数据解析失败';
+    ov.classList.add('show'); ov.setAttribute('aria-hidden','false');
+  }
+  function cmSwitch(on){ return '<span class="cm-switch ' + (on ? 'on' : '') + '"><i></i></span>'; }
+  function cmNumRow(label, sub, path, min, max){
+    const v = cmPathGet(cmDraft, path);
+    return '<div class="cm-row"><label>' + label + (sub ? '<small>' + sub + '</small>' : '') + '</label>' +
+      '<div class="cm-num"><button type="button" data-cm-step="' + path + '" data-delta="-1">−</button>' +
+      '<input class="cm-num-input" type="number" inputmode="numeric" data-cm-input="' + path + '" value="' + v + '" min="' + min + '" max="' + max + '">' +
+      '<button type="button" data-cm-step="' + path + '" data-delta="1">＋</button></div></div>';
+  }
+  function cmNumSet(path, raw){
+    let v = Math.round(Number(raw));
+    if(!isFinite(v)) return;
+    const keys = path.split('.');
+    let obj = cmDraft;
+    for(let i=0;i<keys.length-1;i++){ if(!obj[keys[i]]) obj[keys[i]] = {}; obj = obj[keys[i]]; }
+    obj[keys[keys.length-1]] = v;
+    cmDraft = normalizeCustomMap(cmDraft);
+  }
+  function cmMissionSet(idx, raw){
+    const m = cmDraft && cmDraft.missions;
+    if(!m || !m[idx]) return;
+    const v = Math.max(1, Math.round(Number(raw) || 1));
+    m[idx].target = v;
+    renderCustomEditor();
+  }
+
+  function cmSwitchRow(label, sub, path){
+    return '<div class="cm-row"><label>' + label + (sub ? '<small>' + sub + '</small>' : '') + '</label>' +
+      '<button type="button" class="cm-switch-btn" data-cm-switch="' + path + '" style="border:0;background:none;padding:0">' + cmSwitch(cmPathGet(cmDraft, path)) + '</button></div>';
+  }
+  document.addEventListener('click', ev => {
+    if(ev.target.closest('#gpOverlay')) onCmGuestPoolClick(ev);
+  }, true);
+  document.addEventListener('change', ev => {
+    const mi = ev.target.closest('[data-cm-mission="set"]');
+    if(mi){ cmMissionSet(Number(mi.dataset.idx), mi.value); return; }
+    const wi = ev.target.closest('[data-cm-weight]');
+    if(wi){ const k = wi.dataset.cmWeight; cmDraft.weights[k] = Math.max(0, Math.min(300, Math.round(Number(wi.value) || 0))); renderCustomEditor(); return; }
+    const inp = ev.target.closest('[data-cm-input]');
+    if(!inp) return;
+    cmNumSet(inp.dataset.cmInput, inp.value);
+    renderCustomEditor();
+  }, true);
+  function renderCustomEditor(){
+    const sheet = document.getElementById('cmSheet');
+    if(!sheet || !cmDraft) return;
+    const m = cmDraft;
+    const personas = CM_PERSONAS.map(id => {
+      const p = PERSONALITIES[id];
+      const on = m.personalities.includes(id);
+      return '<button type="button" class="cm-tag ' + (on ? 'on' : '') + '" data-cm-tag="' + id + '">' + (p ? p.name : id) + '</button>';
+    }).join('');
+    const weights = CM_WEIGHT_KEYS.map(k =>
+      '<div class="cm-row"><label>' + CM_WEIGHT_LABEL[k] + '</label>' +
+      '<div style="display:flex;align-items:center;gap:6px">' +
+        '<button type="button" class="cm-switch-btn" data-cm-switch="enabled.' + k + '" style="border:0;background:none;padding:0">' + cmSwitch(m.enabled[k]) + '</button>' +
+        '<div class="cm-num"><button type="button" data-cm-step="weights.' + k + '" data-delta="-10">−</button>' +
+        '<input class="cm-num-input" type="number" inputmode="numeric" min="0" max="300" step="1" value="' + m.weights[k] + '" data-cm-weight="' + k + '">' +
+        '<button type="button" data-cm-step="weights.' + k + '" data-delta="10">＋</button></div>' +
+      '</div></div>').join('');
+    const maps = localMaps();
+    const ws = maps.length ? maps.map(x => '<div class="cm-ws-item"><div><b>' + x.name + '</b><small>' + (x.author || '匿名') + ' · 每天 ' + x.guestsPerDay + ' 位 · 目标 ' + x.weeklyTarget + ' 金币</small></div><button type="button" data-cm-loadmap="' + x.name + '">载入</button></div>').join('')
+      : '<div class="cm-note">还没有保存过地图。设好参数后点「保存本地地图」，就能在这里和标题页的「继续上一局」里找到它。</div>';
+    sheet.innerHTML = '<div class="cm-head"><div><b>自定义模式</b><small>上帝黄桃营业 · 你的客人你定规矩</small></div>' +
+        '<button type="button" class="round-btn" data-cm-close="1" aria-label="关闭" style="width:26px;height:26px">✕</button></div>' +
+      '<div class="cm-sec"><h4>地图信息</h4>' +
+        '<div class="cm-row"><label>地图名</label><input class="cm-code" style="min-height:0;width:150px;font-size:10px" data-cm-text="name" value="' + m.name + '"></div>' +
+        '<div class="cm-row"><label>作者名</label><input class="cm-code" style="min-height:0;width:150px;font-size:10px" data-cm-text="author" value="' + m.author + '"></div>' +
+        '<div class="cm-row"><label>封面图<small>可选，横图更好看</small></label><button type="button" class="cm-secondary" data-cm-act="cover" style="padding:6px 10px;font-size:10px">' + (m.cover ? '更换封面' : '选择封面') + '</button></div>' +
+        '<div class="cm-cover-prev">' + (m.cover ? '<img src="' + m.cover + '" alt="封面">' : '<span>还没有封面，工坊里会用默认底色</span>') + '</div>' +
+        '<input type="file" id="cmCoverInput" accept="image/*" hidden>' +
+      '</div>' +
+      '<div class="cm-sec"><h4>客人</h4>' +
+        cmNumRow('每天客人数', '1~8 位', 'guestsPerDay', 1, 8) +
+        cmNumRow('客人耐心', '秒，3~3600', 'patienceSec', 3, 3600, 10) +
+        cmSwitchRow('受性格影响', '关掉后「有耐心 / 缺乏耐心」不再增减耐心时间', 'patienceByPersona') +
+        cmNumRow('普通客人权重', '', 'typeWeights.normal', 0, 100, 10) +
+        cmNumRow('精英客人权重', '', 'typeWeights.elite', 0, 100, 10) +
+        cmNumRow('BOSS 客人权重', '', 'typeWeights.boss', 0, 100, 10) +
+        '<div class="cm-row" style="align-items:flex-start"><label>性格池<small>点一下开关，空池=没有性格</small></label></div>' +
+        '<div class="cm-tags">' + personas + '</div>' +
+        '<div class="cm-row"><label>出现的客人<small>点开开关决定这类客人里谁会出现</small></label><button type="button" class="cm-tag" data-cm-act="guestpool">编辑 · ' + guestPoolSummary(m) + '</button></div>' +
+        '<div class="cm-row"><label>高级客人<small>指定第几天来什么客人</small></label><div class="cm-num"><b>' + ((m.fixedGuests || []).length) + ' 条</b></div></div>' +
+        '<div class="cm-tags"><button type="button" class="cm-tag" data-cm-guest="open">编辑高级客人</button></div>' +
+      '</div>' +
+      '<div class="cm-sec"><h4>经营</h4>' +
+        cmSwitchRow('无尽模式', '关掉后按周数经营，到期自动结算', 'endless') +
+        (cmDraft.endless === false ? cmNumRow('经营周数', '每周按下面的天数算', 'weeks', 1, 12) : '') +
+        cmNumRow('一周几天', '1~14 天', 'weekDays', 1, 14) +
+        cmSwitchRow('精英日', '每周第 5 天来一位精英客人', 'eliteDay') +
+        cmSwitchRow('BOSS 日', '每周最后一天来一位 BOSS', 'bossDay') +
+      '</div>' +
+      '<div class="cm-sec"><h4>店铺</h4>' +
+        cmNumRow('熬糖锅数量', '1~20 口', 'pots', 1, 20) +
+        cmNumRow('糖浆份数上限', '1~6 份，可多份混合', 'syrupMax', 1, 6) +
+        cmNumRow('熬糖速度', '% · 100 = 正常，越大越快', 'boilSpeed', 10, 400) +
+        cmNumRow('倒糖速度', '% · 100 = 正常，越大越快', 'pourSpeed', 10, 400) +
+        cmSwitchRow('需要切黄桃', '关掉后黄桃无限供应', 'steps.cut') +
+        cmSwitchRow('需要熬糖', '关掉后倒糖处直接有大锅标准糖浆', 'steps.boil') +
+        cmSwitchRow('需要搅拌', '关掉后自动搅拌', 'steps.stir') +
+        cmSwitchRow('需要选温度', '关掉后自动按订单选', 'steps.temp') +
+        cmSwitchRow('需要选小料', '关掉后自动按订单加', 'steps.topping') +
+      '</div>' +
+      '<div class="cm-sec"><h4>自定义商店</h4>' +
+        cmSwitchRow('重置商店', '打开：锅 / 闹钟 / 刀具只在本局生效，退出即还原，不会写进主存档', 'shop.reset') +
+        cmNumRow('价格成长', '% · 每次购买后的涨价倍率，100 = 不涨价', 'shop.growth', 50, 500, 10) +
+        '<div class="cm-row"><label>物品价格<small>道具 / 小料 / 糖浆 / 罐子，可手动改价</small></label>' +
+          '<button type="button" class="cm-tag" data-cm-act="openshop">编辑商店</button></div>' +
+      '</div>' +
+      '<div class="cm-sec"><h4>订单</h4>' +
+        cmNumRow('复杂订单概率', '%', 'order.complexChance', 0, 100, 5) +
+        cmNumRow('糖浆最少份数', '', 'order.syrupMin', 1, 6) +
+        cmNumRow('糖浆最多份数', '', 'order.syrupMax', 1, 6) +
+        cmNumRow('小料最少种', '', 'order.toppingMin', 0, 6) +
+        cmNumRow('小料最多种', '', 'order.toppingMax', 0, 6) +
+        cmSwitchRow('必选非经典罐', '订单一定要求特殊罐型', 'order.forceJar') +
+      '</div>' +
+      '<div class="cm-sec"><h4>目标与评分</h4>' +
+        cmSwitchRow('每周金币目标', '关掉后不再判定周金币达标', 'weeklyOn') +
+        (m.weeklyOn !== false ? cmNumRow('每周金币目标', '只影响周金币达标，不影响下面的周任务', 'weeklyTarget', 0, 999999, 100) : '') +
+        cmSwitchRow('周任务', '按周结算的自定义任务，和金币目标互不影响', 'missionsOn') +
+        (m.missionsOn !== false ? '<div class="cm-row"><label>周任务<small>最多 6 条，按周结算</small></label></div>' + (m.missions || []).map((x, i) =>
+          '<div class="cm-row"><label>' + (CM_MISSION_LABEL[x.type] || x.type).replace('X', '<b>' + x.target + '</b>') + '</label>' +
+          '<div class="cm-num"><button type="button" data-cm-mission="dec" data-idx="' + i + '">−</button>' +
+          '<input class="cm-num-input" type="number" inputmode="numeric" min="1" step="1" value="' + x.target + '" data-cm-mission="set" data-idx="' + i + '">' +
+          '<button type="button" data-cm-mission="inc" data-idx="' + i + '">＋</button>' +
+          '<button type="button" data-cm-mission="del" data-idx="' + i + '" aria-label="删除任务">×</button></div></div>').join('') +
+          '<div class="cm-tags">' + CM_MISSION_TEMPLATES.map(tp => '<button type="button" class="cm-tag" data-cm-template="' + tp.key + '">模板：' + tp.name + '</button>').join('') + '</div>' +
+          '<div class="cm-tags">' + CM_MISSION_TYPES.map(t => '<button type="button" class="cm-tag" data-cm-mission="add" data-type="' + t + '">＋' + (CM_MISSION_SHORT[t] || t) + '</button>').join('') + '</div>' : '') +
+        '<div class="cm-note">关掉的评分项不计分；权重越大越吃这一项（100% 为默认）。</div>' +
+        weights +
+      '</div>' +
+      '<div class="cm-sec"><h4>自定义码</h4>' +
+        '<textarea class="cm-code" id="cmCodeBox" placeholder="把别人的 NCM1:... 码粘进来，点「导入码」">' + customCodeOf(m) + '</textarea>' +
+        '<div class="cm-actions">' +
+          '<button type="button" class="cm-secondary" data-cm-act="copycode">复制我的码</button>' +
+          '<button type="button" class="cm-secondary" data-cm-act="importcode">导入码</button>' +
+          '<button type="button" class="cm-secondary" data-cm-act="savelocal">保存本地地图</button>' +
+          '<button type="button" class="cm-secondary" data-cm-act="reset">恢复默认</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="cm-sec"><h4>创意工坊</h4>' +
+        '<div class="cm-note">本地地图可以直接载入；全网工坊需要服务器，已留好接口（上传会带地图名 / 作者 / 自定义码）。</div>' +
+        '<div class="cm-workshop">' + ws + '</div>' +
+        '<div class="cm-actions"><button type="button" class="cm-secondary" data-cm-act="workshop">打开创意工坊</button><button type="button" class="cm-secondary" data-cm-act="upload">上传当前地图</button></div>' +
+      '</div>' +
+      '<div class="cm-actions">' +
+        '<button type="button" class="cm-secondary" data-cm-act="savemap">保存地图</button>' +
+        '<button type="button" class="primary-btn" data-cm-act="start">开始上帝黄桃营业 →</button>' +
+      '</div>';
+    const box = document.getElementById('cmCodeBox');
+    if(box) box.value = customCodeOf(m);
+    const coverInput = document.getElementById('cmCoverInput');
+    if(coverInput && !coverInput.dataset.bound){
+      coverInput.dataset.bound = '1';
+      coverInput.addEventListener('change', () => {
+        const file = coverInput.files && coverInput.files[0];
+        if(!file) return;
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          const src = img;
+          URL.revokeObjectURL(url);
+          openCoverCropper(src, data => {
+            try{
+              cmDraft.cover = data;
+              cmDraft = normalizeCustomMap(cmDraft);
+              renderCustomEditor();
+              toast('封面已裁好（1:1）');
+            }catch(err){ toast('这张图处理失败，换一张试试'); }
+          });
+        };
+        img.src = url;
+      });
+    }
+  }
+  function syncDraftFromInputs(){
+    const nameInput = document.querySelector('[data-cm-text="name"]');
+    const authorInput = document.querySelector('[data-cm-text="author"]');
+    if(nameInput) cmDraft.name = String(nameInput.value || '').slice(0, 24);
+    if(authorInput) cmDraft.author = String(authorInput.value || '').slice(0, 16);
+  }
+  const CM_SHOP_TABS = [
+    { key:'item', name:'道具' },
+    { key:'topping', name:'小料' },
+    { key:'syrup', name:'糖浆' },
+    { key:'jar', name:'罐子' }
+  ];
+  let cmShopTab = 'item';
+  function cmShopRows(tab){
+    if(tab === 'item'){
+      const rows = [
+        { key:'pot', label:'备用熬糖锅', base: potPrice() },
+        { key:'alarm', label:'熬糖锅闹钟', base: ALARM_PRICE }
+      ];
+      Object.keys(KNIVES).forEach(id => {
+        if(id === 'wood') return;
+        rows.push({ key:'knife:' + id, label: KNIVES[id].name, base: KNIVES[id].price });
+      });
+      return rows;
+    }
+    if(tab === 'topping') return EXPANSION.topping.map(x => ({ key:'topping:' + x.id, label: x.name, base: x.price }));
+    if(tab === 'syrup') return ['honey','maple','honeysuckle'].map(id => ({ key:'syrup:' + id, label: SYRUPS[id].name, base: SYRUPS[id].price }));
+    return EXPANSION.jar.map(x => ({ key:'jar:' + x.id, label: x.name, base: x.price }));
+  }
+  function ensureCmShopUI(){
+    let ov = document.getElementById('cmShopOverlay');
+    if(ov) return ov;
+    ov = document.createElement('div');
+    ov.id = 'cmShopOverlay';
+    ov.className = 'overlay cm-shop-overlay';
+    ov.setAttribute('aria-hidden','true');
+    ov.innerHTML = '<div class="cm-shop-card">' +
+      '<div class="cm-hub-head"><div><b>编辑商店</b><small>改价格，点数字直接输入或按 ±10 调整</small></div>' +
+      '<button type="button" class="round-btn" data-shop="close" style="width:26px;height:26px">✕</button></div>' +
+      '<div class="cm-shop-tabs" id="cmShopTabs">' + CM_SHOP_TABS.map(t => '<button type="button" data-shoptab="' + t.key + '">' + t.name + '</button>').join('') + '</div>' +
+      '<div class="cm-shop-body" id="cmShopBody"></div>' +
+      '<button type="button" class="primary-btn" data-shop="done" style="margin-top:10px">完成</button>' +
+      '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e => {
+      const tab = e.target.closest('[data-shoptab]');
+      if(tab){ cmShopTab = tab.dataset.shoptab; renderCmShop(); return; }
+      const act = e.target.closest('[data-shop]');
+      if(act){
+        const a = act.dataset.shop;
+        if(a === 'close' || a === 'done') closeCmShop();
+        return;
+      }
+      const step = e.target.closest('[data-shopstep]');
+      if(step){
+        const key = step.dataset.shopstep;
+        const d = Number(step.dataset.delta) || 0;
+        const cfg = cmDraft.shop || { prices:{} };
+        const row = cmShopRows(cmShopTab).find(r => r.key === key);
+        const cur = cfg.prices[key] != null ? Number(cfg.prices[key]) : (row ? row.base : 0);
+        cfg.prices[key] = Math.max(0, Math.min(999999, Math.round(cur + d)));
+        cmDraft.shop = cfg;
+        cmDraft = normalizeCustomMap(cmDraft);
+        renderCmShop();
+        return;
+      }
+    });
+    ov.addEventListener('input', e => {
+      const inp = e.target.closest('[data-shopkey]');
+      if(!inp) return;
+      const cfg = cmDraft.shop || { prices:{} };
+      cfg.prices[inp.dataset.shopkey] = Math.max(0, Math.min(999999, Math.round(Number(inp.value) || 0)));
+      cmDraft.shop = cfg;
+    });
+    return ov;
+  }
+  function renderCmShop(){
+    const ov = ensureCmShopUI();
+    const cfg = cmDraft.shop || { prices:{} };
+    const tabs = ov.querySelector('#cmShopTabs');
+    if(tabs) tabs.querySelectorAll('[data-shoptab]').forEach(b => b.classList.toggle('active', b.dataset.shoptab === cmShopTab));
+    const body = ov.querySelector('#cmShopBody');
+    if(!body) return;
+    body.innerHTML = cmShopRows(cmShopTab).map(r => {
+      const val = cfg.prices[r.key] != null ? Number(cfg.prices[r.key]) : r.base;
+      return '<div class="cm-shop-row"><b>' + escapeHtml(r.label) + '</b>' +
+        '<div class="cm-shop-price">' +
+          '<button type="button" data-shopstep="' + r.key + '" data-delta="-10">−</button>' +
+          '<input type="number" data-shopkey="' + r.key + '" value="' + val + '" min="0" max="999999">' +
+          '<button type="button" data-shopstep="' + r.key + '" data-delta="10">＋</button>' +
+        '</div></div>';
+    }).join('');
+  }
+  function openCmShop(){
+    const ov = ensureCmShopUI();
+    renderCmShop();
+    ov.classList.add('show');
+    ov.setAttribute('aria-hidden','false');
+  }
+  function closeCmShop(){
+    const ov = document.getElementById('cmShopOverlay');
+    if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); }
+    renderCustomEditor();
+  }
+
+  function onCustomEditorClick(e){
+    const shopBtn = e.target.closest('[data-cm-act="openshop"]');
+    if(shopBtn){ syncDraftFromInputs(); openCmShop(); return; }
+    const poolBtn = e.target.closest('[data-cm-act="guestpool"]');
+    if(poolBtn){ syncDraftFromInputs(); openCmGuestPool(); return; }
+    const missionBtn = e.target.closest('[data-cm-mission]');
+    if(missionBtn && missionBtn.tagName !== 'INPUT' && missionBtn.dataset.cmMission !== 'set'){
+      syncDraftFromInputs();
+      const act = missionBtn.dataset.cmMission;
+      const list = Array.isArray(cmDraft.missions) ? cmDraft.missions.slice() : [];
+      if(act === 'add'){
+        const type = missionBtn.dataset.type;
+        if(list.length >= 6){ toast('周任务最多 6 条'); return; }
+        if(list.some(x => x.type === type)){ toast('这类任务已经加过了'); return; }
+        list.push({ type, target: type === 'coins' ? 500 : 3 });
+      }else{
+        const i = Number(missionBtn.dataset.idx);
+        if(!list[i]) return;
+        if(act === 'del') list.splice(i, 1);
+        else {
+          const step = 1;
+          list[i].target = Math.max(1, (Number(list[i].target) || 1) + (act === 'inc' ? step : -step));
+        }
+      }
+      cmDraft.missions = list;
+      cmDraft = normalizeCustomMap(cmDraft);
+      renderCustomEditor();
+      return;
+    }
+    const gBtn = e.target.closest('[data-cm-guest]');
+    if(gBtn){
+      syncDraftFromInputs();
+      if(!Array.isArray(cmDraft.fixedGuests)) cmDraft.fixedGuests = [];
+      const act = gBtn.dataset.cmGuest;
+      if(act === 'open' || act === 'add'){ openCmGuests(); return; }
+      const i = Number(gBtn.dataset.idx);
+      const list = cmDraft.fixedGuests;
+      if(act === 'add'){
+        if(list.length >= 12){ toast('最多 12 个指定客人'); return; }
+        list.push({ day: state.day || 1, tier: 'elite', personality: 'strict' });
+      }else if(list[i]){
+        if(act === 'del') list.splice(i, 1);
+        else if(act === 'day+') list[i].day = Math.min(28, list[i].day + 1);
+        else if(act === 'day-') list[i].day = Math.max(1, list[i].day - 1);
+        else if(act === 'tier') list[i].tier = list[i].tier === 'normal' ? 'elite' : list[i].tier === 'elite' ? 'boss' : 'normal';
+        else if(act === 'persona'){ const order = [''].concat(CM_PERSONAS); list[i].personality = order[(order.indexOf(list[i].personality) + 1) % order.length]; }
+      }
+      cmDraft = normalizeCustomMap(cmDraft);
+      renderCustomEditor();
+      return;
+    }
+    const tplBtn = e.target.closest('[data-cm-template]');
+    if(tplBtn){
+      const tpl = CM_MISSION_TEMPLATES.find(x => x.key === tplBtn.dataset.cmTemplate);
+      if(tpl){
+        cmDraft.missions = tpl.missions.map(x => ({ type: x.type, target: x.target }));
+        cmDraft = normalizeCustomMap(cmDraft);
+        renderCustomEditor();
+        toast('已套用模板：' + tpl.name);
+      }
+      return;
+    }
+    const stepBtn = e.target.closest('[data-cm-step]');
+    if(stepBtn){
+      syncDraftFromInputs();
+      const path = stepBtn.dataset.cmStep;
+      const delta = Number(stepBtn.dataset.delta) || 0;
+      let v = Number(cmPathGet(cmDraft, path)) || 0;
+      v += delta;
+      if(path.startsWith('weights.')) cmPathSet(cmDraft, path, Math.round(clampNum(v, 0, 200)));
+      else cmPathSet(cmDraft, path, v);
+      cmDraft = normalizeCustomMap(cmDraft);
+      renderCustomEditor();
+      return;
+    }
+    const sw = e.target.closest('[data-cm-switch]');
+    if(sw){
+      syncDraftFromInputs();
+      const path = sw.dataset.cmSwitch;
+      cmPathSet(cmDraft, path, !cmPathGet(cmDraft, path));
+      cmDraft = normalizeCustomMap(cmDraft);
+      renderCustomEditor();
+      return;
+    }
+    const tag = e.target.closest('[data-cm-tag]');
+    if(tag){
+      syncDraftFromInputs();
+      const id = tag.dataset.cmTag;
+      const idx = cmDraft.personalities.indexOf(id);
+      if(idx >= 0) cmDraft.personalities.splice(idx, 1); else cmDraft.personalities.push(id);
+      renderCustomEditor();
+      return;
+    }
+    const loadBtn = e.target.closest('[data-cm-loadmap]');
+    if(loadBtn){
+      const found = localMaps().find(x => x.name === loadBtn.dataset.cmLoadmap);
+      if(found){ cmDraft = normalizeCustomMap(found); renderCustomEditor(); toast('已载入地图：' + found.name); }
+      return;
+    }
+    if(e.target.closest('[data-cm-close]')){ closeCustomEditor(); return; }
+    const act = e.target.closest('[data-cm-act]');
+    if(!act) return;
+    syncDraftFromInputs();
+    cmDraft = normalizeCustomMap(cmDraft);
+    const a = act.dataset.cmAct;
+    if(a === 'copycode'){
+      const code = customCodeOf(cmDraft);
+      if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(() => toast('自定义码已复制')).catch(() => toast('请手动复制下面的码'));
+      else toast('请手动复制下面的码');
+      return;
+    }
+    if(a === 'importcode'){
+      const box = document.getElementById('cmCodeBox');
+      try{ cmDraft = decodeCustomCode(box ? box.value : ''); renderCustomEditor(); toast('导入成功：' + cmDraft.name); }
+      catch(err){ toast(err.message || '导入失败'); }
+      return;
+    }
+    if(a === 'savelocal'){
+      saveLocalMap(cmDraft);
+      toast('已保存本地地图：' + cmDraft.name);
+      renderCustomEditor();
+      return;
+    }
+    if(a === 'reset'){ cmDraft = normalizeCustomMap(CUSTOM_DEFAULTS); renderCustomEditor(); return; }
+    if(a === 'cover'){ const inp = document.getElementById('cmCoverInput'); if(inp) inp.click(); return; }
+    if(a === 'upload'){ wsUploadDraft(); return; }
+    if(a === 'workshop'){ openWorkshop(); return; }
+    if(a === 'savemap'){
+      const m = normalizeCustomMap(cmDraft);
+      saveLocalMap(m);
+      if(activeProfile) activeProfile.customMap = cloneJSON(m);
+      saveProfiles();
+      closeCustomEditor();
+      toast('已保存到「我的地图」');
+      openMine();
+      return;
+    }
+    if(a === 'start'){
+      if(activeProfile) activeProfile.customMap = cloneJSON(cmDraft);
+      saveProfiles();
+      closeCustomEditor();
+      if(activeProfile && activeProfile.run){
+        openConfirm({ title:'要新开一局吗？', copy:'开始自定义对局会覆盖当前未完成的对局。', okText:'开始', cancelText:'取消', onOk:() => { clearRun(); beginRun('custom'); } });
+        return;
+      }
+      beginRun('custom');
+      return;
+    }
+  }
+
+  function customPickGuest(map, tier){
+    const pools = { normal: GUESTS, elite: ELITE_GUESTS, boss: BOSS_GUESTS };
+    const offOf = t => (((map.guestOff || {})[t]) || []);
+    const order = [tier].concat(['normal', 'elite', 'boss'].filter(t => t !== tier));
+    for(const t of order){
+      const list = (pools[t] || []).filter(g => !offOf(t).includes(g.name));
+      if(list.length) return { guest: cloneJSON(list[randInt(0, list.length - 1)]), tier: t };
+    }
+    return null;
+  }
+  function setupCustomDay(){
+    const map = customMap();
+    if(customActive() && customShopCfg().reset){
+      if(!state.upgrade || !state.upgrade.__custom){
+        state.upgrade = { pots: 1, alarms: 0, knives: ['wood'], knife: 'wood', __custom: true };
+      }
+    }
+    state.dayGuests = [];
+    state.todayGuests = [];
+    state.orders = [];
+    state.activeOrderId = null;
+    state.rackOrderId = null;
+    state.orderSeq = 0;
+    state.queueInfo = null;
+    const totalW = Math.max(1, (map.typeWeights.normal || 0) + (map.typeWeights.elite || 0) + (map.typeWeights.boss || 0));
+    const fixed = (map.fixedGuests || []).filter(g => g.day === state.day);
+    const count = Math.max(map.guestsPerDay, fixed.length);
+    for(let i=0;i<count;i++){
+      let r = Math.random() * totalW;
+      let tier = 'normal';
+      if((r -= map.typeWeights.normal || 0) < 0) tier = 'normal';
+      else if((r -= map.typeWeights.elite || 0) < 0) tier = 'elite';
+      else tier = 'boss';
+      const cmWd = customWeekDays();
+      const cmDow = ((state.day - 1) % cmWd) + 1;
+      if(i === 0){
+        if(map.bossDay !== false && cmDow === cmWd) tier = 'boss';
+        else if(map.eliteDay !== false && cmDow === 5) tier = 'elite';
+      }
+      let forcedPersona = '';
+      if(fixed[i]){ tier = fixed[i].tier; forcedPersona = fixed[i].personality || ''; }
+      const picked = customPickGuest(map, tier);
+      if(!picked) continue;
+      tier = picked.tier;
+      const guest = picked.guest;
+      guest.tier = tier;
+      const pool = map.personalities || [];
+      const p = forcedPersona ? PERSONALITIES[forcedPersona] : (pool.length && Math.random() < .8 ? PERSONALITIES[pool[randInt(0, pool.length-1)]] : null);
+      guest.personality = p ? p.id : null;
+      if(fixed[i]) guest.name = '特邀客';
+      state.todayGuests.push(guest.name);
+      markSeen(guest);
+      let patienceMs = Math.max(3000, (map.patienceSec || 90) * 1000);
+      if(map.patienceByPersona !== false && p && Array.isArray(p.delta)){
+        patienceMs = Math.max(3000, patienceMs + p.delta[0] + Math.random() * (p.delta[1] - p.delta[0]));
+      }
+      const order = makeOrder(i, guest, p);
+      state.dayGuests.push({index:i, guest, personality:p, patienceMs, order, accepted:false, served:false, queuePenalty:0, orderId:null});
+    }
+  }
+  function makeCustomOrder(index, guest, pOverride){
+    const map = customMap();
+    const p = pOverride !== undefined ? pOverride : (state.personality || null);
+    const complex = Math.random() * 100 < (map.order.complexChance || 0) || (guest && guest.tier !== 'normal');
+    const size = ['small','medium','large'][randInt(0,2)];
+    const total = complex ? randInt(3,4) : randInt(2,3);
+    let large = randInt(0, total);
+    if(total >= 2 && Math.random() < .8) large = clamp(large, 1, total - 1);
+    const sugar = complex ? randInt(2,3) : randInt(1,3);
+    const temp = ['ice','room','warm'][randInt(0,2)];
+    const jars = unlockedJars();
+    const jar = map.order.forceJar && jars.length > 1 ? jars[randInt(1, jars.length-1)] : (jars.length > 1 && Math.random() < .38 ? jars[randInt(1, jars.length-1)] : 'classic');
+    const pool = unlockedToppings().slice();
+    const tops = [];
+    const tMin = map.order.toppingMin, tMax = map.order.toppingMax;
+    const want = pool.length ? randInt(tMin, Math.min(tMax, pool.length)) : 0;
+    for(let k=0;k<want && pool.length;k++){
+      const pick = pool.splice(randInt(0, pool.length-1), 1)[0];
+      tops.push({id:pick, qty:randInt(1,3)});
+    }
+    const poolS = customStepOn('boil') ? availableSyrups().filter(id => id !== 'death') : ['classic'];
+    const sMax = Math.min(map.syrupMax || 2, poolS.length);
+    const sCount = clamp(randInt(Math.min(map.order.syrupMin || 1, sMax), sMax), 1, sMax);
+    const picked = poolS.slice().sort(() => Math.random() - .5).slice(0, sCount);
+    let ratios;
+    if(sCount <= 1) ratios = [100];
+    else {
+      const cuts = [];
+      let left = 100;
+      for(let k=0;k<sCount-1;k++){
+        const remain = sCount - 1 - k;
+        const v = remain === 0 ? left : randInt(10, Math.max(10, left - 10 * remain));
+        cuts.push(v); left -= v;
+      }
+      cuts.push(Math.max(5, left));
+      const sum = cuts.reduce((a,b)=>a+b,0);
+      ratios = cuts.map(v => Math.round(v * 100 / sum));
+      const diff = 100 - ratios.reduce((a,b)=>a+b,0);
+      ratios[0] += diff;
+    }
+    const syrups = picked.map((id,i) => ({id, ratio:ratios[i]}));
+    const stirred = sCount > 1 ? (Math.random() < .85) : (guest && guest.tier !== 'normal' && Math.random() < .3);
+    const boilStyle = sCount > 1 ? (Math.random() < .5 ? 'together' : 'separate') : 'single';
+    const tolBase = SUGAR[sugar].tol + (guest && guest.tolDelta || 0) + (p && p.id === 'strict' ? -1 : p && p.id === 'petty' ? -1 : p && p.id === 'generous' ? 1 : 0);
+    const tol = Math.max(3, tolBase);
+    return {size, jar, peaches:{large, small:total-large}, sugar, temp, toppings:tops, tol, syrups, stirred, boilStyle};
+  }
+  function customStepOn(k){ return !customActive() || customMap().steps[k] !== false; }
+  function applyCustomModeClass(){
+    if(!els.game) return;
+    els.game.dataset.custom = customActive() ? '1' : '0';
+    if(customActive()){
+      const st = customMap().steps;
+      els.game.dataset.cmCut = st.cut ? '1' : '0';
+      els.game.dataset.cmBoil = st.boil === false ? '0' : '1';
+      els.game.dataset.cmStir = st.stir ? '1' : '0';
+      els.game.dataset.cmTemp = st.temp ? '1' : '0';
+      els.game.dataset.cmTop = st.topping ? '1' : '0';
+    }
+  }
+
+  function beginRun(mode){
+    setHeaderPause(true);
+    try { applyCharSkin(); } catch(e){}
+    ensureAudio();
+    resetDevBag();
+    if(activeProfile) activeProfile.run = null;
+    state.mode = MODES[mode] ? mode : 'normal';
+    if(state.mode === 'tutorial'){ state.rogue = null; state.tutorial = { seen:{} }; state.tutorialCoins = null; }
+    else if(state.mode === 'rogue'){ startRogueRun(); applyDevBag(); }
+    else if(state.mode === 'custom'){
+      state.rogue = null;
+      state.customMap = normalizeCustomMap(activeProfile && activeProfile.customMap ? activeProfile.customMap : CUSTOM_DEFAULTS);
+    }
+    else state.rogue = null;
+    state.day = 1;
+    state.coins = state.mode === 'rogue' ? state.rogue.coins : (activeProfile ? activeProfile.wallet : 0);
+    state.rackOrderId = null;
+    state.dayCoins = 0;
+    state.dayStars = 0;
+    state.runEarned = 0;
+    state.week = 1;
+    state.weekEarned = 0;
+    state.customStats = { coins: 0, wideJar: 0, honey: 0, mint: 0, perfect: 0, served: 0 };
+    state.customWeekRewarded = 0;
+    state.weekTarget = state.mode === 'rogue' ? ROGUE_BASE_TARGET : state.mode === 'custom' ? (state.customMap.weeklyOn === false ? 0 : state.customMap.weeklyTarget) : weekTargetFor(1);
+    state.summaryKind = 'day';
+    state.metaAwarded = false;
+    state.orderTipShown = false;
+    state.reviews = [];
+    state.guestIndex = 0;
+    state.bowl = {large:0, small:0};
+    state.batches = [];
+    state.selectedBatch = null;
+    state.pots = makePots();
+    if(state.mode !== 'rogue' && activeProfile && activeProfile.upgrades) state.upgrade = activeProfile.upgrades;
+    if(state.mode === 'custom'){
+      const cm = state.customMap;
+      state.upgrade = { pots: cm.pots, alarms: 0, knives: [0,0,0] };
+      state.upgradeBase = { pots: cm.pots, alarms: 0, knives: [0,0,0] };
+      if(!cm.steps.cut) state.bowl = { large: 12, small: 12 };
+    }
+    applyCustomModeClass();
+    if(state.mode === 'tutorial'){
+      state.tutorial = { seen:{} };
+      state.tutorialQueue = [];
+      state.tutorialCoins = 60;
+      state.coins = 60;
+      state.upgrade = { pots:1, alarms:0, knives:[0,0,0] };
+      state.tutorialDayApplied = 0;
+      applyTutorialDay();
+    }
+    state.stock = Infinity;
+    batchSeq = 0;
+    lastOrderSig = '';
+    els.introOverlay.classList.remove('show');
+    els.summaryOverlay.classList.remove('show');
+    els.summaryOverlay.setAttribute('aria-hidden','true');
+    els.shopOverlay.classList.remove('show');
+    els.shopOverlay.setAttribute('aria-hidden','true');
+    els.canWrap.classList.remove('serving');
+    els.startBtn.blur();
+    newCustomer(0);
+    applySkins();
+    saveGame();
+    saveRunToProfile();
+  }
+  function goHome(){
+    resumeGame();
+    setHeaderPause(false);
+    state.phase = 'intro';
+    syncVersionUI();
+    state.stage = 'desk';
+    state.guest = null;
+    state.order = null;
+    state.can = emptyCan();
+    state.pouring = false;
+    els.reviewOverlay.classList.remove('show');
+    els.reviewOverlay.setAttribute('aria-hidden','true');
+    els.summaryOverlay.classList.remove('show');
+    els.summaryOverlay.setAttribute('aria-hidden','true');
+    els.shopOverlay.classList.remove('show');
+    els.shopOverlay.setAttribute('aria-hidden','true');
+    els.introOverlay.classList.add('show');
+    if(els.homeOverlay) els.homeOverlay.classList.remove('show');
+    if(els.leaderboardOverlay) els.leaderboardOverlay.classList.remove('show');
+    // 肉鸽金币只属于本局：回到标题时丢弃，绝不进入主菜单钱包
+    if(state.mode === 'rogue') state.rogue = null;
+    state.coins = activeProfile ? activeProfile.wallet : 0;
+    renderPlayerBar();
+    els.game.dataset.stage = 'desk';
+    updateHud();
+    renderOrderTicket();
+    renderGuest();
+    renderCan();
+    renderDesk();
+    renderWork();
+    renderKitchen();
+    renderPatience(1);
+    updateFooter();
+    renderHint();
+    renderResumeUI();
+    cueMusic();
+    // 回到主界面 = 一次存档点：本地已存，云存档悄悄跟上
+    naiwaFlush();
+  }
+
+  function selectSize(size){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    if(state.can.size === size) return;
+    state.can.size = size;
+    state.can.pieces = [];
+    state.can.syrup = 0;
+    state.selectedBatch = null;
+    renderCan();
+    bumpCan();
+    renderWork();
+    updateFooter();
+    renderHint();
+    updateTabBadges();
+    sfx.tap();
+  }
+
+  function addPiece(size){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    if(!state.can.size){ toast('先挑一个罐型'); return; }
+    if(state.can.pieces.length >= 24){ toast('罐子已经塞满啦，先出餐吧'); return; }
+    const freeCut = customActive() && customMap().steps.cut === false;
+    if(!freeCut && !state.bowl[size]){ toast(`碗里没有${size === 'large' ? '大块' : '小块'}，先去厨房切`); return; }
+    if(!freeCut) state.bowl[size]--;
+    state.can.pieces.push(size);
+    renderCan();
+    updateSyrupVisual();
+    bumpCan();
+    renderWork();
+    sfx.add();
+    renderHint();
+    updateTabBadges();
+    updateFooter();
+  }
+  function removePiece(size){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    const idx = state.can.pieces.lastIndexOf(size);
+    if(idx < 0) return;
+    state.can.pieces.splice(idx,1);
+    state.bowl[size]++;
+    renderCan();
+    updateSyrupVisual();
+    bumpCan();
+    renderWork();
+    sfx.remove();
+    renderHint();
+    updateFooter();
+  }
+  function setTemp(temp){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    state.can.temp = state.can.temp === temp ? null : temp;
+    renderCan();
+    renderWork();
+    renderHint();
+    sfx.tap();
+  }
+  function setTopping(topping){
+    if(topping && topping !== 'none') tutFlag('top');
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    state.can.toppingTouched = true;
+    if(topping === 'none'){
+      state.can.toppings = [];
+      state.toppingFocus = null;
+    }else{
+      const item = state.can.toppings.find(t => t.id === topping);
+      if(!item) state.can.toppings.push({id:topping, qty:1});
+      state.toppingFocus = topping;
+    }
+    renderCan();
+    renderWork();
+    renderHint();
+    sfx.add();
+  }
+  function changeToppingQty(delta){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    const list = state.can.toppings;
+    if(!list.length){ toast('先选一种加料'); return; }
+    let focus = state.toppingFocus;
+    if(!focus || !list.some(t => t.id === focus)) focus = list[0].id;
+    const item = list.find(t => t.id === focus);
+    if(!item) return;
+    const next = clamp(item.qty + delta, 0, 99);
+    if(next <= 0){
+      state.can.toppings = list.filter(t => t.id !== focus);
+      state.toppingFocus = state.can.toppings.length ? state.can.toppings[0].id : null;
+    }else{
+      item.qty = next;
+      state.toppingFocus = focus;
+    }
+    renderCan();
+    renderWork();
+    sfx.tap();
+  }
+  function cycleJar(){
+    if(state.phase !== 'playing' || !state.can.size || state.can.sealed) return;
+    const jars = unlockedJars();
+    const idx = Math.max(0, jars.indexOf(state.can.jar || 'classic'));
+    state.can.jar = jars[(idx + 1) % jars.length];
+    if(state.order && state.can.jar === (state.order.jar || 'classic')) tutFlag('jar');
+    renderCan();
+    renderWork();
+    toast(`换成了${JARS[state.can.jar].name}`);
+    sfx.tap();
+  }
+
+  function cutPeach(size){
+    if(state.phase !== 'playing' || state.stage !== 'kitchen') return;
+    if(state.bowl.large + state.bowl.small >= 30){ toast('碗满了，先去做罐头吧'); return; }
+    state.bowl[size]++;
+    tutFlag('cut');
+    els.cutStage.classList.add('chop');
+    setTimeout(() => els.cutStage.classList.remove('chop'), 160);
+    sfx.chop();
+    renderKitchen();
+    renderHint();
+  }
+
+  function potMaxTypes(){
+    if(state.mode === 'custom'){ const m = customMap(); return Math.round(clampNum(m && m.syrupMax != null ? m.syrupMax : 2, 1, 6)); }
+    return 2;
+  }
+  function potMixList(p){
+    if(!Array.isArray(p.mixVals)) p.mixVals = [];
+    while(p.mixVals.length < p.types.length) p.mixVals.push(50);
+    if(p.mixVals.length > p.types.length) p.mixVals = p.mixVals.slice(0, p.types.length);
+    return p.mixVals.map(v => clamp(Number(v) || 0, 0, 100));
+  }
+  function cyclePotType(potId, type){
+    const p = state.pots[potId];
+    if(!p || p.status !== 'idle') return;
+    if(p.types.includes(type)){
+      if(p.types.length === 1){ toast('至少保留一种糖浆'); return; }
+      const i = p.types.indexOf(type);
+      p.types = p.types.filter(t => t !== type);
+      if(Array.isArray(p.mixVals)) p.mixVals.splice(i, 1);
+    }else{
+      const max = potMaxTypes();
+      if(p.types.length >= max){ toast('一口锅最多 ' + max + ' 种糖浆'); return; }
+      p.types.push(type);
+      if(!Array.isArray(p.mixVals)) p.mixVals = [];
+      p.mixVals.push(50);
+      if(p.types.length >= 2) tutFlag('pot2');
+    }
+    p.mixA = 0; p.mixB = 0;
+    potMixList(p);
+    sfx.tap();
+    renderPots();
+  }
+  function setPotMix(potId, idx, value){
+    const p = state.pots[potId];
+    if(!p || p.status !== 'idle' || p.types.length < 2) return;
+    const list = potMixList(p);
+    const v = clamp(Math.round(Number(value)), 0, 100);
+    list[idx] = v;
+    p.mixVals = list;
+    if(list.some(x => x === 60 || x === 40 || x === 1)) tutFlag('mix');
+    paintPotMix(potId);
+  }
+  function stepPotMix(potId, idx, delta){
+    const p = state.pots[potId];
+    if(!p || p.status !== 'idle') return;
+    const list = potMixList(p);
+    setPotMix(potId, idx, (Number(list[idx]) || 0) + delta);
+    sfx.tap();
+  }
+  function paintPotMix(potId){
+    const p = state.pots[potId];
+    if(!p) return;
+    const list = potMixList(p);
+    list.forEach((v, idx) => {
+      const rowEl = document.querySelector(`.pot-mix2[data-pot-mix2-row="${potId}"][data-mix2-idx="${idx}"]`);
+      if(!rowEl) return;
+      rowEl.style.setProperty('--p', v + '%');
+      const b = rowEl.querySelector(`[data-mix2-val="${idx}"]`);
+      if(b) b.textContent = v + '%';
+      const inp = rowEl.querySelector('input[type="range"]');
+      if(inp && Number(inp.value) !== v) inp.value = v;
+    });
+  }
+  function potMixRatios(p){
+    if(!p || !p.types || p.types.length < 2) return null;
+    const list = potMixList(p);
+    let sum = list.reduce((a, b) => a + b, 0);
+    if(sum <= 0){ list.forEach((_, i) => { list[i] = 1; }); sum = list.length; }
+    const out = {};
+    p.types.forEach((t, i) => { out[t] = Math.max(1, Math.round(list[i] / sum * 100)); });
+    return out;
+  }
+  function addSugar(potId, delta){
+    if(state.phase !== 'playing' || state.stage !== 'kitchen') return;
+    const p = state.pots[potId];
+    if(!p || p.status !== 'idle') return;
+    p.sugar = clamp(p.sugar + delta, 0, 3);
+    sfx.tap();
+    renderPots();
+  }
+  function boilDuration(){
+    const customPct = customActive() ? Math.max(10, Math.min(400, customMap().boilSpeed || 100)) / 100 : 1;
+    return BOIL_MS / customPct / (1 + .05 * (rogueActive() ? shrimpLevel('boilSpeed') : 0));
+  }
+  function startBoil(potId){
+    if(state.phase !== 'playing' || state.stage !== 'kitchen') return;
+    const p = state.pots[potId];
+    if(!p || p.status !== 'idle') return;
+    if(p.sugar < 1){ toast('先加糖再开火'); return; }
+    p.status = 'heating';
+    p.progress = 0;
+    p.startedAt = performance.now();
+    p.alarmFired = false;
+    renderPots();
+    sfx.tap();
+    updateTabBadges();
+  }
+  function stopBoil(potId){
+    if(state.phase !== 'playing') return;
+    const p = state.pots[potId];
+    if(!p || p.status !== 'heating') return;
+    const elapsed = performance.now() - p.startedAt;
+    const pct = clamp(elapsed / boilDuration() * 100, 0, 100);
+    p.progress = pct;
+    const widen = rogueActive() ? 2.2 * shrimpLevel('fireMaster') : 0;
+    const quality = pct < (BOIL_MIN - widen) ? 'thin' : pct > (BOIL_MAX + widen) ? 'burnt' : 'perfect';
+    bottlePot(p, quality);
+  }
+  function bottlePot(p, quality){
+    tutFlag('boil');
+    const types = (p.types || ['classic']).slice();
+    const ratios = potMixRatios(p) || { [types[0]]: 100 };
+    let count = 1;
+    if(rogueActive() && rogueHas('goldPot')) count *= 2;
+    if(rogueActive() && shrimpLevel('bigPot')) count *= 3;
+    let q = quality;
+    if(shrimpLevel('bigPot') && Math.random() < .33) q = Math.random() < .5 ? 'thin' : 'burnt';
+    let last = null;
+    for(let i=0;i<count;i++){
+      const batch = {id:++batchSeq, sugar:p.sugar, quality:q, types:types.slice(), ratios:{...ratios}};
+      state.batches.push(batch); last = batch;
+    }
+    state.selectedBatch = last.id;
+    p.status = 'idle'; p.sugar = 0; p.progress = 0; p.quality = null;
+    if(q === 'perfect'){ sfx.ding(); toast('火候完美！糖水已经放到工作台啦'); }
+    else{ sfx.error(); buzz(50); toast(q === 'thin' ? '偏生了点，不过也能用，已经装瓶' : '有点焦苦，不过也能用，已经装瓶'); }
+    renderPots();
+    renderWork();
+    updateTabBadges();
+    renderHint();
+  }
+  function dumpPot(potId){
+    const p = state.pots[potId];
+    if(!p) return;
+    p.status = 'idle'; p.sugar = 0; p.progress = 0; p.quality = null;
+    sfx.remove();
+    renderPots();
+  }
+  function updateBoils(now){
+    state.pots.forEach(p => {
+      if(p.status !== 'heating') return;
+      p.progress = clamp((now - p.startedAt) / boilDuration() * 100, 0, 100);
+      if(p.alarm && !p.alarmFired && p.progress >= 50){
+        p.alarmFired = true;
+        sfx.alarm(); buzz(35);
+        if(rogueActive() && shrimpLevel('alarmAuto') && Math.random() < .33) bottlePot(p, 'perfect');
+      }
+      if(rogueActive() && rogueHas('doubao') && p.progress >= BOIL_MIN && p.status === 'heating'){
+        bottlePot(p, 'perfect');
+        return;
+      }
+      if(p.progress >= 100){
+        bottlePot(p, 'burnt');
+      }
+    });
+    updatePotVisuals();
+  }
+
+  function selectBatch(id){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    const batch = state.batches.find(b => b.id === id);
+    if(!batch || batch.used) return;
+    if(state.can.sealed){ toast('已经封盖了，先重做'); return; }
+    state.selectedBatch = id;
+    if(!state.can.batchId) state.can.batchId = id;
+    renderWork();
+    renderHint();
+    sfx.tap();
+  }
+
+  function startPour(){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.pouring || state.can.sealed) return;
+    if(!state.can.size){ toast('先挑一个罐型'); return; }
+    if(!findBatch()){ toast('先去厨房熬一锅糖水，再回来倒'); return; }
+    if(state.can.syrup >= 100) return;
+    state.pouring = true;
+    state.can.batchId = state.selectedBatch;
+    ensureAudio();
+    els.pourBtn.classList.add('pouring');
+  }
+  function stopPour(){
+    setTimeout(() => { const twoSyrup = state.order && (state.order.syrups || []).length > 1; if(tutorialActive() && state.day === 1 && twoSyrup && state.can && state.can.syrup > 0) tutorialPointerHint('d1-stir', '#stirBtn', '倒好了，点「搅拌一下」'); }, 320);
+    if(!state.pouring) return;
+    state.pouring = false;
+    if(els.pourBtn) els.pourBtn.classList.remove('pouring');
+    renderWork();
+    renderHint();
+  }
+  function askDiscardSyrup(){
+    const c = state.can;
+    if(!c || !(c.syrup > 0)){ toast('罐里还没有糖水'); return; }
+    if(c.sealed){ toast('已经封盖了，要重来请点下面的「重做」'); return; }
+    openConfirm({
+      iconSvg:'trash',
+      title:'倒掉罐里的糖水？',
+      copy:`罐里现在有 ${Math.round(c.syrup)}% 糖水，倒掉之后不会退回，需要重新熬糖、重新倒。`,
+      okText:'是',
+      cancelText:'否',
+      onOk:discardSyrup
+    });
+  }
+  function clearCanSyrup(){
+    const c = state.can;
+    c.components = {classic:0, honey:0, maple:0, honeysuckle:0, death:0};
+    c.syrup = 0;
+    c.pourLog = [];
+    c.batchIds = [];
+    c.batchId = null;
+  }
+  function discardSyrup(){
+    const c = state.can;
+    if(!c || !(c.syrup > 0)){ toast('罐里还没有糖水'); return; }
+    if(c.sealed){ toast('已经封盖了，要重来请点下面的「重做」'); return; }
+    if(state.pouring) stopPour();
+    const had = Math.round(c.syrup);
+    clearCanSyrup();
+    state.selectedBatch = null;
+    renderCan();
+    renderWork();
+    renderHint();
+    if(els.syrupFill){
+      els.syrupFill.style.width = '0%';
+      els.syrupFill.classList.remove('in-zone');
+    }
+    if(els.syrupReadout) els.syrupReadout.textContent = '0%';
+    if(els.pourBtn) els.pourBtn.classList.remove('pouring');
+    if(els.pourSeq) els.pourSeq.innerHTML = '';
+    toast(`倒掉了 ${had}% 糖水，要重新倒`);
+  }
+  function discardBatch(id){
+    const batch = state.batches.find(b => b.id === id && !b.used);
+    if(!batch) return false;
+    if(state.can.sealed){ toast('已经封盖了，要重来请点下面的「重做」'); return false; }
+    if(state.pouring) stopPour();
+    const q = batch.quality === 'thin' ? '偏生' : batch.quality === 'burnt' ? '焦苦' : '火候完美';
+    const desc = `${batchMixLabel(batch)} ${batch.sugar} 勺 · ${q}`;
+    const inCan = (state.can.batchIds || []).includes(id) || state.can.batchId === id;
+    const had = inCan ? Math.round(state.can.syrup) : 0;
+    state.batches = state.batches.filter(b => b.id !== id);
+    if(state.selectedBatch === id) state.selectedBatch = null;
+    if(state.can.batchId === id) state.can.batchId = null;
+    if(inCan) clearCanSyrup();
+    sfx.remove();
+    renderWork();
+    renderCan();
+    renderHint();
+    if(inCan && els.syrupFill){
+      els.syrupFill.style.width = '0%';
+      els.syrupFill.classList.remove('in-zone');
+      if(els.syrupReadout) els.syrupReadout.textContent = '0%';
+      if(els.pourSeq) els.pourSeq.innerHTML = '';
+    }
+    toast(inCan && had ? `倒掉了：${desc}（含罐里 ${had}% 糖水）` : `倒掉了：${desc}`);
+    return true;
+  }
+  function tickPour(now){
+    if(!state.pouring) return;
+    const c = state.can;
+    const batch = findBatch();
+    if(!batch){ stopPour(); return; }
+    const types = (batch.types && batch.types.length) ? batch.types : ['classic'];
+    const ratios = batch.ratios || (types.length > 1 ? {[types[0]]:50, [types[1]]:50} : {[types[0]]:100});
+    const cap = (rogueActive() && state.rogue.items && state.rogue.items.pourGuard)
+      ? Math.min(100, SUGAR[state.order.sugar].target + (state.order.tol || SUGAR[state.order.sugar].tol))
+      : 100;
+    const pourPct = customActive() ? Math.max(10, Math.min(400, customMap().pourSpeed || 100)) / 100 : 1;
+    const add = Math.max(0, Math.min(POUR_RATE * pourPct * 16.7, cap - c.syrup));
+    if(add <= 0){ stopPour(); return; }
+    types.forEach(id => {
+      const share = (ratios[id] != null ? ratios[id] : 100 / types.length) / 100;
+      c.components[id] = clamp((c.components[id] || 0) + add * share, 0, 100);
+    });
+    c.syrup = clamp(c.syrup + add, 0, cap);
+    if(!c.batchIds.includes(batch.id)) c.batchIds.push(batch.id);
+    // 记录倒入顺序：同一锅连续倒只累加一次，换锅就新增一条
+    if(!Array.isArray(c.pourLog)) c.pourLog = [];
+    const lastLog = c.pourLog[c.pourLog.length - 1];
+    if(lastLog && lastLog.batchId === batch.id){
+      lastLog.amount = clamp(lastLog.amount + add, 0, 100);
+    }else{
+      c.pourLog.push({batchId:batch.id, types:types.slice(), ratios:{...ratios}, amount:add});
+    }
+    updateSyrupVisual();
+    els.syrupFill.style.width = c.syrup + '%';
+    els.syrupReadout.textContent = Math.round(c.syrup) + '%';
+    const sb = SUGAR[state.order.sugar];
+    els.syrupFill.classList.toggle('in-zone', Math.abs(c.syrup - sb.target) <= (state.order.tol || sb.tol));
+    if(now - state.lastPourSfx > 110){ state.lastPourSfx = now; sfx.pour(); }
+    renderPourSeq();
+    if(c.syrup >= 100){ stopPour(); toast('倒满啦，松手吧'); }
+  }
+
+  function resetCan(){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    state.can.pieces.forEach(s => state.bowl[s]++);
+    state.can = emptyCan();
+    state.selectedBatch = null;
+    state.pouring = false;
+    renderCan();
+    renderWork();
+    renderHint();
+    updateFooter();
+    updateTabBadges();
+    sfx.remove();
+  }
+
+  function sealCan(){
+    if(state.phase !== 'playing' || state.stage !== 'work' || state.can.sealed) return;
+    const c = state.can;
+    if(customActive()){
+      const cm = customMap();
+      if(cm.steps.temp === false){ c.temp = state.order.temp; }
+      if(cm.steps.topping === false){ c.toppings = cloneJSON(state.order.toppings || []); c.toppingTouched = true; }
+      if(cm.steps.stir === false){ c.stirred = !!state.order.stirred; }
+    }
+    if(!c.size){ toast('还没挑罐型'); return; }
+    if(!c.pieces.length){ toast('罐子里还没有黄桃'); return; }
+    if(!findBatch() || c.syrup <= 0){ toast('还没倒糖水'); return; }
+    if(!c.temp){ toast('还没选温度'); return; }
+    if(!c.toppingTouched){ toast('还没选加料，点「不加」也可以'); return; }
+    c.sealed = true;
+    if(state.mode === 'custom'){
+      const st = state.customStats;
+      if(st){
+        const inc = k => { st[k] = (st[k] || 0) + 1; };
+        const jar = c.jar || 'classic';
+        if(jar === 'wide') inc('wideJar');
+        if(jar === 'narrow') inc('narrowJar');
+        const bb = findBatch();
+        const types = (bb && bb.types) || [];
+        ['honey','honeysuckle','maple'].forEach(id => { if(types.includes(id)) inc(id); });
+        if(types.length > 1) inc('mixed');
+        const tops = (c.toppings || []).map(t => (t && t.id) || t);
+        ['mint','osmanthus','goji','rock'].forEach(id => { if(tops.includes(id)) inc(id); });
+        if(tops.length >= 3) inc('richTopping');
+      }
+    }
+    tutFlag('seal');
+    const batch = findBatch();
+    if(batch){
+      if(!state.can.batchId) state.can.batchId = batch.id;
+      batch.used = true;
+    }
+    state.pouring = false;
+    renderCan();
+    els.canWrap.classList.remove('bump');
+    els.canWrap.classList.add('sealing');
+    setTimeout(() => els.canWrap.classList.remove('sealing'), 650);
+    sfx.seal();
+    toast('封盖完成！去服务台把订单拖到订单架吧');
+    renderWork();
+    updateFooter();
+    renderHint();
+    updateTabBadges();
+  }
+
+  function computeQueue(){
+    const dg = state.dayGuests[state.guestIndex];
+    const skipped = (state.dayGuests || []).filter(d => !d.served && d.index < state.guestIndex);
+    state.queueInfo = {
+      bonus: skipped.length ? Math.min(15, skipped.length * 5) : 0,
+      skipped: skipped.map(d => d.guest.name)
+    };
+    skipped.forEach(d => {
+      d.queuePenalty = (d.queuePenalty || 0) + (d.personality && d.personality.id === 'petty' ? 16 : 8);
+    });
+  }
+
+  function orderOnRack(){
+    return state.activeOrderId != null && state.rackOrderId === state.activeOrderId;
+  }
+
+
+  // 结算兜底：任何异常都不让界面卡死
+  window.__reviewGuard = function(){
+    try{
+      if(state.phase === 'reviewing'){
+        const ov = document.getElementById('reviewOverlay');
+        if(ov && !ov.classList.contains('show')){
+          if(state.scoreResult) { try { renderReview(state.scoreResult); } catch(e){} }
+          ov.classList.add('show'); ov.setAttribute('aria-hidden','false');
+          toast('结算出现异常，已为你打开结算页' + (window.__lastErr ? '：' + window.__lastErr : ''));
+        }
+      }
+    }catch(e){}
+  };
+  window.addEventListener('error', function(ev){
+    try{
+      window.__lastErr = String((ev && ev.message) || '');
+      window.__reviewGuard();
+    }catch(e){}
+  });
+  window.addEventListener('unhandledrejection', function(ev){
+    try{
+      window.__lastErr = String((ev && ev.reason && ev.reason.message) || ev.reason || '');
+      window.__reviewGuard();
+    }catch(e){}
+  });
+
+  function submitActive(){
+    if(state.phase !== 'playing') return;
+    if(!state.can.sealed){ toast('还没有封盖，封好后再放到订单架'); setStage('work'); return; }
+    if(!orderOnRack()){ toast('先把订单拖到下面的「订单架」，再交给客人'); return; }
+    const ev = rogueEventToday();
+    if(ev && ev.id === 'thief' && Math.random() < .5){
+      state.can = emptyCan();
+      state.selectedBatch = null;
+      saveActiveOrder();
+      renderAll();
+      setStage('work');
+      openConfirm({
+        icon: '🕵️',
+        title: '订单被偷了！',
+        copy: '「偷订单的贼」趁你转身的时候把这份罐头顺走了。<br>这一单要重做一份，客人还在等。',
+        okText: '重做一份',
+        cancelText: '',
+        onOk: () => { setStage('work'); toast('重新做一份吧'); }
+      });
+      return;
+    }
+    serveOrder();
+  }
+
+  function serveOrder(){
+    if(tutorialActive()){
+      const b = (state.batches || []).find(x => x.id === (state.can && state.can.batchId));
+      state.tutorial = state.tutorial || { seen:{} };
+      state.tutorial.servedQuality = state.tutorial.servedQuality || [];
+      if(b && b.quality) state.tutorial.servedQuality.push(b.quality);
+    }
+    if(state.phase !== 'playing') return;
+    if(state.stage !== 'desk'){
+      if(state.can.sealed) setStage('desk');
+      return;
+    }
+    if(!state.can.sealed){ toast('罐头还没封好，先去工作台'); setStage('work'); return; }
+    if(!orderOnRack()){ toast('先把订单拖到下面的「订单架」，再交给客人'); return; }
+    try{
+      computeQueue();
+      state.phase = 'serving';
+      state.pouring = false;
+      stopAllHeating();
+      setGuestMood('happy');
+      sfx.serve();
+      if(els.canWrap) els.canWrap.classList.add('serving');
+      setTimeout(() => { try { finishOrder(false); } catch(e){ window.__lastErr = String(e && (e.stack || e.message) || e); window.__reviewGuard(); } }, 680);
+    }catch(e){
+      window.__lastErr = String(e && (e.stack || e.message) || e);
+      try { finishOrder(false); } catch(e2){ window.__reviewGuard(); }
+    }
+  }
+  function stopAllHeating(){
+    state.pots.forEach(p => { if(p.status === 'heating'){ p.status = 'idle'; p.progress = 0; p.sugar = 0; p.alarmFired = false; } });
+    if(state.stage === 'kitchen') renderPots();
+  }
+  function timeoutOrder(){
+    if(state.phase !== 'playing') return;
+    state.queueInfo = null;
+    state.phase = 'serving';
+    state.pouring = false;
+    stopAllHeating();
+    setGuestMood('sad');
+    sfx.sad();
+    setTimeout(() => { try { finishOrder(true); } catch(e){ window.__lastErr = String(e && (e.stack || e.message) || e); window.__reviewGuard(); } }, 420);
+  }
+
+  function orderTip(o){
+    let pts = 0;
+    const notes = [];
+    const top = o.toppings || [];
+    const extraTops = top.filter(t => !['mint','osmanthus'].includes(t.id));
+    extraTops.forEach(t => {
+      pts += 2 + Math.max(0, (t.qty || 1) - 1);
+      notes.push(TOPPINGS[t.id] ? TOPPINGS[t.id].name : t.id);
+    });
+    top.forEach(t => {
+      if(['mint','osmanthus'].includes(t.id) && (t.qty || 1) > 1) pts += (t.qty - 1);
+    });
+    if((o.jar || 'classic') !== 'classic'){
+      pts += 2;
+      notes.push(JARS[o.jar] ? JARS[o.jar].name : o.jar);
+    }
+    const syrups = o.syrups || [];
+    const special = syrups.filter(s => s.id !== 'classic');
+    pts += special.length * 3;
+    special.forEach(s => notes.push(SYRUPS[s.id] ? SYRUPS[s.id].name : s.id));
+    if(syrups.length > 1){ pts += 2; notes.push('双糖浆'); }
+    if(o.stirred){ pts += 2; notes.push('搅拌'); }
+    if(o.boilStyle === 'separate' && syrups.length > 1){ pts += 1; notes.push('分开熬'); }
+    return { tip: pts, notes };
+  }
+
+  function scoreOrder(timedOut){
+    const c = state.can, o = state.order;
+    const goldJarUsed = (c.jar || 'classic') === 'gold';
+    const goldOrder = (o.jar || 'classic') === 'gold';
+    const goldMatches = goldJarUsed && goldOrder;
+    const counts = countPieces(c.pieces);
+    const total = c.pieces.length;
+    const need = peachTotal(o.peaches);
+    const sizeOk = c.size === o.size;
+    const jarChoice = unlockedJars().length > 1;
+    const jarOk = !jarChoice || (c.jar || 'classic') === (o.jar || 'classic');
+    const countDiff = Math.abs(total - need);
+    const sizeDiff = Math.abs(counts.large - o.peaches.large) + Math.abs(counts.small - o.peaches.small);
+    const sizeScore = sizeOk ? 6 : 0;
+    const jarScore = jarChoice ? (jarOk ? 2 : 0) : 2;
+    const countScore = countDiff === 0 ? 5 : countDiff === 1 ? 2 : 0;
+    const pieceSizeScore = sizeDiff === 0 ? 7 : Math.max(0, 7 - sizeDiff * 3.5);
+    const peachScore = countScore + pieceSizeScore;
+
+    const wantSyrups = o.syrups || [{id:'classic', ratio:100}];
+    const wantIds = wantSyrups.map(s => s.id);
+    const gotIds = SYRUP_IDS.filter(id => (c.components[id] || 0) > .5);
+    const matched = wantIds.filter(id => gotIds.includes(id));
+    const extra = gotIds.filter(id => !wantIds.includes(id)).length;
+    const usedBatches = (c.batchIds || []).map(id => state.batches.find(b => b.id === id)).filter(Boolean);
+    if(!usedBatches.length && c.batchId){ const fb = (state.batches || []).find(b => b.id === c.batchId); if(fb) usedBatches.push(fb); }
+    const batchTypes = usedBatches.map(b => b.types || ['classic']);
+    const styleOk = wantIds.length <= 1
+      ? batchTypes.every(t => t.length === 1)
+      : o.boilStyle === 'together'
+        ? batchTypes.some(t => t.length > 1)
+        : batchTypes.every(t => t.length === 1);
+    const kindScoreRaw = Math.max(0, 5 * matched.length / wantIds.length - extra * 3) + (styleOk ? 3 : 0);
+
+    const target = SUGAR[o.sugar].target, tol = (o.tol || SUGAR[o.sugar].tol) + (rogueActive() ? 1.5 * shrimpLevel('caliper') : 0);
+    const deathWant = rogueActive() && !!o.deathRequirement;
+    const gotDeath = (c.components && (c.components.death || 0) > .5);
+    const deathSyrupOk = deathWant && gotDeath;
+    let maxRatioDiff = 0;
+    if(deathWant){
+      maxRatioDiff = Math.abs((c.components.death || 0) - target);
+    }else{
+      wantSyrups.forEach(s => {
+        const want = target * s.ratio / 100;
+        maxRatioDiff = Math.max(maxRatioDiff, Math.abs((c.components[s.id] || 0) - want));
+      });
+    }
+    const ratioScoreRaw = maxRatioDiff <= tol ? 14 : Math.max(0, 14 - (maxRatioDiff - tol) * 1.15);
+    const qualityPts = usedBatches.map(b => b.quality === 'perfect' ? 15 : b.quality === 'thin' ? 7 : 0);
+    const batch = usedBatches[0] || null;
+    const boilSkipped = customActive() && customMap().steps && customMap().steps.boil === false;
+    const boilScoreRaw = boilSkipped ? 15 : (qualityPts.length ? qualityPts.reduce((a,b) => a+b, 0) / qualityPts.length : 0);
+
+    const pourDiff = Math.abs(c.syrup - target);
+    const pourScoreRaw = c.syrup <= 0 ? 0 : pourDiff <= tol ? 13 : Math.max(0, 13 - (pourDiff - tol) * 1);
+
+    // 重度抑郁症客人：只用死亡之糖才算数，用别的糖糖浆项直接作废；用对了糖浆相关分数翻倍
+    const syrupFactor = deathWant && !gotDeath ? 0 : deathSyrupOk ? 2 : 1;
+    const kindScore = deathWant ? (gotDeath ? 16 : 0) : kindScoreRaw * syrupFactor;
+    const ratioScore = ratioScoreRaw * syrupFactor;
+    const boilScore = boilScoreRaw * syrupFactor;
+    const pourScore = pourScoreRaw * syrupFactor;
+
+    const stirScore = wantIds.length > 1 ? (!!c.stirred === !!o.stirred ? 3 : 0) : 3;
+
+    const tempScore = c.temp === o.temp ? 6 : 0;
+    const wantTops = o.toppings || [], gotTops = c.toppings || [];
+    let toppingKindScore = 0, toppingQtyScore = 0;
+    if(!wantTops.length){
+      const extraSpoons = gotTops.reduce((s,t) => s + (t.qty || 1), 0);
+      toppingKindScore = gotTops.length ? Math.max(0, 10 - extraSpoons * 3) : 10;
+      toppingQtyScore = gotTops.length ? 0 : 5;
+    }else{
+      let kindHit = 0, qtyRatioSum = 0, extraId = 0;
+      wantTops.forEach(w => {
+        const got = gotTops.find(g => g.id === w.id);
+        const wantQty = w.qty || 1;
+        if(got){
+          kindHit++;
+          const diff = Math.abs((got.qty || 1) - wantQty);
+          qtyRatioSum += Math.max(0, 1 - diff / Math.max(1, wantQty));
+        }
+      });
+      extraId = gotTops.filter(g => !wantTops.some(w => w.id === g.id)).length;
+      toppingKindScore = Math.max(0, 10 * kindHit / wantTops.length - extraId * 3);
+      toppingQtyScore = 5 * qtyRatioSum / wantTops.length;
+    }
+    const toppingScore = (toppingKindScore + toppingQtyScore) * (1 + .03 * (rogueActive() ? shrimpLevel('plating') : 0));
+    const remain = Math.max(0, state.deadline - performance.now());
+    const speedScore = remain >= state.patienceMs * .5 ? 6 : remain >= state.patienceMs * .25 ? 4 : remain > 0 ? 2 : 0;
+    let baseScore;
+    if(customActive()){
+      const cm = customMap();
+      const maxMap = {size:6, jar:2, peach:12, kind:8, ratio:14, boil:15, pour:13, stir:3, temp:6, topping:15, speed:6};
+      const valMap = {size:sizeScore, jar:jarScore, peach:peachScore, kind:kindScore, ratio:ratioScore, boil:boilScore, pour:pourScore, stir:stirScore, temp:tempScore, topping:toppingScore, speed:speedScore};
+      let num = 0, den = 0;
+      Object.keys(maxMap).forEach(k => {
+        if(cm.enabled[k] === false) return;
+        const w = (cm.weights[k] != null ? cm.weights[k] : 100) / 100;
+        num += valMap[k] * w; den += maxMap[k] * w;
+      });
+      baseScore = timedOut ? 0 : Math.round(num * 100 / Math.max(1, den));
+    } else {
+      baseScore = timedOut ? 0 : Math.round(sizeScore + jarScore + peachScore + kindScore + ratioScore + boilScore + pourScore + stirScore + tempScore + toppingScore + speedScore);
+    }
+    const p = state.personality || (state.guest && state.guest.personality ? PERSONALITIES[state.guest.personality] : null);
+    const servedRecX = (state.dayGuests || [])[state.guestIndex];
+    const extraDepression = !!(servedRecX && servedRecX.extraPersonality === 'depression');
+    let score = baseScore;
+    if(!timedOut && p){
+      if(p.id === 'generous') score = Math.min(100, Math.round(baseScore + 5 + (100 - baseScore) * .12));
+      else if(p.id === 'strict') score = Math.max(0, Math.round(baseScore - (baseScore < 100 ? 4 : 0)));
+      else if(p.id === 'irritable') score = Math.max(0, Math.round(100 - (100 - baseScore) * 1.75));
+    }
+    let pDelta = score - baseScore;
+    if(rogueActive() && pDelta < 0 && shrimpLevel('pleaser')) pDelta = pDelta * (1 - .1 * shrimpLevel('pleaser'));
+    const dg = (state.dayGuests || [])[state.guestIndex];
+    const queueBonus = (!timedOut && state.queueInfo) ? (state.queueInfo.bonus || 0) : 0;
+    const queuePenalty = (!timedOut && dg) ? (dg.queuePenalty || 0) : 0;
+    const queueDelta = queueBonus - queuePenalty;
+    if(!timedOut && queueDelta) score = clamp(Math.round(score + queueDelta), 0, 100);
+    if(rogueActive() && !timedOut){
+      score += 4 * shrimpLevel('goodReview');
+      const ev = rogueEventToday();
+      if(ev && ev.id === 'picky' && Math.random() < .5) score = Math.min(score, 45);
+      if(state.rogue.cashbackReady){
+        state.rogue.cashbackReady = false;
+        score = Math.max(80, score);
+        toast('好评返现生效：本单至少 80 分');
+      }else if(score < 80 && (state.rogue.items.cashback || 0) > 0){
+        state.rogue.items.cashback -= 1;
+        score = 80;
+        toast('好评返现福利生效：本单按 80 分结算');
+      }
+    }
+    const maxScore = rogueActive() ? rogueMaxScore() : 100;
+    score = clamp(Math.round(score), 0, maxScore);
+    let deathSyrupPct = 0, deathSyrupBonus = 0;
+    if(!timedOut && deathSyrupOk){
+      deathSyrupPct = Math.round((10 + Math.random() * 10));
+      deathSyrupBonus = Math.max(1, Math.round(score * deathSyrupPct / 100));
+      score = Math.min(maxScore + 40, score + deathSyrupBonus);
+    }
+    const perfect = !timedOut && score >= maxScore;
+    const stars = score >= 90 ? 3 : score >= 70 ? 2 : score >= 45 ? 1 : 0;
+    const tipInfo = orderTip(o);
+    // 基础小费 = 客人按评分给出的那一笔小费；加算 = 订单复杂度额外给的小费
+    const scoreTip = timedOut ? 0 : 8 + Math.round(score * .12) + (perfect ? 5 : 0);
+    const addTip = timedOut ? 0 : tipInfo.tip;
+    const tipBase = scoreTip + addTip;
+    const guestRecNow = (state.dayGuests || []).find(g => g.index === state.guestIndex);
+    const depEaterNow = !!(guestRecNow && (guestRecNow.extraPersonality === 'depression' || (guestRecNow.personality && guestRecNow.personality.id === 'depression')));
+    const deathUsed = rogueActive() && !timedOut && (c.components && (c.components.death || 0) > .5);
+    // 「重度抑郁症」客人吃死亡之糖只有 20% 触发吞噬，其余正常出餐
+    const deathHit = deathUsed && (!depEaterNow || Math.random() < .20);
+
+    const tipLines = [];
+    let tipMul = 1;
+    const mulLines = [];
+    if(tipBase > 0){
+      tipLines.push({sec:'基础小费'});
+      tipLines.push({k:`客人评分小费（${score} 分）`, v:`+${scoreTip}`});
+      if(addTip){
+        tipLines.push({sec:'加算小费'});
+        tipLines.push({k:'复杂订单 / 加料加算', v:`+${addTip}`});
+      }
+      tipLines.push({k:'小计（基础 + 加算）', v:`+${tipBase}`, sub:true});
+    }
+    if(rogueActive() && !timedOut){
+      if(deathHit){
+        mulLines.push({k:'死亡之糖', v:'×5'});
+        tipMul *= 5;
+      }
+      if(goldMatches){
+        mulLines.push({k:'大金罐', v:'+20%'});
+        tipMul *= 1.2;
+      }
+      const weekF = rogueTipWeekFactor();
+      if(weekF > 1.001){
+        mulLines.push({k:`第${state.week}周小费成长`, v:`×${weekF.toFixed(2)}`});
+        tipMul *= weekF;
+      }
+      const rateLv = shrimpLevel('rateSurge');
+      if(rateLv){
+        mulLines.push({k:'汇率暴涨', v:'+' + (rateLv * 5) + '%'});
+        tipMul *= 1 + .05 * rateLv;
+      }
+      const fortuneLv = shrimpLevel('fortune');
+      if(fortuneLv){
+        mulLines.push({k:`来财 Lv.${fortuneLv}`, v:`+${fortuneLv * 7}%`});
+        tipMul *= 1 + .07 * fortuneLv;
+      }
+      const todayEvent = rogueEventToday();
+      if(todayEvent && todayEvent.id === 'goldRush'){
+        mulLines.push({k:`${todayEvent.name}事件`, v:'×3'});
+        tipMul *= 3;
+      }
+      const labLv = shrimpLevel('lab');
+      if(labLv && (o.syrups || []).length > 1){
+        mulLines.push({k:`实验虾 Lv.${labLv} · 双糖浆`, v:`+${labLv * 30}%`});
+        tipMul *= 1 + .3 * labLv;
+      }
+      // 奶鼠：不是第一个被服务的客人时，会按 30%~100% 偷走这一单的小费
+      const naishuSteal = (state.guest && state.guest.kind === 'naishu' && (state.reviews || []).length > 0)
+        ? (.3 + Math.random() * .7) : 0;
+      if(naishuSteal > 0){
+        const pct = Math.round(naishuSteal * 100);
+        mulLines.push({k:`奶鼠偷小费（${pct}%）`, v:`-${pct}%`});
+        tipMul *= (1 - naishuSteal);
+      }
+    }
+    const coinMul = (state.guest && state.guest.coin) || 1;
+    if(tipBase > 0 && coinMul !== 1){
+      mulLines.push({k:`${state.guest.name} 的小费倍率`, v:`×${coinMul}`});
+      tipMul *= coinMul;
+    }
+    const tipCoins = Math.round(tipBase * tipMul);
+    if(mulLines.length){
+      tipLines.push({sec:'乘算加成'});
+      mulLines.forEach(l => tipLines.push(l));
+    }
+    if(tipCoins > 0){
+      tipLines.push({sec:'结算'});
+      tipLines.push({k:'小费合计', v:`+${tipCoins}`, total:true});
+    }
+    let coins = tipCoins;
+    if(rogueActive()){
+      coins = Math.round(coins * rogueCoinMultiplier());
+      if(shrimpLevel('redEye') && (state.guest.tier === 'elite' || state.guest.tier === 'boss')) coins *= 5;
+    }
+    const details = [];
+    details.push({ok:sizeScore===6, label:'罐型', text: goldMatches ? '大金罐 ✓' : sizeOk ? `${SIZES[c.size].name} ✓` : `要${SIZES[o.size].name}${c.size ? ` · 用了${SIZES[c.size].name}` : ''}`});
+    if(jarChoice) details.push({ok:jarOk, label:'罐子', text: goldMatches ? '大金罐 ✓' : jarOk ? `${JARS[c.jar || 'classic'].name} ✓` : `要${JARS[o.jar || 'classic'].name}`});
+    details.push({ok:peachScore===12, label:'黄桃', text: `${counts.large}大${counts.small}小 · 共${total}块${peachScore===12 ? ' ✓' : ` / 要${peachText(o.peaches)}`}`});
+    const needsDeathOnly = deathWant && !gotDeath;
+    details.push({ok:kindScore>=7.5, label:'糖浆种类', text: deathWant ? (gotDeath ? `死亡之糖 ✓ · 得分×2` : '客人不满足你的选择') : (c.syrup > 0 ? `${gotIds.map(id => SYRUPS[id].name).join('+') || '空'}${kindScore>=7.5 ? ' ✓' : ` / 要${wantIds.map(id => SYRUPS[id].name).join('+')}${wantIds.length > 1 ? (o.boilStyle === 'together' ? '·一起熬' : '·分开熬') : ''}`}` : '还没倒糖浆')});
+    const ratioText = deathWant
+      ? (gotDeath ? `死亡之糖 ${Math.round(c.components.death || 0)}/${Math.round(target)}% · 得分×2` : '客人不满足你的选择')
+      : wantSyrups.map(s => `${SYRUPS[s.id].name} ${Math.round(c.components[s.id] || 0)}/${Math.round(target * s.ratio / 100)}%`).join(' · ');
+    details.push({ok:ratioScore>=13, label:'糖浆比例', text: ratioText});
+    const boilText = boilSkipped ? '无需熬糖 ✓（大锅标准糖浆）' : (usedBatches.length ? usedBatches.map(b => `${(b.types||['classic']).map(id=>SYRUPS[id].name).join('+')}：${b.quality === 'perfect' ? '完美' : b.quality === 'thin' ? '偏生' : '焦苦'}`).join(' / ') : '没有可用糖水');
+    details.push({ok:boilScore>=14, label:'熬糖火候', text: needsDeathOnly ? '客人不满足你的选择' : boilText});
+    details.push({ok:pourScore>=12, label:'倒糖量', text: needsDeathOnly ? '客人不满足你的选择' : `总 ${Math.round(c.syrup)}% / 目标 ${Math.round(target)}%`});
+    details.push({ok:stirScore===3, label:'搅拌', text: wantIds.length > 1 ? (c.stirred ? '已搅拌 ✓' : '分层') + (o.stirred === !!c.stirred ? ' ✓' : o.stirred ? ' / 要搅拌' : ' / 要分层') : '单糖浆 ✓'});
+    details.push({ok:tempScore===6, label:'温度', text: c.temp ? `${TEMPS[c.temp]}${tempScore===6 ? ' ✓' : ` / 要${TEMPS[o.temp]}`}` : '没选温度'});
+    details.push({ok:toppingScore>=13.5, label:'加料', text: c.toppingTouched ? `${toppingText(gotTops)}${toppingScore>=13.5 ? ' ✓' : ` / 要${toppingText(wantTops)}`}` : '没选加料'});
+    if(deathSyrupBonus > 0){
+      details.push({ok:true, label:'死亡之糖', text:`糖浆加成 +${deathSyrupPct}%（+${deathSyrupBonus} 分）`});
+    }
+    if(queueDelta){
+      details.push({ok:queueDelta > 0, label:'排队', text: queueDelta > 0 ? `提前服务 +${queueDelta}` : `被插队 ${queueDelta}`});
+    }
+    details.push({ok:speedScore===6, label:'出餐速度', text: timedOut ? '超时了…' : speedScore===6 ? '手速超快' : speedScore===4 ? '稍微有点慢' : '客人等急了'});
+    return {score, baseScore, pDelta, queueBonus, queuePenalty, queueDelta, personality:p, stars, perfect, coins, tip:tipCoins, tipBase, scoreTip, addTip, tipInfoTip:tipInfo.tip, tipLines, tipNotes:tipInfo.notes, details, timedOut, death:deathHit, depEater:depEaterNow, deathSyrupPct, deathSyrupBonus, extraDepression, guest:state.guest};
+  }
+
+  function commentFor(result){
+    const p = result.personality;
+    if(result.timedOut){
+      if(p && p.id === 'patient') return '我已经很有耐心地等了……可罐头还是没来，下次要快一点点哦。';
+      if(p && p.id === 'irritable') return '等这么久？我现在很不高兴。';
+      return `等太久啦，我的黄桃罐头还没好吗？下次要快一点哦……`;
+    }
+    if(result.perfect) return result.guest.happy;
+    if(p && p.id === 'generous' && result.score >= 65) return '已经很不错啦！这点小差别我不介意，好吃最重要～';
+    if(p && p.id === 'irritable' && result.score < 80) return '就这一点小错，已经够让我生气了。';
+    if(p && p.id === 'strict' && result.score < 90) return '细节还不够。我的订单上写得很清楚。';
+    if(result.score >= 80) return '整体很不错！如果细节再准一点，就是满分罐头啦～';
+    if(result.score >= 55) return '味道还行，不过有些地方和订单不太一样，下次注意哦。';
+    return '这次的罐头和我想的不太一样……再仔细看看订单吧。';
+  }
+
+  function finishOrder(timedOut){
+    if(state.phase === 'reviewing') return;
+    state.phase = 'reviewing';
+    state.pouring = false;
+    stopAllHeating();
+    let result;
+    try{
+      result = scoreOrder(timedOut);
+    }catch(e){
+      window.__lastErr = String(e && (e.stack || e.message) || e);
+      result = { score:0, stars:0, coins:0, details:[{ok:false,label:'结算',text:'评分数据缺失，本单按 0 分处理'}], comment:'结算出现异常，本单按 0 分处理', perfect:false, timedOut:!!timedOut, guest:(state.guest||{name:'客人',tier:'normal'}), tipLines:[], death:false };
+    }
+    result.comment = commentFor(result);
+    const servedDg = (state.dayGuests || [])[state.guestIndex];
+    if(servedDg) servedDg.served = true;
+    const servedRec = (state.orders || []).find(o => o.id === state.activeOrderId);
+    if(servedRec){ servedRec.served = true; servedRec.result = result; }
+    state.queueInfo = null;
+    state.rackOrderId = null;
+    state.scoreResult = result;
+    if(result.death){
+      // 触发吞噬时，排队客人全部被吓跑（抑郁客人只有 20% 触发，见 scoreOrder）
+      result.scaredOthers = true;
+      (state.dayGuests || []).forEach(g => { if(!g.served && g.index !== state.guestIndex) g.scared = true; });
+      (state.orders || []).forEach(o => { if(!o.served) o.served = true; });
+    }
+    state.reviews.push(result);
+    state.dayStars += result.stars;
+    state.dayCoins += result.coins;
+    addWallet(result.coins);
+    state.runEarned += result.coins;
+    // 肉鸽：addWallet 里已经把本单金币计入 weekEarned，这里只补无尽/普通模式
+    if(!rogueActive()) state.weekEarned += result.coins;
+    if(state.mode === 'custom' && state.customStats){
+      state.customStats.served = (state.customStats.served || 0) + 1;
+      if(result.score >= 100) state.customStats.perfect = (state.customStats.perfect || 0) + 1;
+      state.customStats.coins = state.weekEarned;
+    }
+    try { state.tipJar = Math.max(0, (state.tipJar || 0) + (result.tip || result.coins || 0)); } catch(e){}
+    saveGame();
+    if(!result.death) renderReview(result);
+    updateHud();
+    updateTabBadges();
+    renderOrderStack();
+    cueMusic();
+    tutorialAfterServe();
+    if(result.death){
+      state.phase = 'reviewing';
+      renderReview(result);
+      return;
+    }
+  }
+
+  function jarTotal(){
+    try {
+      if(typeof rogueActive === 'function' && rogueActive()) return Math.max(0, Math.round(state.rogue && state.rogue.coins || 0));
+    } catch(e){}
+    return Math.max(0, Math.round(state.tipJar || 0));
+  }
+  let lastTipShown = 0;
+  function piggySay(el, amount){
+    if(!el) return;
+    el.classList.remove('bounce');
+    void el.offsetWidth;
+    el.classList.add('bounce');
+    const tip = el.querySelector('.piggy-tip');
+    if(tip){
+      tip.classList.add('bubble');
+      tip.textContent = '现在有 ' + Math.max(0, Math.round(amount)) + ' 块钱';
+      tip.classList.add('show');
+      clearTimeout(el.__tipTimer);
+      el.__tipTimer = setTimeout(() => tip.classList.remove('show'), 3000);
+    }
+  }
+  function tipPiggyShow(amount){
+    const el = document.getElementById('tipPiggy');
+    if(!el) return;
+    lastTipShown = amount;
+    piggySay(el, amount);
+  }
+  function reviewPiggyPlay(coins){
+    const el = document.getElementById('reviewPiggy');
+    if(!el) return;
+    el.classList.remove('drop','bounce');
+    el.querySelectorAll('.piggy-coin.extra').forEach(n => n.remove());
+    void el.offsetWidth;
+    const coin = el.querySelector('.piggy-coin');
+    if(coin){
+      coin.style.animationDelay = '0ms';
+      for(let i=1;i<4;i++){
+        const c = coin.cloneNode(true);
+        c.classList.add('extra');
+        c.style.animationDelay = (i * 190) + 'ms';
+        el.appendChild(c);
+      }
+    }
+    el.classList.add('drop','bounce');
+    const tip = el.querySelector('.piggy-tip');
+    if(tip){
+      tip.textContent = '+' + coins;
+      tip.classList.add('show');
+      clearTimeout(el.__tipTimer);
+      el.__tipTimer = setTimeout(() => tip.classList.remove('show'), 2600);
+    }
+    setTimeout(() => piggySay(el, coins), 520);
+    setTimeout(() => { el.classList.remove('bounce'); el.querySelectorAll('.piggy-coin.extra').forEach(n => n.remove()); }, 2400);
+  }
+    function renderReview(result){
+    try { const jv = (typeof jarTotal === 'function') ? jarTotal() : (result.coins || 0); reviewPiggyPlay(jv || 0); lastTipShown = jv || 0; } catch(e){}
+    const starsHtml = [0,1,2].map(i => `<svg class="icon star ${i < result.stars ? 'on' : ''}" style="transition-delay:${i*.08}s"><use href="#i-star"></use></svg>`).join('');
+    els.reviewStars.innerHTML = starsHtml;
+    els.reviewTitle.textContent = result.death ? '客人被死亡之糖吞噬了'
+      : result.timedOut ? '客人等不及了…' : result.perfect ? '完美出餐！' : result.stars === 3 ? '客人超满意！' : result.stars === 2 ? '还不错哦～' : result.stars === 1 ? '勉强过关…' : '客人有点失望…';
+    els.reviewScore.textContent = result.score;
+    if(els.reviewSpecial){
+      const g = result.guest;
+      els.reviewSpecial.hidden = !g.badge;
+      if(g.badge){
+        els.reviewSpecial.className = `review-special ${g.tier}`;
+        els.reviewSpecial.textContent = g.tier === 'boss' ? '周末 BOSS 挑战 · 奖励 ×2' : '精英客人挑战 · 奖励 ×1.35';
+      }
+    }
+    if(els.reviewPersonality){
+      const p = result.personality;
+      els.reviewPersonality.hidden = !p;
+      if(p){
+        els.reviewPersonality.style.setProperty('--pc', p.color);
+        const delta = result.pDelta ? ` · 性格修正 ${result.pDelta > 0 ? '+' : ''}${result.pDelta}` : '';
+        els.reviewPersonality.innerHTML = `<span class="personality-tag" style="--pc:${p.color}">${p.icon} ${p.name}</span>${result.extraDepression ? personalityTag(PERSONALITIES.depression) : ''}<small>${personalityWaitText(p)}${delta}</small>`;
+      }
+    }
+    els.reviewQuote.innerHTML = result.death
+      ? (result.depEater
+        ? (result.scaredOthers
+          ? `<b>${result.guest.name}：</b>……终于尝到死亡之糖了。我也该走了。后排的客人被吓得四散逃跑，今天大概是没法继续营业了。`
+          : `<b>${result.guest.name}：</b>……终于尝到死亡之糖了。我也该走了。奇怪，其他客人居然见怪不怪，没有跑。`)
+        : `<b>${result.guest.name}：</b>这罐子里……是死亡之糖？！客人当场倒下，排队等着的客人全都被吓跑了。`)
+      : `<b>${result.guest.name}：</b>${result.comment}`;
+    els.reviewCoins.textContent = result.coins;
+    if(els.reviewTip){
+      const tip = Number(result.tip) || 0;
+      els.reviewTip.hidden = !tip;
+      if(tip){
+        const lines = result.tipLines || [];
+        els.reviewTip.innerHTML = `<div class="tip-head"><span>小费加成明细 · 奶蛙的小费</span><b>+${tip}</b></div>${
+          lines.length ? `<div class="tip-lines">${lines.map(l => l.sec
+            ? `<div class="tip-sec">${l.sec}</div>`
+            : `<div class="tip-line${l.total ? ' total' : l.sub ? ' sub' : ''}"><span>${l.k}</span><em>${l.v}</em></div>`).join('')}</div>` : ''}`;
+      }
+    }
+    if(els.reviewQueue){
+      const q = Number(result.queueDelta) || 0;
+      els.reviewQueue.hidden = !q;
+      els.reviewQueue.classList.toggle('bad', q < 0);
+      if(q) els.reviewQueue.innerHTML = `<span>${q > 0 ? '提前服务，客人很满意' : '被插队，客人不太高兴'}</span><b>${q > 0 ? '+' : ''}${q}</b>`;
+    }
+    els.perfectStamp.style.display = result.perfect ? 'grid' : 'none';
+    let reviewDetails = result.details;
+    if(customActive()){
+      try{
+      const cm = customMap();
+      const okLabels = new Set(CM_WEIGHT_KEYS.filter(k => cm.enabled[k] !== false).map(k => CM_WEIGHT_LABEL[k]));
+      reviewDetails = reviewDetails.filter(d => okLabels.has(d.label));
+      }catch(e){ window.__lastErr = String(e && e.message || e); }
+    }
+    els.scoreGrid.innerHTML = reviewDetails.map(d => `
+      <div class="score-item ${d.ok ? 'ok' : 'bad'}">
+        <span class="status">${icon(d.ok ? 'check' : 'x')}</span>
+        <span class="copy"><b>${d.label}</b><small>${d.text}</small></span>
+      </div>`).join('');
+    const allServed = (state.dayGuests || []).every(d => d.served);
+    const hasAcceptedNext = (state.orders || []).some(o => !o.served);
+    const deathNext = !!result.death && !!result.scaredOthers;
+    els.nextBtn.innerHTML = deathNext ? `提前进入下一天${icon('arrow')}` : allServed ? `查看今日结算${icon('arrow')}` : hasAcceptedNext ? `下一单${icon('arrow')}` : `去餐厅接单${icon('arrow')}`;
+    if(deathNext) els.nextBtn.dataset.death = '1'; else delete els.nextBtn.dataset.death;
+    els.reviewOverlay.classList.add('show');
+    els.reviewOverlay.setAttribute('aria-hidden','false');
+    setTimeout(() => {
+      Array.from(els.reviewStars.querySelectorAll('.star.on')).forEach((star,i) => {
+        star.style.animationDelay = (i * .1) + 's';
+        star.classList.add('pop');
+      });
+    }, 160);
+    if(result.stars >= 2) sfx.star(); else sfx.sad();
+  }
+
+  function nextGuest(){
+    if(state.phase !== 'reviewing') return;
+    els.reviewOverlay.classList.remove('show');
+    els.reviewOverlay.setAttribute('aria-hidden','true');
+    sfx.tap();
+    if(els.nextBtn.dataset.death === '1'){
+      delete els.nextBtn.dataset.death;
+      setTimeout(() => showSummary(), 240);
+      return;
+    }
+    if((state.dayGuests || []).every(d => d.served)){
+      if(rogueActive() && (state.day % WEEK_DAYS === 5 || state.day % WEEK_DAYS === 0)){
+        const kind = state.day % WEEK_DAYS === 0 ? 'boss' : 'elite';
+        setTimeout(() => showShrimpChoice(kind), 300);
+      }else{
+        setTimeout(showSummary, 300);
+      }
+      return;
+    }
+    const nextOrder = (state.orders || []).filter(o => !o.served).sort((a,b) => a.guestIndex - b.guestIndex)[0];
+    if(nextOrder){
+      activateOrder(nextOrder.id);
+      return;
+    }
+    const nextDg = (state.dayGuests || []).filter(d => !d.served).sort((a,b) => a.index - b.index)[0];
+    if(nextDg){
+      if(nextDg.accepted){
+        activateOrder(nextDg.orderId);
+      }else{
+        acceptGuest(nextDg.index, {auto:true});
+        toast(`已自动接待下一位：${nextDg.guest.name}`);
+      }
+      return;
+    }
+    state.phase = 'playing';
+    setStage('restaurant');
+  }
+
+  function summaryKindForDay(){
+    if(state.mode === 'tutorial' && state.day >= TUTORIAL_DAYS) return 'tutorialDone';
+    if(state.mode === 'normal' && state.day >= NORMAL_DAYS) return 'runEnd';
+    if(state.mode === 'custom') return state.day >= NORMAL_DAYS ? 'runEnd' : 'day';
+    if(state.mode === 'rogue' && state.day % WEEK_DAYS === 0){
+      return (state.devMode || state.weekEarned >= state.weekTarget) ? 'weekPass' : 'gameOver';
+    }
+    if(state.mode === 'endless' && state.day % WEEK_DAYS === 0){
+      return (state.devMode || state.weekEarned >= state.weekTarget) ? 'weekPass' : 'gameOver';
+    }
+    return 'day';
+  }
+
+  function showSummary(){
+    state.phase = 'summary';
+    state.pouring = false;
+    const kind = summaryKindForDay();
+    state.summaryKind = kind;
+    const total = state.reviews.length;
+    const stars = state.reviews.reduce((s,r) => s + r.stars, 0);
+    const perfect = state.reviews.filter(r => r.perfect).length;
+    const avg = total ? Math.round(state.reviews.reduce((s,r) => s + r.score, 0) / total) : 0;
+    const isEnd = kind === 'runEnd' || (kind === 'gameOver' && state.mode !== 'rogue');
+    awardProfile(kind);
+    const rogueEnd = state.mode === 'rogue' && kind === 'gameOver';
+    if((isEnd || rogueEnd) && activeProfile){ activeProfile.run = null; saveProfiles(); }
+    let ribbon = '今日营业结束';
+    let title = `第 ${state.day} 天 · 打烊啦`;
+    let sub = '';
+    let comment = '';
+
+    if(tutorialActive() && kind === 'tutorialDone'){
+      ribbon = '新手模式 · 通关';
+      title = '7 天教学完成！';
+      sub = `7 天一共赚到 <b>${state.runEarned}</b> 金币 · 余额 ${state.coins}`;
+      comment = `<b>恭喜通关新手模式！</b>你已经学会了出餐、性格、插队、复杂订单、精英日和混合糖浆。去普通模式开一家真正的小店吧。`;
+    }else if(tutorialActive()){
+      const sc = tutorialScript() || {};
+      ribbon = `新手第 ${state.day} / ${TUTORIAL_DAYS} 天`;
+      title = `第 ${state.day} 天 · ${sc.title || '打烊啦'}`;
+      sub = `今日收入 <b>${state.dayCoins}</b> 金币 · 累计 ${state.runEarned}`;
+      comment = sc.intro && sc.intro[0] ? sc.intro[0].text : '按自己的节奏来，明天继续。';
+    }else if(state.mode === 'rogue' && kind === 'weekPass'){
+      ribbon = `肉鸽第 ${state.week} 周达标`;
+      title = `第 ${state.week} 周 · 活下来了！`;
+      sub = `本周金币 <b>${state.weekEarned}</b> / ${state.weekTarget} · 下周目标 ${state.rogue.nextTarget || rogueGrowthTarget(state.weekTarget)}`;
+      comment = `<b>第 ${state.week} 周达标！</b>辣虾和随机事件都挺过来了。下周目标更高，肉鸽夜市也在等你。`;
+    }else if(state.mode === 'rogue' && kind === 'gameOver'){
+      ribbon = '肉鸽周指标失败';
+      title = `第 ${state.week} 周 · 肉鸽结束`;
+      sub = `本周只赚到 <b>${state.weekEarned}</b> / ${state.weekTarget} 金币`;
+      comment = `<b>指标没完成，本局肉鸽结束。</b>肉鸽模式的辣虾、道具和金币都会重置，下一局重新搭配。`;
+    }else if(kind === 'runEnd'){
+      ribbon = `${NORMAL_DAYS} 天周目完成`;
+      title = '周目结束 · 打烊啦';
+      sub = `${NORMAL_DAYS} 天总营业额 <b>${state.runEarned}</b> 金币 · 当前余额 ${state.coins}`;
+      comment = `<b>${NORMAL_DAYS} 天周目完成！</b>本轮一共赚到 ${state.runEarned} 金币。普通模式的乐趣就是不断刷新自己的最高营业额，再开一局试试能不能更上一层楼！`;
+      if(state.runEarned > state.bestNormal){ state.bestNormal = state.runEarned; saveGame(); }
+    }else if(kind === 'weekPass'){
+      ribbon = `第 ${state.week} 周达标`;
+      title = `第 ${state.week} 周 · 继续营业！`;
+      sub = `本周业绩 <b>${state.weekEarned}</b> / ${state.weekTarget} 金币 · 下周目标 ${weekTargetFor(state.week+1)}`;
+      comment = `<b>第 ${state.week} 周业绩达标！</b>本周赚到 ${state.weekEarned} 金币，奶蛙的小店暂时保住了。下周目标会更高，记得先囤好糖水和升级厨房。`;
+      if(state.week > state.bestEndless){ state.bestEndless = state.week; saveGame(); }
+    }else if(kind === 'gameOver'){
+      ribbon = '本周业绩未达标';
+      title = `第 ${state.week} 周 · 营业失败`;
+      sub = `本周只赚到 <b>${state.weekEarned}</b> / ${state.weekTarget} 金币`;
+      comment = `<b>业绩没达标，奶蛙的店被房东收走了……</b>本周目标 ${state.weekTarget} 金币，只完成了 ${state.weekEarned}。再试一次，优先保证每单的糖水和火候，别让客人等太久。`;
+    }else{
+      sub = state.mode === 'rogue'
+        ? `肉鸽第 ${state.week} 周 · 第 ${state.day} 天 · 本周 <b>${state.weekEarned}</b> / ${state.weekTarget} 金币`
+        : state.mode === 'normal'
+        ? `第 ${state.day} / ${NORMAL_DAYS} 天 · 本轮累计 <b>${state.runEarned}</b> 金币`
+        : `第 ${state.week} 周 · 本周业绩 <b>${state.weekEarned}</b> / ${state.weekTarget}`;
+      if(state.mode === 'rogue') title = `肉鸽第 ${state.week} 周 · 第 ${state.day} 天`;
+      if(stars >= 9) comment = '<b>奶蛙今天大成功！</b>三位客人都给出了满星评价，黄桃罐头店的招牌越来越亮啦！';
+      else if(stars >= 7) comment = `<b>奶蛙辛苦啦！</b>今天拿到了 ${stars} 颗星，客人们都很喜欢你的黄桃罐头。`;
+      else if(stars >= 4) comment = `<b>还不错哦～</b>再仔细看看订单，把糖水和加料都配对，客人会更开心。`;
+      else comment = `<b>明天继续加油！</b>先看清订单再动手，奶蛙一定能做出完美的黄桃罐头。`;
+    }
+
+
+    if(state.mode === 'custom' && (state.day % customWeekDays()) === 0){
+      const list = customTasks();
+      if(list.length){
+        const doneCnt = list.filter(t => t.check()).length;
+        const allDone = doneCnt === list.length;
+        const reward = allDone ? list.length * 250 : 0;
+        if(allDone && state.customWeekRewarded !== state.week){
+          state.customWeekRewarded = state.week;
+          addWallet(reward);
+        }
+        sub += ` · 周任务 <b>${doneCnt}/${list.length}</b>`;
+        comment += allDone
+          ? `<br><b>本周任务全部完成！</b>额外奖励 +${reward} 金币，已进钱包。`
+          : `<br>本周任务还差 ${list.length - doneCnt} 条，下周一自动刷新。`;
+        els.summaryCoins.textContent = state.dayCoins;
+      }
+    }
+    els.summaryRibbon.textContent = ribbon;
+    els.summaryTitle.textContent = title;
+    els.summarySub.innerHTML = sub;
+    els.summaryStars.textContent = stars;
+    if(els.summaryStarsMax){
+      const maxStars = tutorialActive() && state.dayGuests ? state.dayGuests.length * 3 : GUEST_COUNT * 3;
+      els.summaryStarsMax.textContent = `/ ${Math.max(3, maxStars)}`;
+    }
+    els.summaryCoins.textContent = kind === 'runEnd' ? state.runEarned : (kind === 'weekPass' || kind === 'gameOver') ? state.weekEarned : state.dayCoins;
+    els.summaryCoinsLabel.textContent = kind === 'runEnd' ? '本轮营业额' : (kind === 'weekPass' || kind === 'gameOver') ? '本周收入' : '今日收入';
+    els.summaryPerfect.textContent = perfect;
+    els.summaryAvg.textContent = avg;
+    els.summaryComment.innerHTML = comment;
+    els.summaryBest.textContent = tutorialActive()
+      ? `7 天累计：${state.runEarned || 0} 金币 · 余额 ${state.coins || 0}`
+      : state.mode === 'custom'
+      ? `自定义地图：${(customMap() || {}).name || '未命名'}${(customMap() || {}).author ? ' · ' + customMap().author : ''}`
+      : state.mode === 'normal'
+      ? `最佳周目：${state.bestNormal || 0} 金币`
+      : `最远纪录：第 ${state.bestEndless || 0} 周`;
+    const tutorialDone = kind === 'tutorialDone';
+    const shopLocked = tutorialActive() && state.day < 4;
+    els.shopBtn.hidden = isEnd || rogueEnd || shopLocked || tutorialDone;
+    els.shopBtn.style.display = (isEnd || rogueEnd || shopLocked || tutorialDone) ? 'none' : '';
+    els.shopBtn.innerHTML = state.mode === 'rogue' ? `逛肉鸽夜市${icon('arrow')}` : `逛金币商店${icon('arrow')}`;
+    if(els.summaryPauseBtn) els.summaryPauseBtn.style.display = (!isEnd && !rogueEnd && !tutorialDone) ? '' : 'none';
+    if(els.summaryEarlyBtn) els.summaryEarlyBtn.style.display = (isEnd || rogueEnd || tutorialDone || kind === 'gameOver') ? 'none' : '';
+    els.homeBtn.style.display = (isEnd || rogueEnd || tutorialDone) ? '' : 'none';
+    if(els.summaryRankBtn){
+      els.summaryRankBtn.style.display = (kind === 'gameOver') ? '' : 'none';
+      if(kind === 'gameOver') renderLeaderboard(state.mode === 'rogue' ? 'rogue' : 'endless');
+    }
+    els.replayBtn.className = (isEnd || rogueEnd) ? 'primary-btn' : 'ghost-btn';    els.replayBtn.innerHTML = kind === 'tutorialDone' ? `重新体验新手模式${icon('arrow')}`
+      : kind === 'runEnd' ? `再开一局普通模式${icon('arrow')}`
+      : rogueEnd ? `重新挑战肉鸽模式${icon('arrow')}`
+      : kind === 'gameOver' ? `重新挑战无尽模式${icon('arrow')}`
+      : kind === 'weekPass' ? `开始第 ${state.week + 1} 周${icon('arrow')}`
+      : tutorialActive() ? `开始第 ${state.day + 1} 天${icon('arrow')}`
+      : `直接开始下一天`;
+    els.summaryOverlay.classList.add('show');
+    els.summaryOverlay.setAttribute('aria-hidden','false');
+    if(tutorialActive()){
+      state.tutorialQueue = [];
+      closeTutorialTip();
+    }
+    if(tutorialActive() && state.day === 4) setTimeout(() => tutorialTip('d4-shop', '金币商店开门了', '打烊结算时点「逛金币商店」，可以买加料、糖浆配方和厨房升级。今天先买一样试试。'), 700);
+    if(tutorialActive() && kind === 'tutorialDone'){ activeProfile && (activeProfile.tutorialDone = true); saveProfiles(); }
+    applyCharSkin();
+    playBellyLaugh();
+    spawnConfetti(kind === 'gameOver' ? 8 : stars >= 7 ? 28 : 14);
+    if(kind === 'gameOver') sfx.sad(); else if(stars >= 7 || kind !== 'day') sfx.star(); else sfx.coin();
+    cueMusic();
+  }
+  function spawnConfetti(count){
+    const colors = ['#FFD23F','#EF6758','#4C9D69','#FFF0C0','#FF9B42','#7EB3E4'];
+    els.confetti.innerHTML = '';
+    for(let i=0;i<count;i++){
+      const s = document.createElement('i');
+      s.style.cssText = `position:absolute;left:${Math.random()*100}%;top:-16px;width:${5+Math.random()*5}px;height:${8+Math.random()*8}px;background:${colors[i%colors.length]};transform:rotate(${Math.random()*360}deg);opacity:${.55+Math.random()*.4};animation:confettiFall ${2.4+Math.random()*2}s ${Math.random()*.8}s linear forwards;border-radius:2px;`;
+      els.confetti.appendChild(s);
+    }
+  }
+
+  function startNextDay(){
+    state.day += 1;
+    if(tutorialActive()){
+      state.tutorialQueue = [];
+      if(els.tutorialOverlay){ els.tutorialOverlay.classList.remove('show'); els.tutorialOverlay.setAttribute('aria-hidden','true'); }
+    }
+    state.dayCoins = 0;
+    state.dayStars = 0;
+    state.reviews = [];
+    state.guestIndex = 0;
+    state.bowl = {large:0, small:0};
+    state.stock = Infinity;
+    state.batches = [];
+    state.selectedBatch = null;
+    state.pots = makePots();
+    batchSeq = 0;
+    if(state.mode === 'endless' && (state.day - 1) % WEEK_DAYS === 0){
+      state.week = Math.ceil(state.day / WEEK_DAYS);
+      state.weekEarned = 0;
+      state.weekTarget = weekTargetFor(state.week);
+    }
+    if(state.mode === 'custom' && (state.day - 1) % customWeekDays() === 0){
+      state.week = Math.floor((state.day - 1) / customWeekDays()) + 1;
+      state.weekEarned = 0;
+      state.customStats = { coins: 0, wideJar: 0, honey: 0, mint: 0, perfect: 0, served: 0 };
+    }
+    if(state.mode === 'rogue'){
+      state.week = Math.ceil(state.day / WEEK_DAYS);
+      state.rogue.shopStock = makeRogueShopStock();
+      state.rogue.boughtToday = {};
+      if(state.rogue.items && state.rogue.items.sugarOwl && Number(state.rogue.owlDay) < state.day){ delete state.rogue.items.sugarOwl; }
+      if((state.day - 1) % WEEK_DAYS === 0){
+        state.weekEarned = 0;
+        const next = Number(state.rogue.nextTarget) || rogueGrowthTarget(state.rogue.weekTarget || ROGUE_BASE_TARGET);
+        state.weekTarget = next;
+        state.rogue.nextTarget = rogueGrowthTarget(next);
+        state.rogue.week = state.week;
+        state.rogue.weekTarget = state.weekTarget;
+        if(!(state.rogue.items && state.rogue.items.sugarOwl)) state.rogue.owlDay = null;
+        state.rogue.events = rogueWeekEvents();
+        state.rogue.extraEliteDow = (shrimpLevel('scoutSpot') && Math.random() < .10 * shrimpLevel('scoutSpot')) ? 3 : 0;
+        state.rogue.shopStock = makeRogueShopStock();
+        state.rogue.pendingShop = null;
+      }
+    }
+    els.summaryOverlay.classList.remove('show');
+    els.summaryOverlay.setAttribute('aria-hidden','true');
+    els.shopOverlay.classList.remove('show');
+    els.shopOverlay.setAttribute('aria-hidden','true');
+    els.canWrap.classList.remove('serving');
+    if(state.mode === 'custom'){
+      const cmRunMap = customMap();
+      if(cmRunMap.endless === false && state.day > customTotalDays()){
+        state.day = customTotalDays();
+        showSummary('gameOver');
+        return;
+      }
+    }
+    newCustomer(0);
+    saveGame();
+    if(state.mode === 'normal' && state.day === WEEK_DAYS * 2 + 1 && activeProfile && !activeProfile.rogueUnlocked){
+      activeProfile.rogueUnlocked = true;
+      saveProfiles();
+      renderRogueMode();
+      state.phase = 'playing';
+      saveRunToProfile();
+      state.phase = 'rogueUnlock';
+      if(els.rogueTitle) els.rogueTitle.textContent = '肉鸽模式已解锁！';
+      if(els.rogueOverlay){
+        els.rogueOverlay.classList.add('show');
+        els.rogueOverlay.setAttribute('aria-hidden','false');
+      }
+      sfx.star?.();
+    }else{
+      saveRunToProfile();
+    }
+  }
+  function onReplay(){
+    if(state.summaryKind === 'runEnd' || state.summaryKind === 'gameOver') beginRun(state.mode);
+    else startNextDay();
+  }
+
+  /* -------------------- 商店 -------------------- */
+  function potPrice(){ const u = shopUpgrades(); return POT_PRICES[u.pots] || 999; }
+  function customShopCfg(){
+    const m = customMap();
+    return (m && m.shop) || { reset:true, growth:100, prices:{} };
+  }
+  function customShopPrice(key, base, exp){
+    const cfg = customShopCfg();
+    const raw = cfg.prices && cfg.prices[key] != null ? Number(cfg.prices[key]) : base;
+    const g = Math.max(50, Math.min(500, Number(cfg.growth) || 100)) / 100;
+    return Math.max(0, Math.round(raw * Math.pow(g, Math.max(0, exp || 0))));
+  }
+  function potCap(){ return customActive() ? Math.max(1, Math.min(20, (customMap().pots || 1))) : 4; }
+  function alarmCap(){ return customActive() ? potCap() : 4; }
+  function shopPrice(base, key, exp){
+    if(customActive() && key) return customShopPrice(key, base, exp || 0);
+    return rogueActive() ? Math.round(base * 1.5) : base;
+  }
+  function shopUpgrades(){
+    if(rogueActive()) return state.rogue.upgrades;
+    if(customActive() && customShopCfg().reset) return state.upgrade;
+    return activeProfile ? activeProfile.upgrades : state.upgrade;
+  }
+  function shopUnlocks(){
+    if(rogueActive()){
+      if(rogueOwlToday()) return {toppings:EXPANSION.topping.map(x => x.id), jars:EXPANSION.jar.map(x => x.id)};
+      return {toppings:state.rogue.toppings, jars:state.rogue.jars};
+    }
+    return activeProfile ? activeProfile.unlocks : {toppings:[],jars:[]};
+  }
+  function shopItems(){
+    const items = [];
+    const u = shopUpgrades();
+    items.push({id:'pot', name:'备用熬糖锅', desc: rogueActive()
+        ? `当前 ${u.pots} 口 · 这个地图最多 ${potCap()} 口（槽位），买了才多一口`
+        : `当前 ${u.pots} 口 · 最多 4 口，可以同时熬多锅`, price:potPrice(),
+      owned:u.pots >= potCap(), label:u.pots >= potCap() ? `已满 ${potCap()} 口` : `买 ${shopPrice(potPrice(), 'pot', Math.max(0, u.pots - 1))}`,
+      icon:`<svg class="icon" style="width:28px;height:28px;color:#B67F1A"><use href="#i-heat"></use></svg>`});
+    items.push({id:'alarm', name:'熬糖锅闹钟', desc: rogueActive()
+        ? `买了拖到锅上 · 已有 ${u.alarms}/${alarmCap()} 个，随锅位数量变化`
+        : `买了拖到锅上 · 已有 ${u.alarms}/${alarmCap()} 个，每口锅要单独设`, price:ALARM_PRICE,
+      owned:u.alarms >= alarmCap(), label:u.alarms >= alarmCap() ? `已满 ${alarmCap()} 个` : `买 ${shopPrice(ALARM_PRICE, 'alarm', u.alarms)}`,
+      icon:`<svg class="icon" style="width:28px;height:28px;color:#8A6842"><use href="#i-clock"></use></svg>`});
+    Object.keys(KNIVES).forEach(id => {
+      if(id === 'wood') return;
+      const k = KNIVES[id];
+      const owned = u.knives.includes(id);
+      const equipped = u.knife === id;
+      items.push({id:'knife:'+id, name:k.name, desc: equipped ? '正在使用 · 切桃时换一种手感' : '刀具皮肤 · 切桃时显示',
+        price:k.price, owned:equipped, label:equipped ? '使用中' : owned ? '装备' : `买 ${k.price}`,
+        icon:`<i class="knife-swatch" style="--sw:${k.color}"></i>`});
+    });
+    return items;
+  }
+  function syrupItems(){
+    return ['honey','maple','honeysuckle'].map(id => {
+      const s = SYRUPS[id];
+      const owned = rogueActive() ? (state.rogue.syrups.includes(id) || rogueOwlToday()) : !!(activeProfile && activeProfile.syrups[id]);
+      return {id, name:s.name, desc:s.desc, price:s.price, owned,
+        icon:`<span style="display:block;width:26px;height:26px;border-radius:50%;background:${s.color};border:2px solid #C58B3A"></span>`,
+        label: owned ? '已解锁' : `解锁 ${s.price}`};
+    });
+  }
+  function renderShopFurniture(){
+    if(!els.shopFurnGrid || !activeProfile) return;
+    els.shopFurnGrid.innerHTML = Object.entries(FURNITURE).map(([id,f]) => {
+      const owned = activeProfile.ownedFurniture.includes(id);
+      const placed = activeProfile.placedFurniture.includes(id);
+      return `<div class="shop-item">
+        <div class="shop-icon">${f.icon}</div>
+        <div class="shop-copy"><b>${f.name}</b><small>${f.desc}</small></div>
+        <button class="buy-btn ${owned ? 'equipped' : ''}" type="button" data-furniture="${id}" ${!owned && !canAfford(f.price) ? 'disabled' : ''}>
+          ${owned ? (placed ? '收起' : '摆放') : state.devMode ? '免费领取' : activeProfile.wallet >= f.price ? `买 ${f.price}` : `还差 ${f.price-activeProfile.wallet}`}
+        </button>
+      </div>`;
+    }).join('');
+  }
+  function expansionItems(){
+    const items = [];
+    const u = shopUnlocks();
+    EXPANSION.topping.forEach(x => items.push({
+      id:'topping:'+x.id, kind:'topping', name:x.name, desc:x.desc, price:x.price,
+      owned:u.toppings.includes(x.id), icon:icon(TOPPINGS[x.id].icon)
+    }));
+    EXPANSION.jar.forEach(x => items.push({
+      id:'jar:'+x.id, kind:'jar', name:JARS[x.id].name, desc:x.desc, price:x.price,
+      owned:u.jars.includes(x.id), icon:icon('can')
+    }));
+    return items;
+  }
+  function setShopTab(tab){
+    const inRun = !!(state.phase === 'playing' || state.phase === 'event' || state.phase === 'reviewing' || state.phase === 'summary' || isPaused());
+    const valid = inRun ? ['run','syrup','furniture','expand'] : ['run','syrup','furniture','expand','skin'];
+    state.shopTab = valid.includes(tab) ? tab : 'run';
+    if(els.shopTabs) els.shopTabs.querySelectorAll('[data-shoptab]').forEach(b => b.classList.toggle('active', b.dataset.shoptab === state.shopTab));
+    [['shopGrid','run'],['shopSyrupGrid','syrup'],['shopFurnGrid','furniture'],['shopExpandGrid','expand'],['shopSkinGrid','skin']].forEach(([key,id]) => {
+      if(els[key]){ els[key].hidden = state.shopTab !== id; els[key].style.display = state.shopTab === id ? 'grid' : 'none'; }
+    });
+    if(els.shopTabs) els.shopTabs.querySelectorAll('[data-shoptab="skin"]').forEach(b => { b.style.display = inRun ? 'none' : ''; });
+    if(els.shopSkinSub){ els.shopSkinSub.hidden = state.shopTab !== 'skin'; els.shopSkinSub.style.display = state.shopTab === 'skin' ? 'flex' : 'none'; }
+    if(els.shopSkinGrid){ els.shopSkinGrid.hidden = state.shopTab !== 'skin'; els.shopSkinGrid.style.display = state.shopTab === 'skin' ? 'grid' : 'none'; }
+    if(els.shopWallet){ els.shopWallet.hidden = false; els.shopWallet.style.display = 'flex'; }
+  }
+  function skinOwnedFull(id){
+    const d = CHAR_SKINS.find(x => x.id === id);
+    if(!d) return false;
+    if(d.free) return true;
+    return !!(activeProfile.skins && activeProfile.skins.skin && activeProfile.skins.skin.includes(id));
+  }
+  function renderShopSkin(){
+    const grid = els.shopSkinGrid;
+    if(!grid || !activeProfile) return;
+    const tab = state.shopSkinTab || 'full';
+    if(els.shopSkinSub) els.shopSkinSub.querySelectorAll('[data-skinsub]').forEach(b => b.classList.toggle('active', b.dataset.skinsub === tab));
+    let rows = [];
+    if(tab === 'full'){
+      rows = CHAR_SKINS.map(d => {
+        const owned = skinOwnedFull(d.id);
+        const on = charSkinId() === d.id;
+        const art = skinArt(d.id);
+        return { key:'skin:' + d.id, name:d.name, desc:d.desc, price:d.price || 0, owned, on,
+          icon: art ? '<img src="' + art.img + '" alt="">' : '🐸' };
+      });
+    } else if(tab === 'variant'){
+      rows = skinVariants('blob').map(v => {
+        const owned = variantOwned('blob', v.id);
+        const on = variantEquipped('blob') === v.id;
+        return { key:'variant:blob:' + v.id, name:v.name, desc:'捧腹奶蛙的变体皮肤', price:v.price, owned, on,
+          icon: '<img src="' + v.img + '" alt="">' };
+      });
+    } else {
+      const kind = tab === 'top' ? 'top' : 'head';
+      rows = CLOTHES[kind].filter(it => tab === 'glasses' ? it.id === 'glasses' : it.id !== 'glasses').map(it => ({
+        key:'cloth:' + kind + ':' + it.id, name:it.name, desc:kind === 'top' ? '上衣' : '帽子 / 眼镜',
+        price:it.price, owned:activeProfile.clothes[kind].includes(it.id),
+        on:activeProfile.equipped[kind] === it.id, icon: it.icon
+      }));
+    }
+    if(!rows.length){ grid.innerHTML = '<div class="shop-empty">这一栏还没有东西</div>'; return; }
+    grid.innerHTML = rows.map(r => {
+      const price = r.price || 0;
+      const disabled = r.on || (!r.owned && !canAfford(price));
+      const label = r.on ? '正在使用' : r.owned ? '换上' : (price ? (state.devMode ? '免费领取' : '购买 ' + price) : '购买');
+      return '<div class="shop-item">' +
+        '<div class="shop-icon">' + r.icon + '</div>' +
+        '<div class="shop-copy"><b>' + r.name + '</b><small>' + (r.desc || '') + '</small></div>' +
+        '<button class="buy-btn ' + (r.on ? 'equipped' : '') + '" type="button" data-skinbuy="' + r.key + '" ' + (disabled ? 'disabled' : '') + '>' + label + '</button>' +
+      '</div>';
+    }).join('');
+  }
+  function renderShop(){
+    if(!activeProfile) return;
+    const wallet = rogueActive() ? state.rogue.coins : activeProfile.wallet;
+    const main = !!state.shopMain;
+    if(els.shopOverlay) els.shopOverlay.classList.toggle('rogue-shop-theme', rogueActive());
+    if(els.shopTabs) els.shopTabs.querySelectorAll('[data-shoptab]').forEach(b => {
+      b.hidden = rogueActive() && b.dataset.shoptab === 'furniture';
+    });
+    if(rogueActive() && state.shopTab === 'furniture') state.shopTab = 'run';
+    els.shopCoins.textContent = coinText();
+    if(els.shopWallet) els.shopWallet.innerHTML = `<svg class="icon"><use href="#i-coin"></use></svg>${rogueActive() ? '肉鸽金币' : '金币'} <b>${coinText()}</b><small>${rogueActive() ? '本局购买 · 结束后重置' : '全局购买，永久生效'}</small>`;
+    if(els.shopTitle) els.shopTitle.textContent = rogueActive() ? '肉鸽金币商店' : main ? '商店' : '打烊后的金币商店';
+    if(els.shopSub) els.shopSub.textContent = rogueActive() ? '本局有效，肉鸽金币每局清零、不进主菜单钱包' : main ? '家具、升级、糖浆，买了就永久生效' : '买口锅、换把刀，让明天更快一点';
+    if(els.shopStartBtn) els.shopStartBtn.style.display = main ? 'none' : '';
+    if(els.shopEarlyBtn) els.shopEarlyBtn.style.display = main ? 'none' : '';
+    if(els.shopBackBtn) els.shopBackBtn.textContent = main ? '关闭' : '回到今日结算';
+    if(els.shopEvent) els.shopEvent.hidden = true;
+    setShopTab(state.shopTab || 'run');
+    if(els.shopExpandGrid){
+      els.shopExpandGrid.innerHTML = expansionItems().map(item => {
+        const price = shopPrice(item.price);
+        const disabled = item.owned || !canAfford(price);
+        return `<div class="shop-item">
+          <div class="shop-icon">${item.icon}</div>
+          <div class="shop-copy"><b>${item.name}</b><small>${item.desc}</small></div>
+          <button class="buy-btn ${item.owned ? 'equipped' : ''}" type="button" data-expand="${item.id}" ${disabled ? 'disabled' : ''}>${item.owned ? '已解锁' : state.devMode ? '解锁' : wallet < price ? `还差 ${price - wallet}` : `解锁 ${price}`}</button>
+        </div>`;
+      }).join('');
+    }
+    if(els.shopSyrupGrid){
+      els.shopSyrupGrid.innerHTML = syrupItems().map(item => {
+        const price = shopPrice(item.price);
+        const disabled = item.owned || !canAfford(price);
+        return `<div class="shop-item">
+          <div class="shop-icon">${item.icon}</div>
+          <div class="shop-copy"><b>${item.name}</b><small>${item.desc}</small></div>
+          <button class="buy-btn ${item.owned ? 'equipped' : ''}" type="button" data-syrup="${item.id}" ${disabled ? 'disabled' : ''}>${item.owned ? '已解锁' : state.devMode ? '解锁' : wallet < price ? `还差 ${price - wallet}` : `解锁 ${price}`}</button>
+        </div>`;
+      }).join('');
+    }
+    renderShopFurniture();
+    if(state.shopTab === 'skin') renderShopSkin();
+    if(!main){
+      els.shopStartBtn.innerHTML = state.summaryKind === 'weekPass'
+        ? `开始第 ${state.week + 1} 周${icon('arrow')}`
+        : `开始第 ${state.day + 1} 天${icon('arrow')}`;
+      const nextDay = state.day + 1;
+      const nextSpecial = specialForDay(nextDay);
+      const nextValid = state.mode !== 'normal' || nextDay <= NORMAL_DAYS;
+      if(els.shopEvent){
+        els.shopEvent.hidden = !(nextValid && nextSpecial);
+        if(nextValid && nextSpecial){
+          els.shopEvent.className = `shop-event ${nextSpecial.type}`;
+          const sg = nextSpecial.guest;
+          const secs = Math.round(PATIENCE_MS * (sg.patience || 1) / 1000);
+          els.shopEvent.innerHTML = nextSpecial.type === 'boss'
+            ? `<b>明日 BOSS · ${sg.name}</b><span>第 ${nextDay} 天周末检查：耐心只有 ${secs} 秒，容错更小，奖励 ×${sg.coin}。先把糖水熬稳！</span>`
+            : `<b>明日精英 · ${sg.name}</b><span>第 ${nextDay} 天精英上门：订单更复杂，耐心 ${secs} 秒，奖励 ×${sg.coin}。</span>`;
+        }
+      }
+    }
+    const u = activeProfile.upgrades;
+    els.shopGrid.innerHTML = shopItems().map(item => {
+      const isKnife = item.id.startsWith('knife:');
+      const knifeId = isKnife ? item.id.split(':')[1] : '';
+      const price = shopPrice(item.price);
+      const disabled = item.owned || !canAfford(price);
+      const label = item.owned ? item.label : state.devMode ? '免费领取' : `买 ${price}`;
+      return `<div class="shop-item">
+        <div class="shop-icon">${item.icon}</div>
+        <div class="shop-copy"><b>${item.name}</b><small>${item.desc}</small></div>
+        <button class="buy-btn ${item.owned ? 'equipped' : ''}" type="button" data-buy="${item.id}" ${disabled ? 'disabled' : ''}>${label || item.label}</button>
+      </div>`;
+    }).join('');
+  }
+  function buyItem(itemId){
+    ensureAudio();
+    if(!activeProfile && !rogueActive()) return;
+    const u = shopUpgrades();
+    if(itemId === 'pot'){
+      if(u.pots >= potCap()) return;
+      const price = shopPrice(potPrice(), 'pot', Math.max(0, u.pots - 1));
+      if(!spendCoins(price)){ toast('金币不够，再卖几罐吧'); return; }
+      u.pots++;
+      sfx.coin(); toast('新锅到手！厨房里多了一口熬糖锅');
+    }else if(itemId === 'alarm'){
+      if(u.alarms >= alarmCap()){ toast('闹钟数量跟着锅位走：' + alarmCap() + ' 个就够了'); return; }
+      if(!spendCoins(shopPrice(ALARM_PRICE, 'alarm', u.alarms))){ toast('金币不够'); return; }
+      u.alarms++;
+      sfx.coin(); toast('闹钟到手！在柜台旁边，拖到锅上就能设置');
+    }else if(itemId.startsWith('knife:')){
+      const id = itemId.split(':')[1];
+      const k = KNIVES[id];
+      if(!k) return;
+      if(u.knives.includes(id)){
+        u.knife = id;
+        sfx.tap(); toast(`换上了${k.name}`);
+      }else{
+        if(!spendCoins(shopPrice(k.price, 'knife:' + id, 0))){ toast('金币不够'); return; }
+        u.knives.push(id);
+        u.knife = id;
+        sfx.coin(); toast(`买下并装备了${k.name}`);
+      }
+    }
+    if(rogueActive()){
+      state.upgrade = state.rogue.upgrades;
+      renderShop();
+      updateHud();
+      if(state.stage === 'kitchen') renderKitchen();
+      return;
+    }
+    if(tutorialActive()){
+      renderShop();
+      updateHud();
+      if(state.stage === 'kitchen') renderKitchen();
+      return;
+    }
+    if(customActive() && customShopCfg().reset){
+      // 自定义重置商店：只在本局生效，不写主存档
+      renderShop(); updateHud();
+      if(state.stage === 'kitchen') renderKitchen();
+      return;
+    }
+    syncProfile();
+    saveProfiles();
+    renderShop();
+    updateHud();
+    if(state.stage === 'kitchen') renderKitchen();
+  }
+  function rollShrimpChoices(){
+    const out = [];
+    for(let i=0;i<3;i++){
+      const r = Math.random() * 100;
+      let rarity = r < 53.33 ? 'normal' : r < 70.03 ? 'rare' : r < 74.93 ? 'legend' : r < 84.93 ? 'curse' : null;
+      if(!rarity) continue;
+      const pool = SHRIMPS.filter(s => s.rarity === rarity && shrimpLevel(s.id) < s.max);
+      if(!pool.length) continue;
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      if(!out.some(s => s.id === pick.id)) out.push(pick);
+    }
+    if(out.length < 3){
+      const spare = SHRIMPS.filter(s => !out.some(o => o.id === s.id) && shrimpLevel(s.id) < s.max);
+      while(out.length < 3 && spare.length) out.push(spare.splice(randInt(0, spare.length - 1), 1)[0]);
+    }
+    return out;
+  }
+  let pickSelectedId = null;
+  function renderShrimpDetail(id){
+    if(!els.shrimpDetail) return;
+    const s = SHRIMPS.find(x => x.id === id);
+    if(!s){
+      els.shrimpDetail.className = 'pick-detail empty';
+      els.shrimpDetail.textContent = '今天没有可选的辣虾，可以直接跳过。';
+      return;
+    }
+    const r = ROGUE_RARITY[s.rarity];
+    const lvl = shrimpLevel(s.id);
+    els.shrimpDetail.className = 'pick-detail';
+    els.shrimpDetail.innerHTML = `<div class="pd-icon">🦐</div>
+      <span class="pd-rarity" style="background:${r.color}">${r.name}</span>
+      <b class="pd-name">${s.name}</b>
+      <p class="pd-desc">${s.desc}</p>
+      <div class="pd-stack">${lvl ? `已拥有 Lv.${lvl} · ` : ''}上限 ${s.max} 级</div>`;
+  }
+  function renderShrimpChoice(){
+    const p = state.rogue && state.rogue.pendingShrimp;
+    if(!p || !els.shrimpChoices) return;
+    const kind = p.kind === 'boss' ? 'BOSS' : '精英';
+    if(els.shrimpTitle) els.shrimpTitle.textContent = `${kind}日 · 辣虾三选一`;
+    if(els.shrimpSub) els.shrimpSub.textContent = p.choices.length ? '点小框看介绍，选好再点「确定选择」。' : '今天没有可选的辣虾，可以跳过。';
+    if(!p.choices.some(s => s.id === pickSelectedId)) pickSelectedId = p.choices.length ? p.choices[0].id : null;
+    els.shrimpChoices.innerHTML = p.choices.map(s => {
+      const r = ROGUE_RARITY[s.rarity];
+      return `<button class="pick-opt${s.id === pickSelectedId ? ' sel' : ''}" data-shrimp="${s.id}" type="button"><span class="po-rarity" style="background:${r.color}">${r.name}</span><b>${s.name}</b></button>`;
+    }).join('');
+    renderShrimpDetail(pickSelectedId);
+    if(els.shrimpConfirm) els.shrimpConfirm.disabled = !pickSelectedId;
+    if(els.shrimpReroll){
+      els.shrimpReroll.disabled = !(state.rogue && state.rogue.rerolls > 0);
+      els.shrimpReroll.textContent = `再来一份（${(state.rogue && state.rogue.rerolls) || 0}）`;
+    }
+  }
+  function showShrimpChoice(kind){
+    if(!state.rogue) return showSummary();
+    state.rogue.pendingShrimp = {kind, choices:rollShrimpChoices()};
+    pickSelectedId = state.rogue.pendingShrimp.choices.length ? state.rogue.pendingShrimp.choices[0].id : null;
+    state.phase = 'shrimp';
+    renderShrimpChoice();
+    if(els.shrimpOverlay){
+      els.shrimpOverlay.classList.add('show');
+      els.shrimpOverlay.setAttribute('aria-hidden','false');
+    }
+  }
+  function finishShrimp(id){
+    if(!state.rogue || !state.rogue.pendingShrimp) return;
+    if(id) state.rogue.shrimp.push(id);
+    state.rogue.pendingShrimp = null;
+    if(els.shrimpOverlay){ els.shrimpOverlay.classList.remove('show'); els.shrimpOverlay.setAttribute('aria-hidden','true'); }
+    state.phase = 'reviewing';
+    showSummary();
+  }
+  function rerollShrimp(){
+    if(!state.rogue || state.rogue.rerolls <= 0) return toast('没有「再来一份」了');
+    state.rogue.rerolls -= 1;
+    state.rogue.items.reroll = Math.max(0, (state.rogue.items.reroll || 0) - 1);
+    if((state.rogue.items.reroll || 0) <= 0) delete state.rogue.items.reroll;
+    renderRogueHud();
+    state.rogue.items.reroll = Math.max(0, (state.rogue.items.reroll || 0) - 1);
+    if((state.rogue.items.reroll || 0) <= 0) delete state.rogue.items.reroll;
+    renderRogueHud();
+    state.rogue.pendingShrimp.choices = rollShrimpChoices();
+    renderShrimpChoice();
+    sfx.tap();
+  }
+  function rogueShopPrice(item){
+    let m = 1;
+    if(shrimpLevel('platinumCard')) m *= .5;
+    else if(shrimpLevel('memberCard')) m *= .75;
+    return Math.max(1, Math.round(item.price * m));
+  }
+  function rogueStockAvailable(id){
+    const item = ROGUE_ITEMS.find(i => i.id === id);
+    if(!item) return false;
+    if(!item.permanent) return true;
+    return (state.rogue.items[id] || 0) <= 0;
+  }
+  function rogueRandomStockItem(exclude){
+    const taken = new Set((exclude || []).concat(['cashback']));
+    const pool = ROGUE_ITEMS.filter(i => !taken.has(i.id) && rogueStockAvailable(i.id));
+    if(!pool.length) return null;
+    return pool[Math.floor(Math.random() * pool.length)].id;
+  }
+  function makeRogueShopStock(){
+    const pool = ROGUE_ITEMS.filter(i => i.id !== 'cashback' && rogueStockAvailable(i.id)).sort(() => Math.random() - .5).slice(0, 5);
+    return ['cashback'].concat(pool.map(i => i.id));
+  }
+  function openRogueShop(){
+    if(!rogueActive()) return;
+    if(!state.rogue.shopStock) state.rogue.shopStock = makeRogueShopStock();
+    state.rogueShopFrom = state.phase === 'playing' ? 'desk' : 'summary';
+    state.phase = 'rogueShop';
+    renderRogueShop();
+    if(els.rogueShopOverlay){
+      els.rogueShopOverlay.classList.add('show');
+      els.rogueShopOverlay.setAttribute('aria-hidden','false');
+    }
+  }
+  function rogueDailyCap(id){ return id === 'reroll' ? 3 : 1; }
+  function rogueBoughtToday(id){ return Number(((state.rogue && state.rogue.boughtToday) || {})[id] || 0); }
+  function renderRogueShop(){
+    if(!els.rogueShopList) return;
+    if(els.rogueShopCoins) els.rogueShopCoins.textContent = coinText();
+    els.rogueShopList.innerHTML = (state.rogue.shopStock || ['cashback']).map(id => {
+      const item = ROGUE_ITEMS.find(i => i.id === id);
+      if(!item) return '';
+      const owned = state.rogue.items[id] || 0;
+      const cap = rogueDailyCap(id);
+      const bought = rogueBoughtToday(id);
+      const soldOutToday = bought >= cap;
+      const maxed = owned >= item.max;
+      const ownedPermanent = !!item.permanent && owned > 0;
+      const price = rogueShopPrice(item);
+      const todayOnly = id === 'sugarOwl' && rogueOwlToday();
+      const reserved = id === 'sugarOwl' && Number(state.rogue.owlDay) > Number(state.day);
+      const active = todayOnly || reserved;
+      const label = ownedPermanent ? '已拥有' : active ? (todayOnly ? '今日生效' : '明天生效') : soldOutToday ? (cap > 1 ? `今日 ${bought}/${cap}` : '今日已售完') : maxed ? '已满' : `${price} 金币`;
+      const sold = (soldOutToday || ownedPermanent) && !active;
+      return `<div class="rogue-shop-item${active ? ' active' : ''}${sold ? ' sold' : ''}"><div><b>${item.name}${owned ? ` ×${owned}` : ''}${todayOnly ? ' · 今日' : reserved ? ' · 明天' : ''}</b><small>${item.desc}</small></div><button data-rogue-buy="${id}" ${((maxed || sold) && !active) || (!state.devMode && state.rogue.coins < price) || active ? 'disabled' : ''}>${label}</button></div>`;
+    }).join('');
+  }
+  function rogueDropStock(id){
+    const stock = (state.rogue.shopStock || []).slice();
+    const i = stock.indexOf(id);
+    if(i < 0) return;
+    const repl = rogueRandomStockItem(stock);
+    if(repl) stock[i] = repl; else stock.splice(i, 1);
+    state.rogue.shopStock = stock;
+  }
+  function buyRogueItem(id){
+    const item = ROGUE_ITEMS.find(i => i.id === id);
+    if(!item || !rogueActive()) return;
+    const owned = state.rogue.items[id] || 0;
+    if(owned >= item.max) return toast('这个道具已经买满了');
+    const cap = rogueDailyCap(id);
+    const bought = rogueBoughtToday(id);
+    if(bought >= cap) return toast(cap > 1 ? `${item.name}今天已经买满 ${cap} 个了，明天再来吧` : `${item.name}今天已经买过了，明天再来吧`);
+    if(!spendCoins(rogueShopPrice(item))) return toast('肉鸽金币不够');
+    state.rogue.boughtToday[id] = bought + 1;
+    state.rogue.items[id] = owned + 1;
+    if(id === 'reroll') state.rogue.rerolls += 1;
+    if(id === 'sugarOwl'){
+      const night = state.rogueShopFrom === 'summary';
+      const targetDay = night ? state.day + 1 : state.day;
+      state.rogue.owlDay = targetDay;
+      state.rogue.items.sugarOwl = 1;
+      toast(night ? '糖枭已下单：明天开业起，所有小料、糖浆、罐子都能用' : '糖枭生效：今天所有小料、糖浆、罐子都能用，打烊后消失');
+      renderRogueShop();
+      renderAll();
+      sfx.coin();
+      return;
+    }
+    if(id === 'eventCalendar'){
+      const added = addExtraRogueEventDay();
+      toast(added ? '事件日历：本周多安排了一个事件日' : '事件日历：本周事件日已满，下周起每周 +1 天');
+    }
+    renderRogueShop();
+    renderRogueHud();
+    sfx.coin();
+  }
+  function buySyrup(id){
+    const s = SYRUPS[id];
+    if(!s) return;
+    if(rogueActive()){
+      if(state.rogue.syrups.includes(id)) return;
+      if(rogueOwlToday()){ toast('糖枭今天已经解锁了所有糖浆'); return; }
+      if(!spendCoins(shopPrice(s.price, 'syrup:' + id, 0))){ toast('金币不够'); return; }
+      state.rogue.syrups.push(id);
+      sfx.coin(); toast(`${s.name}已解锁（本局有效）`);
+      renderShop(); updateHud();
+      return;
+    }
+    if(tutorialActive()){
+      if(state.tutorial.syrups.includes(id)) return;
+      if(!spendCoins(shopPrice(s.price))){ toast('金币不够'); return; }
+      state.tutorial.syrups.push(id);
+      sfx.coin(); toast(`${s.name}已解锁（新手模式本局有效）`);
+      renderShop(); updateHud();
+      return;
+    }
+    if(!activeProfile || activeProfile.syrups[id]) return;
+    if(!spendCoins(shopPrice(s.price))){ toast('金币不够'); return; }
+    activeProfile.syrups[id] = true;
+    sfx.coin(); toast(`${s.name}已解锁，熬糖时可以选择`);
+    syncProfile(); saveProfiles(); renderShop(); updateHud();
+  }
+  function buyExpansion(expandId){
+    ensureAudio();
+    if(!activeProfile && !rogueActive()) return;
+    const [kind, id] = expandId.split(':');
+    const item = expansionItems().find(x => x.id === expandId);
+    if(!item || item.owned) return;
+    if(!spendCoins(shopPrice(item.price, kind + ':' + id, 0))){ toast('金币不够，先营业赚一点吧'); return; }
+    if(rogueActive()){
+      const arr = kind === 'topping' ? state.rogue.toppings : state.rogue.jars;
+      if(!arr.includes(id)) arr.push(id);
+      sfx.coin();
+      toast(`${item.name} 已解锁（本局有效）`);
+      renderShop();
+      return;
+    }
+    if(tutorialActive()){
+      const arr = kind === 'topping' ? state.tutorial.toppings : state.tutorial.jars;
+      if(!arr.includes(id)) arr.push(id);
+      sfx.coin();
+      toast(`${item.name} 已解锁（新手模式本局有效）`);
+      renderShop();
+      return;
+    }
+    if(kind === 'topping') activeProfile.unlocks.toppings.push(id);
+    else activeProfile.unlocks.jars.push(id);
+    saveProfiles();
+    sfx.coin();
+    toast(`${item.name} 永久解锁！客人订单里可能会出现`);
+    renderShop();
+    renderPlayerBar();
+  }
+  function openShop(main=false){
+    if(tutorialActive() && state.day < 4){ toast('金币商店第 4 天才开门，先把今天的客人照顾好'); return; }
+    sfx.tap();
+    main = main === true;
+    if(main && !activeProfile) return;
+    state.shopMain = main;
+    renderShop();
+    els.shopOverlay.classList.add('show');
+    els.shopOverlay.setAttribute('aria-hidden','false');
+  }
+  function closeShop(){
+    els.shopOverlay.classList.remove('show');
+    els.shopOverlay.setAttribute('aria-hidden','true');
+    state.shopMain = false;
+    sfx.tap();
+  }
+
+  /* -------------------- 主循环 -------------------- */
+  let lastFrame = 0;
+  /* -------------------- 暂停 -------------------- */
+  let pausedAtMs = 0;
+  function isPaused(){ return pausedAtMs > 0; }
+  function pauseGame(){
+    try { setHeaderPause(true); } catch(e){}
+    if(pausedAtMs || state.phase !== 'playing') return;
+    if(state.pouring) stopPour();
+    pausedAtMs = performance.now();
+    const ov = document.getElementById('pauseOverlay');
+    if(ov){
+      try { document.body.appendChild(ov); } catch(e){}
+      if(!ov.__hardHide){
+        ov.__hardHide = true;
+        ov.addEventListener('click', e => { if(e.target.closest('button')) hidePausePanel(); }, true);
+      }
+      ov.style.display = '';
+      ov.classList.add('show');
+      ov.setAttribute('aria-hidden','false');
+    }
+  }
+  let pauseToSettings = false;
+  function hidePausePanel(){
+    const ov = document.getElementById('pauseOverlay') || els.pauseOverlay;
+    if(!ov) return;
+    ov.classList.remove('show');
+    ov.setAttribute('aria-hidden','true');
+    ov.style.display = 'none';
+  }
+  function showPausePanel(){
+    const ov = document.getElementById('pauseOverlay') || els.pauseOverlay;
+    if(!ov) return;
+    ov.style.display = '';
+    ov.classList.add('show');
+    ov.setAttribute('aria-hidden','false');
+  }
+  function pauseOpenSettings(){
+    pauseToSettings = true;
+    hidePausePanel();
+    openSettings();
+  }
+  function pauseQuitRun(){
+    hidePausePanel();
+    const co = document.getElementById('confirmOverlay');
+    if(co && co.classList.contains('show')) return;
+    openConfirm({ title:'确定提前下班？', copy:'结束本局会立刻回到主菜单，今天的进度不保存。', okText:'结束游戏', cancelText:'再想想', onOk:() => { clearRun(); closeConfirm(); goHome(); }, onCancel:() => { if(isPaused()) showPausePanel(); } });
+  }
+  function resumeGame(){
+    try { setHeaderPause(true); } catch(e){}
+    if(!pausedAtMs) return;
+    const delta = performance.now() - pausedAtMs;
+    pausedAtMs = 0;
+    state.deadline += delta;
+    (state.pots || []).forEach(pt => { if(pt.status === 'heating') pt.startedAt += delta; });
+    const ov = document.getElementById('pauseOverlay');
+    if(ov){ ov.classList.remove('show'); ov.setAttribute('aria-hidden','true'); }
+  }
+  function setHeaderPause(inGame){
+    if(!els.settingsBtn) return;
+    els.settingsBtn.dataset.mode = 'pause';
+    els.settingsBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="5" width="3.6" height="14" rx="1.4" fill="currentColor"/><rect x="13.4" y="5" width="3.6" height="14" rx="1.4" fill="currentColor"/></svg>';
+    els.settingsBtn.setAttribute('aria-label', '暂停');
+    const show = (typeof inGame === 'boolean') ? inGame : (state.phase === 'playing' || isPaused());
+  els.settingsBtn.style.display = show ? '' : 'none';
+  }
+
+  function tick(now){
+    requestAnimationFrame(tick);
+    const dt = Math.min(now - lastFrame, 120);
+    lastFrame = now;
+    if(isPaused()) return;
+    if(state.phase === 'playing'){
+      const remain = Math.max(0, state.deadline - now);
+      state.patience = remain / state.patienceMs;
+      renderPatience(state.patience);
+      if(remain <= 0){ timeoutOrder(); return; }
+      if(state.pouring) tickPour(now);
+      updateBoils(now);
+    }
+  }
+
+  /* -------------------- 事件 -------------------- */
+  function resetOrderTicket(){
+    state.orderStored = false;
+    if(!els.orderTicket) return;
+    els.orderTicket.classList.remove('stored','dragging');
+    els.orderTicket.style.transform = '';
+    if(els.orderRod){ els.orderRod.classList.remove('has-order'); const lab = els.orderRod.querySelector('b'); if(lab) lab.textContent = '订单'; }
+  }
+  function storeOrder(){
+    if(!els.orderTicket || !els.orderRod || state.orderStored) return;
+    els.orderTicket.style.transform = '';
+    void els.orderTicket.offsetWidth;
+    const dx = (els.orderRod.offsetLeft + els.orderRod.offsetWidth / 2) - (els.orderTicket.offsetLeft + els.orderTicket.offsetWidth / 2);
+    const dy = (els.orderRod.offsetTop + els.orderRod.offsetHeight / 2) - (els.orderTicket.offsetTop + els.orderTicket.offsetHeight / 2);
+    els.orderTicket.classList.remove('dragging');
+    els.orderTicket.classList.add('stored');
+    els.orderTicket.style.transform = `translate(${dx}px,${dy}px) scale(.18)`;
+    els.orderRod.classList.add('has-order');
+    const lab = els.orderRod.querySelector('b');
+    if(lab) lab.textContent = '展开';
+    state.orderStored = true;
+    sfx.tap();
+    toast('订单收到右上角，点一下棍子可以展开');
+  }
+  function expandOrder(){
+    if(!els.orderTicket || !state.orderStored) return;
+    els.orderTicket.classList.remove('stored','dragging');
+    els.orderTicket.style.transform = '';
+    if(els.orderRod){ els.orderRod.classList.remove('has-order'); const lab = els.orderRod.querySelector('b'); if(lab) lab.textContent = '订单'; }
+    state.orderStored = false;
+    sfx.tap();
+  }
+  function placeOrderOnRack(){
+    if(state.activeOrderId == null) return;
+    if(state.rackOrderId === state.activeOrderId){ sfx.tap(); submitActive(); return; }
+    state.rackOrderId = state.activeOrderId;
+    sfx.tap();
+    renderOrderStack();
+    renderDesk();
+    updateFooter();
+    toast(state.can.sealed ? '订单已放上订单架，点「交给客人」出餐' : '订单已放上订单架，封好罐就能出餐');
+  }
+  function bindOrderDrag(){
+    if(!els.orderTicket || !els.orderRod) return;
+    const ticket = els.orderTicket;
+    let drag = null;
+    const rackHitAt = (x, y) => {
+      const rack = els.submitRack ? els.submitRack.getBoundingClientRect() : null;
+      return !!rack && x > rack.left && x < rack.right && y > rack.top && y < rack.bottom;
+    };
+    ticket.addEventListener('pointerdown', e => {
+      if(state.phase !== 'playing' || state.stage !== 'desk') return;
+      if(state.orderStored){ e.preventDefault(); expandOrder(); return; }
+      e.preventDefault();
+      const rect = ticket.getBoundingClientRect();
+      const ghost = ticket.cloneNode(true);
+      ghost.removeAttribute('id');
+      ghost.classList.add('order-ghost');
+      ghost.classList.remove('stored','dragging');
+      ghost.style.left = rect.left + 'px';
+      ghost.style.top = rect.top + 'px';
+      ghost.style.width = rect.width + 'px';
+      document.body.appendChild(ghost);
+      drag = {
+        sx:e.clientX, sy:e.clientY,
+        ox:e.clientX - rect.left, oy:e.clientY - rect.top,
+        lastX:e.clientX, lastY:e.clientY, moved:false, ghost
+      };
+      ticket.classList.add('dragging');
+      try{ ticket.setPointerCapture(e.pointerId); }catch(err){}
+    });
+    ticket.addEventListener('pointermove', e => {
+      if(!drag) return;
+      drag.lastX = e.clientX;
+      drag.lastY = e.clientY;
+      const dx = e.clientX - drag.sx;
+      const dy = e.clientY - drag.sy;
+      if(!drag.moved && Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
+      if(!drag.moved) return;
+      drag.ghost.style.left = (e.clientX - drag.ox) + 'px';
+      drag.ghost.style.top = (e.clientY - drag.oy) + 'px';
+      const g = drag.ghost.getBoundingClientRect();
+      const over = rackHitAt(g.left + g.width / 2, g.top + g.height / 2);
+      if(els.submitRack) els.submitRack.classList.toggle('drop', over);
+    });
+    const finish = e => {
+      if(!drag) return;
+      const {moved, ghost, lastX, lastY} = drag;
+      drag = null;
+      ghost.remove();
+      ticket.classList.remove('dragging');
+      if(els.submitRack) els.submitRack.classList.remove('drop');
+      if(!moved) return;
+      if(rackHitAt(lastX, lastY)){ placeOrderOnRack(); return; }
+      const rr = els.orderRod.getBoundingClientRect();
+      const dist = Math.hypot(lastX - (rr.left + rr.width / 2), lastY - (rr.top + rr.height / 2));
+      if(dist < 110){
+        if(orderOnRack()){ state.rackOrderId = null; renderOrderStack(); renderDesk(); updateFooter(); }
+        storeOrder();
+      }
+    };
+    ticket.addEventListener('pointerup', finish);
+    ticket.addEventListener('pointercancel', finish);
+    els.orderRod.addEventListener('click', () => {
+      if(state.orderStored) expandOrder();
+      else if(state.phase === 'playing' && state.stage === 'desk') storeOrder();
+    });
+  }
+
+  function bindEvents(){
+    els.startBtn.addEventListener('click', startGame);
+    els.modeCards.forEach(card => card.addEventListener('click', () => setIntroMode(card.dataset.mode)));
+    if(els.rogueStayBtn) els.rogueStayBtn.addEventListener('click', () => {
+      if(els.rogueOverlay) els.rogueOverlay.classList.remove('show');
+      if(state.phase === 'rogueUnlock'){
+        state.phase = 'playing';
+        updateHud();
+        toast('肉鸽模式已解锁，继续营业吧！');
+      }
+    });
+    if(els.rogueHomeBtn) els.rogueHomeBtn.addEventListener('click', () => {
+      if(els.rogueOverlay) els.rogueOverlay.classList.remove('show');
+      if(state.phase === 'rogueUnlock'){
+        state.phase = 'playing';
+        saveRunToProfile();
+      }
+      goHome();
+    });
+    if(els.modeToggle) els.modeToggle.addEventListener('click', () => toggleMenuGroup(els.modeToggle, els.modePanel));
+    if(els.shopToggle) els.shopToggle.addEventListener('click', () => toggleMenuGroup(els.shopToggle, els.shopPanel));
+    const piggyBtn = document.getElementById('tipPiggy');
+    if(piggyBtn) piggyBtn.addEventListener('click', () => {
+      const total = jarTotal();
+      if(total > 0) tipPiggyShow(total);
+      else toast('小费罐还是空的，先出一单吧');
+    });
+    if(els.settingsBtn) els.settingsBtn.addEventListener('click', () => {
+      if(typeof isPaused === 'function' && isPaused()){ showPausePanel(); return; }
+      if(state.phase === 'playing') pauseGame(); else openSettings();
+    });
+    if(els.settingsEntryBtn) els.settingsEntryBtn.addEventListener('click', openSettings);
+    [['pauseResume', resumeGame], ['pauseSettings', pauseOpenSettings],
+      ['pauseDemo', () => { hidePausePanel(); saveRunToProfile(); resumeGame(); goHome(); toast('已保存，下次点「继续上一局」回来'); }],
+      ['pauseQuit', pauseQuitRun], ['__oldPauseQuit', () => { openConfirm({ iconSvg:'', title:'确定提前下班？', copy:'提前下班会直接结束这一局，本局进度不保留。', okText:'确认下班', cancelText:'再干一会儿', onOk:() => { clearRun(); resumeGame(); goHome(); toast('提前下班，本局不保留'); } }); }]
+    ].forEach(([id, fn]) => {
+      const b = document.getElementById(id);
+      if(b) b.addEventListener('click', fn);
+    });
+    [els.settingsClose, els.settingsDone].forEach(btn => {
+      if(btn) btn.addEventListener('click', closeSettings);
+    });
+    if(els.settingsOverlay) els.settingsOverlay.addEventListener('click', e => {
+      if(e.target === els.settingsOverlay) closeSettings();
+    });
+    [['Master','master'],['Music','music'],['Alarm','alarm'],['Laugh','laugh']].forEach(([id,key]) => {
+      const input = els['set' + id];
+      if(input) input.addEventListener('input', () => setSetting(key, input.value));
+    });
+    if(els.redeemBtn) els.redeemBtn.addEventListener('click', redeemCode);
+    if(els.devExitBtn) els.devExitBtn.addEventListener('click', () => { setDevMode(false); toast('已退出开发者模式'); });
+    if(els.redeemInput) els.redeemInput.addEventListener('keydown', e => {
+      if(e.key === 'Enter'){ e.preventDefault(); redeemCode(); }
+    });
+    if(els.codexEntryBtn) els.codexEntryBtn.addEventListener('click', () => openCodex('personality'));
+    if(els.codexFromSettings) els.codexFromSettings.addEventListener('click', () => { closeSettings(); openCodex('personality'); });
+    if(els.codexClose) els.codexClose.addEventListener('click', closeCodex);
+    if(els.codexOverlay) els.codexOverlay.addEventListener('click', e => { if(e.target === els.codexOverlay) closeCodex(); });
+    if(els.codexTabs) els.codexTabs.addEventListener('click', e => {
+      const tab = e.target.closest('[data-codex-tab]');
+      if(tab) setCodexTab(tab.dataset.codexTab);
+    });
+    if(els.batchStrip){
+      els.batchStrip.addEventListener('scroll', () => {
+        if(els.batchScroll) els.batchScroll.value = els.batchStrip.scrollLeft;
+      });
+      if(els.batchScroll) els.batchScroll.addEventListener('input', () => {
+        els.batchStrip.scrollLeft = Number(els.batchScroll.value) || 0;
+      });
+      els.batchStrip.addEventListener('wheel', e => {
+        if(els.batchStrip.scrollWidth <= els.batchStrip.clientWidth) return;
+        if(Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+        e.preventDefault();
+        els.batchStrip.scrollLeft += e.deltaY;
+      }, {passive:false});
+      let dragStartX = 0, dragStartY = 0, dragStartLeft = 0, dragMoved = false, dragPointer = null;
+      let chipDrag = null;
+      const trashHot = on => { if(els.discardBtn) els.discardBtn.classList.toggle('drop-hot', on); };
+      const trashMode = on => {
+        if(!els.discardBtn) return;
+        els.discardBtn.classList.toggle('drop-ready', !!on);
+        const label = els.discardBtn.querySelector('.discard-label');
+        if(label) label.textContent = on ? '丢弃糖水' : '倒糖水';
+        els.discardBtn.setAttribute('aria-label', on ? '把糖水拖到这里丢弃' : '倒掉罐里的糖水');
+        els.discardBtn.title = on ? '把糖水拖到这里丢弃' : '倒掉罐里的糖水';
+      };
+      const dropOnTrash = (x, y) => {
+        if(!els.discardBtn) return false;
+        const r = els.discardBtn.getBoundingClientRect();
+        const pad = 16;
+        return x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad;
+      };
+      const cleanupChipDrag = () => {
+        if(chipDrag && chipDrag.ghost) chipDrag.ghost.remove();
+        if(chipDrag && chipDrag.chip) chipDrag.chip.classList.remove('ghost-origin');
+        chipDrag = null;
+        trashHot(false);
+        trashMode(false);
+      };
+      els.batchStrip.addEventListener('pointerdown', e => {
+        if(e.pointerType === 'mouse' && e.button !== 0) return;
+        dragPointer = e.pointerId; dragStartX = e.clientX; dragStartY = e.clientY;
+        dragStartLeft = els.batchStrip.scrollLeft; dragMoved = false;
+        const chip = e.target.closest('[data-batch]');
+        chipDrag = chip && !chip.disabled ? {id:Number(chip.dataset.batch), chip, ghost:null, started:false, ox:0, oy:0} : null;
+        if(chipDrag){ try{ chip.setPointerCapture(e.pointerId); }catch(err){} }
+      });
+      els.batchStrip.addEventListener('pointermove', e => {
+        if(dragPointer !== e.pointerId) return;
+        const dx = e.clientX - dragStartX, dy = e.clientY - dragStartY;
+        if(chipDrag && !chipDrag.started && Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)){
+          chipDrag.started = true;
+          dragMoved = true;
+          const rect = chipDrag.chip.getBoundingClientRect();
+          const ghost = chipDrag.chip.cloneNode(true);
+          ghost.classList.add('ghost');
+          ghost.style.width = rect.width + 'px';
+          ghost.style.left = rect.left + 'px';
+          ghost.style.top = rect.top + 'px';
+          document.body.appendChild(ghost);
+          chipDrag.ghost = ghost;
+          chipDrag.ox = e.clientX - rect.left;
+          chipDrag.oy = e.clientY - rect.top;
+          chipDrag.chip.classList.add('ghost-origin');
+          trashMode(true);
+        }
+        if(chipDrag && chipDrag.started){
+          if(chipDrag.ghost){
+            chipDrag.ghost.style.left = (e.clientX - chipDrag.ox) + 'px';
+            chipDrag.ghost.style.top = (e.clientY - chipDrag.oy) + 'px';
+          }
+          trashHot(dropOnTrash(e.clientX, e.clientY));
+          e.preventDefault();
+          return;
+        }
+        if(Math.abs(dx) > 5){ dragMoved = true; els.batchStrip.classList.add('dragging'); els.batchStrip.scrollLeft = dragStartLeft - dx; }
+      });
+      const endDrag = e => {
+        if(dragPointer !== e.pointerId) return;
+        dragPointer = null; els.batchStrip.classList.remove('dragging');
+        if(chipDrag && chipDrag.started){
+          const id = chipDrag.id;
+          const hit = dropOnTrash(e.clientX, e.clientY);
+          cleanupChipDrag();
+          if(hit) discardBatch(id);
+          e.preventDefault(); e.stopPropagation();
+          return;
+        }
+        cleanupChipDrag();
+        if(dragMoved){ e.preventDefault(); e.stopPropagation(); }
+      };
+      els.batchStrip.addEventListener('pointerup', endDrag);
+      els.batchStrip.addEventListener('pointercancel', endDrag);
+      window.addEventListener('pointerup', e => { if(chipDrag && chipDrag.started) endDrag(e); }, true);
+      window.addEventListener('pointercancel', e => { if(chipDrag && chipDrag.started) endDrag(e); }, true);
+    }
+    els.soundBtn.addEventListener('click', () => {
+      ensureAudio();
+      state.sound = !state.sound;
+      try{ localStorage.setItem('naiwa_sound', state.sound ? '1' : '0'); }catch(e){}
+      updateSoundButton();
+      if(!bgmEl) bgmEl = els.bgm;
+      if(!state.sound && bgmEl) bgmEl.pause();
+      if(state.sound) cueMusic();
+      sfx.tap();
+    });
+    els.stageTabs.forEach(t => t.addEventListener('click', () => setStage(t.dataset.stage)));
+    if(els.restaurantList) els.restaurantList.addEventListener('click', e => {
+      const accept = e.target.closest('[data-accept-guest]');
+      if(accept){ acceptGuest(Number(accept.dataset.acceptGuest)); return; }
+      const act = e.target.closest('[data-activate-order]');
+      if(act) activateOrder(Number(act.dataset.activateOrder));
+    });
+    [els.orderStackLeft, els.orderStackRight].forEach(box => {
+      if(box) box.addEventListener('click', e => {
+        const b = e.target.closest('[data-order-id]');
+        if(b) activateOrder(Number(b.dataset.orderId));
+      });
+    });
+    if(els.submitRack) els.submitRack.addEventListener('click', () => {
+      if(orderOnRack()){
+        if(state.can.sealed) submitActive();
+        else { toast('订单已经就位，罐头还没封盖，先去工作台'); setStage('work'); }
+      }else if(state.can.sealed) toast('先把订单拖到下面的「订单架」，再交给客人');
+      else { toast('订单还没封盖，先去工作台'); setStage('work'); }
+    });
+    $$('[data-go]').forEach(b => b.addEventListener('click', () => setStage(b.dataset.go)));
+    els.sizeBtns.forEach(b => b.addEventListener('click', () => selectSize(b.dataset.size)));
+    $$('[data-piece-plus]').forEach(b => b.addEventListener('click', () => addPiece(b.dataset.piecePlus)));
+    $$('[data-piece-minus]').forEach(b => b.addEventListener('click', () => removePiece(b.dataset.pieceMinus)));
+    els.tempChips.forEach(b => b.addEventListener('click', () => setTemp(b.dataset.temp)));
+    if(els.toppingChips) els.toppingChips.addEventListener('click', e => {
+      const b = e.target.closest('[data-topping]');
+      if(b) setTopping(b.dataset.topping);
+    });
+    if(els.jarSwitchBtn) els.jarSwitchBtn.addEventListener('click', cycleJar);
+    if(els.toppingMinus) els.toppingMinus.addEventListener('click', () => changeToppingQty(-1));
+    if(els.toppingPlus) els.toppingPlus.addEventListener('click', () => changeToppingQty(1));
+    $$('[data-cut]').forEach(b => b.addEventListener('click', () => cutPeach(b.dataset.cut)));
+    els.batchStrip.addEventListener('click', e => {
+      const b = e.target.closest('[data-batch]');
+      if(b) selectBatch(Number(b.dataset.batch));
+    });
+    els.potGrid.addEventListener('click', e => {
+      const type = e.target.closest('[data-pot-type]');
+      if(type){ cyclePotType(Number(type.dataset.pot), type.dataset.potType); return; }
+      const sugar = e.target.closest('[data-pot-sugar]');
+      if(sugar){ addSugar(Number(sugar.dataset.pot), Number(sugar.dataset.potSugar)); return; }
+      const start = e.target.closest('[data-pot-start]');
+      if(start){ startBoil(Number(start.dataset.potStart)); return; }
+      const stop = e.target.closest('[data-pot-stop]');
+      if(stop){ stopBoil(Number(stop.dataset.potStop)); return; }
+      const dump = e.target.closest('[data-pot-dump]');
+      if(dump){ dumpPot(Number(dump.dataset.potDump)); return; }
+      const bell = e.target.closest('[data-pot-bell]');
+      if(bell){ togglePotAlarm(Number(bell.dataset.potBell)); return; }
+      const step = e.target.closest('[data-mix2-step]');
+      if(step){ stepPotMix(Number(step.dataset.pot), Number(step.dataset.idx), Number(step.dataset.mix2Step)); return; }
+    });
+    els.potGrid.addEventListener('input', e => {
+      const mix = e.target.closest('[data-pot-mix2]');
+      if(mix) setPotMix(Number(mix.dataset.potMix2), Number(mix.dataset.idx), mix.value);
+    });
+    if(els.alarmTrayItems){
+      let alarmDrag = null;
+      const clearAlarmHl = () => {
+        document.querySelectorAll('.pot-card.alarm-drop, .alarm-tray.alarm-drop')
+          .forEach(x => x.classList.remove('alarm-drop'));
+      };
+      const startAlarmDrag = (e, source, el) => {
+        e.preventDefault();
+        alarmDrag = { source, el, x: e.clientX, y: e.clientY, moved:false };
+        el.classList.add('dragging');
+        toast(source === 'tray'
+          ? '将闹钟拖拽到锅炉上以设置闹钟'
+          : '拖到其他锅可移动 · 拖回托盘或点一下可收回');
+      };
+      els.alarmTrayItems.addEventListener('pointerdown', e => {
+        const t = e.target.closest('.alarm-token');
+        if(t) startAlarmDrag(e, 'tray', t);
+      });
+      els.potGrid.addEventListener('pointerdown', e => {
+        const b = e.target.closest('[data-pot-alarm]');
+        if(b) startAlarmDrag(e, Number(b.dataset.potAlarm), b);
+      });
+      document.addEventListener('pointermove', e => {
+        if(!alarmDrag) return;
+        if(Math.abs(e.clientX-alarmDrag.x) + Math.abs(e.clientY-alarmDrag.y) > 6) alarmDrag.moved = true;
+        clearAlarmHl();
+        const under = document.elementFromPoint(e.clientX, e.clientY);
+        const card = under?.closest('[data-pot-drop]');
+        if(card) card.classList.add('alarm-drop');
+        const tray = under?.closest('#alarmTray');
+        if(tray) tray.classList.add('alarm-drop');
+      });
+      document.addEventListener('pointerup', e => {
+        if(!alarmDrag) return;
+        const { source, el, moved } = alarmDrag;
+        alarmDrag = null;
+        el.classList.remove('dragging');
+        clearAlarmHl();
+        const under = document.elementFromPoint(e.clientX, e.clientY);
+        const card = under?.closest('[data-pot-drop]');
+        const onTray = under?.closest('#alarmTray');
+        if(source === 'tray'){
+          if(card) assignAlarm(Number(card.dataset.potDrop));
+
+          return;
+        }
+        if(onTray){ removeAlarm(source); return; }
+        if(card && Number(card.dataset.potDrop) !== source){
+          moveAlarm(source, Number(card.dataset.potDrop));
+          return;
+        }
+        if(!moved) removeAlarm(source);
+      });
+      els.alarmTrayItems.addEventListener('dragstart', e => {
+        const t = e.target.closest('.alarm-token');
+        if(t) { e.dataTransfer.setData('text/plain', 'alarm'); e.dataTransfer.effectAllowed = 'copy'; }
+      });
+      els.potGrid.addEventListener('dragover', e => {
+        if(e.target.closest('[data-pot-drop]')) e.preventDefault();
+      });
+      els.potGrid.addEventListener('drop', e => {
+        const card = e.target.closest('[data-pot-drop]');
+        if(!card) return;
+        e.preventDefault();
+        assignAlarm(Number(card.dataset.potDrop));
+      });
+    }
+    if(els.stirBtn) els.stirBtn.addEventListener('click', toggleStir);
+    els.resetBtn.addEventListener('click', resetCan);
+    els.sealBtn.addEventListener('click', sealCan);
+    els.serveBtn.addEventListener('click', () => {
+      if(state.stage === 'restaurant'){ if(state.activeOrderId) setStage('desk'); else toast('先在餐厅接一单吧'); return; }
+      if(state.stage === 'kitchen'){ setStage('work'); return; }
+      if(state.stage === 'work'){ if(state.can.sealed) setStage('desk'); else toast('先封盖，再去服务台'); return; }
+      serveOrder();
+    });
+    els.nextBtn.addEventListener('click', nextGuest);
+    els.shopBtn.addEventListener('click', () => rogueActive() ? openRogueShop() : openShop());
+    els.replayBtn.addEventListener('click', onReplay);
+    els.homeBtn.addEventListener('click', goHome);
+    els.shopBackBtn.addEventListener('click', closeShop);
+    els.shopStartBtn.addEventListener('click', startNextDay);
+    els.shopGrid.addEventListener('click', e => {
+      const b = e.target.closest('[data-buy]');
+      if(b && !b.disabled) buyItem(b.dataset.buy);
+    });
+    if(els.shopTabs) els.shopTabs.addEventListener('click', e => {
+      const b = e.target.closest('[data-shoptab]');
+      if(b){ setShopTab(b.dataset.shoptab); if(state.shopTab === 'skin') renderShopSkin(); }
+    });
+    if(els.shopSkinSub) els.shopSkinSub.addEventListener('click', e => {
+      const b = e.target.closest('[data-skinsub]');
+      if(b){ state.shopSkinTab = b.dataset.skinsub; renderShopSkin(); }
+    });
+    if(els.shopSkinGrid) els.shopSkinGrid.addEventListener('click', e => {
+      const b = e.target.closest('[data-skinbuy]');
+      if(!b || b.disabled) return;
+      const key = b.dataset.skinbuy;
+      if(key.indexOf('skin:') === 0) handleCharSkin(key.slice(5));
+      else if(key.indexOf('variant:') === 0){ const p = key.split(':'); handleVariant(p[1] + ':' + p[2]); }
+      else if(key.indexOf('cloth:') === 0){ const p = key.split(':'); handleClothes(p[1], p[2]); }
+      renderShopSkin();
+    });
+    if(els.shopExpandGrid) els.shopExpandGrid.addEventListener('click', e => {
+      const b = e.target.closest('[data-expand]');
+      if(b && !b.disabled) buyExpansion(b.dataset.expand);
+    });
+    if(els.shopSyrupGrid) els.shopSyrupGrid.addEventListener('click', e => {
+      const b = e.target.closest('[data-syrup]');
+      if(b && !b.disabled) buySyrup(b.dataset.syrup);
+    });
+    if(els.shopFurnGrid) els.shopFurnGrid.addEventListener('click', e => {
+      const b = e.target.closest('[data-furniture]');
+      if(b && !b.disabled){ handleFurniture(b.dataset.furniture); renderShop(); }
+    });
+    if(els.itemShopEntryBtn) els.itemShopEntryBtn.addEventListener('click', () => openShop(true));
+    if(els.rogueShopList) els.rogueShopList.addEventListener('click', e => {
+      const b = e.target.closest('[data-rogue-buy]');
+      if(b && !b.disabled) buyRogueItem(b.dataset.rogueBuy);
+    });
+    if(els.rogueShopNext) els.rogueShopNext.addEventListener('click', () => {
+      if(els.rogueShopOverlay){ els.rogueShopOverlay.classList.remove('show'); els.rogueShopOverlay.setAttribute('aria-hidden','true'); }
+      if(state.rogueShopFrom === 'desk'){
+        state.phase = 'playing';
+        renderAll();
+        return;
+      }
+      state.phase = 'summary';
+      if(els.summaryOverlay){ els.summaryOverlay.classList.add('show'); els.summaryOverlay.setAttribute('aria-hidden','false'); }
+    });
+    if(els.rogueMarketCoin) els.rogueMarketCoin.addEventListener('click', () => {
+      if(els.rogueShopOverlay){ els.rogueShopOverlay.classList.remove('show'); els.rogueShopOverlay.setAttribute('aria-hidden','true'); }
+      state.phase = 'summary';
+      openShop(true);
+    });
+    if(els.rogueMarketBag) els.rogueMarketBag.addEventListener('click', showBuffBag);
+    if(els.buffBagClose) els.buffBagClose.addEventListener('click', () => {
+      if(els.buffBagOverlay){ els.buffBagOverlay.classList.remove('show'); els.buffBagOverlay.setAttribute('aria-hidden','true'); }
+    });
+    if(els.summaryPauseBtn) els.summaryPauseBtn.addEventListener('click', pauseRun);
+    if(els.devEndDayBtn) els.devEndDayBtn.addEventListener('click', devEndDay);
+    if(els.shrimpSkip) els.shrimpSkip.addEventListener('click', () => finishShrimp(null));
+    if(els.shrimpReroll) els.shrimpReroll.addEventListener('click', () => rerollShrimp());
+    if(els.shrimpChoices) els.shrimpChoices.addEventListener('click', e => {
+      const b = e.target.closest('[data-shrimp]');
+      if(!b) return;
+      pickSelectedId = b.dataset.shrimp;
+      els.shrimpChoices.querySelectorAll('.pick-opt').forEach(el => el.classList.toggle('sel', el.dataset.shrimp === pickSelectedId));
+      renderShrimpDetail(pickSelectedId);
+      if(els.shrimpConfirm) els.shrimpConfirm.disabled = false;
+      sfx.tap();
+    });
+    if(els.shrimpConfirm) els.shrimpConfirm.addEventListener('click', () => {
+      if(!pickSelectedId) return toast('先挑一只辣虾');
+      finishShrimp(pickSelectedId);
+    });
+    if(els.rogueItemsBar) els.rogueItemsBar.addEventListener('click', e => {
+      const b = e.target.closest('[data-use-item]');
+      if(b) useRogueItem(b.dataset.useItem);
+    });
+    if(els.eventContinue) els.eventContinue.addEventListener('click', closeRogueEventPopup);
+    if(els.buffBagBtn) els.buffBagBtn.addEventListener('click', showBuffBag);
+    if(els.shrimpCabinetBtn) els.shrimpCabinetBtn.addEventListener('click', openShrimpCabinet);
+    if(els.shrimpCabinetClose) els.shrimpCabinetClose.addEventListener('click', closeShrimpCabinet);
+    if(els.shrimpCabinetOverlay) els.shrimpCabinetOverlay.addEventListener('click', e => {
+      if(e.target === els.shrimpCabinetOverlay) closeShrimpCabinet();
+    });
+    if(els.rogueShopBtn) els.rogueShopBtn.addEventListener('click', openRogueShop);
+    if(els.rogueCoinShopBtn) els.rogueCoinShopBtn.addEventListener('click', () => openShop(true));
+    if(els.changelogBtn) els.changelogBtn.addEventListener('click', () => {
+      if(els.changelogOverlay){ els.changelogOverlay.classList.add('show'); els.changelogOverlay.setAttribute('aria-hidden','false'); }
+    });
+    if(els.updateBtn) els.updateBtn.addEventListener('click', checkUpdate);
+    [els.changelogClose, els.changelogDone].forEach(b => b && b.addEventListener('click', () => {
+      if(els.changelogOverlay){ els.changelogOverlay.classList.remove('show'); els.changelogOverlay.setAttribute('aria-hidden','true'); }
+    }));
+
+    if(els.savePlayerBtn) els.savePlayerBtn.addEventListener('click', savePlayerName);
+    if(els.playerName) els.playerName.addEventListener('keydown', e => {
+      if(e.key === 'Enter'){ e.preventDefault(); savePlayerName(); els.playerName.blur(); }
+    });
+    if(els.playerMenuToggle) els.playerMenuToggle.addEventListener('click', e => {
+      e.stopPropagation();
+      if(!els.playerMenu) return;
+      els.playerMenu.hidden = !els.playerMenu.hidden;
+      renderPlayerMenu();
+      sfx.tap();
+    });
+    if(els.playerMenu) els.playerMenu.addEventListener('click', e => {
+      const b = e.target.closest('[data-player-name]');
+      if(!b) return;
+      const name = b.dataset.playerName;
+      els.playerMenu.hidden = true;
+      switchProfile(name);
+      ensureAudio();
+      sfx.ding();
+      toast(`已切换店长「${name}」`);
+    });
+    document.addEventListener('click', e => {
+      if(!els.playerMenu || els.playerMenu.hidden) return;
+      if(e.target.closest('.player-name-wrap')) return;
+      els.playerMenu.hidden = true;
+    });
+    if(els.saveEntryBtn) els.saveEntryBtn.addEventListener('click', openSave);
+    if(els.saveClose) els.saveClose.addEventListener('click', closeSave);
+    if(els.saveOverlay) els.saveOverlay.addEventListener('click', e => { if(e.target === els.saveOverlay) closeSave(); });
+    if(els.copySaveBtn) els.copySaveBtn.addEventListener('click', doExportCopy);
+    if(els.downloadSaveBtn) els.downloadSaveBtn.addEventListener('click', doExportDownload);
+    if(els.importSaveBtn) els.importSaveBtn.addEventListener('click', doImportCode);
+    if(els.sbSaveBtn) els.sbSaveBtn.addEventListener('click', doSbSave);
+    if(els.sbLoadBtn) els.sbLoadBtn.addEventListener('click', doSbLoad);
+    if(els.sbForgetPin) els.sbForgetPin.addEventListener('click', () => {
+      sbRememberPin('');
+      if(els.sbPin) els.sbPin.value = '';
+      toast('已忘记存档密码 · 下次需要重新输入');
+    });
+    // App 切后台 / 关掉页面：先把这一局存进本机，再补一次云端
+    document.addEventListener('visibilitychange', () => { if(document.hidden) naiwaFlush(); });
+    window.addEventListener('pagehide', naiwaFlush);
+    window.__naiwaFlush = naiwaFlush;
+    if(els.gistSyncBtn) els.gistSyncBtn.addEventListener('click', doGistSync);
+    if(els.gistRestoreBtn) els.gistRestoreBtn.addEventListener('click', doGistRestore);
+    if(els.gistClearBtn) els.gistClearBtn.addEventListener('click', doGistClear);
+    if(els.homeEntryBtn) els.homeEntryBtn.addEventListener('click', () => openHome('room'));
+    document.addEventListener('pointerdown', unlockLaughAudio, { capture: true });
+    document.addEventListener('click', e => {
+      const host = e.target.closest('.frog, .room-doll, .dress-doll, .summary-frog');
+      if(!host) return;
+      const _art = skinArt(charSkinId()); if(_art && _art.laugh) playBellyLaugh();
+    }, true);
+    if(els.dressEntryBtn) els.dressEntryBtn.addEventListener('click', openDress);
+    if(els.dressClose) els.dressClose.addEventListener('click', closeDress);
+    if(els.dressDoneBtn) els.dressDoneBtn.addEventListener('click', closeDress);
+    if(els.dressOverlay) els.dressOverlay.addEventListener('click', e => { if(e.target === els.dressOverlay) closeDress(); });
+    if(els.dressSlots) els.dressSlots.addEventListener('click', e => {
+      const skinBtn = e.target.closest('[data-dress-skin]');
+      if(skinBtn){
+        state.dressSkin = skinBtn.dataset.dressSkin;
+        sfx.tap();
+        renderDress();
+        playBellyLaugh();
+        return;
+      }
+      const applyBtn = e.target.closest('[data-dress-skin-apply]');
+      if(applyBtn){
+        handleCharSkin(applyBtn.dataset.dressSkinApply);
+        state.dressSkin = charSkinId();
+        renderDress();
+        return;
+      }
+      const vb = e.target.closest('[data-variant]');
+      if(vb){ handleVariant(vb.dataset.variant); return; }
+      const b = e.target.closest('[data-dress]');
+      if(b) handleClothes(b.dataset.dress);
+    });
+    if(els.rankEntryBtn) els.rankEntryBtn.addEventListener('click', () => openLeaderboard());
+    if(els.summaryRankBtn){
+      els.summaryRankBtn.addEventListener('click', () => {
+        els.summaryOverlay.classList.remove('show');
+        els.summaryOverlay.setAttribute('aria-hidden','true');
+        rankFromSummary = true;
+        openLeaderboard();
+      });
+    }
+    if(els.rankTabs){
+      els.rankTabs.addEventListener('click', e => {
+        const btn = e.target.closest('[data-rank-tab]');
+        if(!btn) return;
+        renderLeaderboard(btn.dataset.rankTab);
+        refreshGlobalRank(btn.dataset.rankTab === 'rogue' ? 'rogue' : 'endless');
+        sfx.tap();
+      });
+    }
+    if(els.homeClose) els.homeClose.addEventListener('click', closeHome);
+    if(els.homePlayBtn) els.homePlayBtn.addEventListener('click', () => { closeHome(); startGame(); });
+    if(els.homeRankBtn) els.homeRankBtn.addEventListener('click', () => { closeHome(); openLeaderboard(); });
+    if(els.leaderboardClose) els.leaderboardClose.addEventListener('click', closeLeaderboard);
+    [els.reviewEarlyBtn, els.summaryEarlyBtn, els.shopEarlyBtn].forEach(btn => {
+      if(btn) btn.addEventListener('click', askEarlyLeave);
+    });
+    if(els.settingsEarlyBtn) els.settingsEarlyBtn.addEventListener('click', () => {
+      closeSettings();
+      askEarlyLeave();
+    });
+    if(els.settingsPauseBtn) els.settingsPauseBtn.addEventListener('click', pauseRun);
+    if(els.continueBtn) els.continueBtn.addEventListener('click', resumeRun);
+    if(els.confirmCancel) els.confirmCancel.addEventListener('click', () => closeConfirm(true));
+    if(els.confirmOk) els.confirmOk.addEventListener('click', () => {
+      const action = confirmAction;
+      if(action) action();
+      closeConfirm();
+    });
+    if(els.tutorialNext) els.tutorialNext.addEventListener('click', closeTutorialTip);
+    if(els.tutorialOverlay) els.tutorialOverlay.addEventListener('click', e => { if(e.target === els.tutorialOverlay) closeTutorialTip(); });
+    if(els.homeOverlay) els.homeOverlay.addEventListener('click', e => { if(e.target === els.homeOverlay) closeHome(); });
+    if(els.leaderboardOverlay) els.leaderboardOverlay.addEventListener('click', e => { if(e.target === els.leaderboardOverlay) closeLeaderboard(); });
+    els.homeTabs.forEach(t => t.addEventListener('click', () => setHomeTab(t.dataset.homeTab)));
+    if(els.furnitureGrid) els.furnitureGrid.addEventListener('click', e => {
+      const b = e.target.closest('[data-furniture]');
+      if(b && !b.disabled) handleFurniture(b.dataset.furniture);
+    });
+    if(els.closetGrid) els.closetGrid.addEventListener('click', e => {
+      const b = e.target.closest('[data-clothes]');
+      if(b && !b.disabled) handleClothes(b.dataset.clothes);
+    });
+    if(els.charSkinRow) els.charSkinRow.addEventListener('click', e => {
+      const b = e.target.closest('[data-char-skin]');
+      if(b) handleCharSkin(b.dataset.charSkin);
+    });
+    if(els.skinShop) els.skinShop.addEventListener('click', e => {
+      const apply = e.target.closest('[data-skin-apply]');
+      if(apply && !apply.disabled){
+        const [area,id] = apply.dataset.skinApply.split(':');
+        handleSkin(area,id);
+        return;
+      }
+      const b = e.target.closest('[data-skin-area]');
+      if(b){
+        state.skinPreview = {area:b.dataset.skinArea, id:b.dataset.skinId};
+        renderSkins();
+        sfx.tap();
+      }
+    });
+
+    if(window.PointerEvent){
+      els.pourBtn.addEventListener('pointerdown', e => { e.preventDefault(); startPour(); });
+      window.addEventListener('pointerup', stopPour);
+      window.addEventListener('pointercancel', stopPour);
+    }else{
+      els.pourBtn.addEventListener('touchstart', e => { e.preventDefault(); startPour(); }, {passive:false});
+      window.addEventListener('touchend', stopPour);
+      window.addEventListener('touchcancel', stopPour);
+    }
+    if(els.discardBtn){
+      els.discardBtn.addEventListener('click', e => { e.stopPropagation(); askDiscardSyrup(); });
+    }
+  }
+
+  function init(){
+    setInterval(() => { if(tutorialActive()){ try { renderTutorialTasks(); } catch(e){} } }, 900);
+    cacheEls();
+    lockViewport();
+    loadSave();
+    loadProfiles();
+    try{
+      const savedSound = localStorage.getItem('naiwa_sound');
+      if(savedSound === '0') state.sound = false;
+    }catch(e){}
+    state.pots = makePots();
+    state.introMode = 'normal';
+    els.game.dataset.stage = 'desk';
+    bgmEl = els.bgm;
+    setupBgmResilience();
+    cueMusic();
+    updateSoundButton();
+    syncSettingsUI();
+    syncDevModeUI();
+    renderPlayerBar();
+    renderFrogWear();
+    applySkins();
+    applyCharSkin();
+    syncVersionUI();
+    // 开机 3 秒后静默比对一次官网版本，有新版本只冒小红点，不弹窗
+    setTimeout(() => { try { autoCheckUpdate(); } catch(e){} }, 3000);
+    // 记住了存档密码的话，开场悄悄看一眼云端有没有更新的存档
+    setTimeout(() => { try { autoCloudPull(); } catch(e){} }, 2600);
+    setIntroMode('normal');
+    updateHud();
+    renderResumeUI();
+    renderPatience(1);
+    renderOrderTicket();
+    renderDesk();
+    renderWork();
+    renderKitchen();
+    updateFooter();
+    renderHint();
+    bindEvents();
+    bindOrderDrag();
+    requestAnimationFrame(tick);
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+
+

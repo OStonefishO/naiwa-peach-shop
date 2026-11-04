@@ -855,6 +855,8 @@
   const GIST_FILE = 'naiwa-cloud-save.json';
   const SB_URL_KEY = 'naiwa_sb_url';
   const SB_KEY_KEY = 'naiwa_sb_key';
+  const SB_PIN_KEY = 'naiwa_sb_pin_v1';
+  const SB_SYNC_KEY = 'naiwa_sb_synced_at';
   const SB_DEFAULT_URL = 'https://ckwfbkqnczlsvvrhhaqb.supabase.co';
   const SB_DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrd2Zia3FuY3psc3Z2cmhoYXFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMzMjMyMjEsImV4cCI6MjEwODg5OTIyMX0.N1M4YxM6gmztjkFdhXViIYc7TMyLz9W1LzhXNgaYrBA';
   const FURNITURE = {
@@ -1454,7 +1456,9 @@
     if(state.phase !== 'intro'){ toast('营业中不能换店长哦'); return; }
     const name = switchProfile(els.playerName.value);
     sfx.ding();
-    toast(`已登录「${name}」· 数据保存在本机`);
+    flashButton(els.savePlayerBtn, 'is-done');
+    toast(`已保存店长「${name}」· 数据在本机存档`);
+    if(sbPinRemembered()) autoCloudSave();
   }
   function renderPlayerBar(){
     if(!els.playerName || !activeProfile) return;
@@ -1516,6 +1520,9 @@
     renderPlayerBar();
     setIntroMode(state.introMode || 'normal');
     renderHome();
+    // 载入存档后主菜单必须立刻刷出新对局，不然「继续肉鸽」要手动点保存才出现
+    renderResumeUI();
+    autoSaveSig = cloudSignature();
     scheduleCloudSync();
     return names.length;
   }
@@ -1624,8 +1631,9 @@
     const cfg = sbConfig();
     if(els.sbUrl) els.sbUrl.value = cfg.url;
     if(els.sbKey) els.sbKey.value = cfg.key;
-    if(els.sbPin) els.sbPin.value = '';
+    if(els.sbPin) els.sbPin.value = sbPinRemembered();
     if(els.sbAdvanced) els.sbAdvanced.hidden = !state.devMode;
+    renderPinState();
     sbStatus(cfg.url && cfg.key ? '已配置 · 输入存档密码后上传/读取' : '未配置 · 先填 Project URL 和 anon key', cfg.url && cfg.key ? 'ok' : '');
     renderSaveStatus(gistToken() ? '已填写 Token · 点“同步到 GitHub”验证并上传' : '未连接 · 存档只在本机浏览器', gistToken() ? 'ok' : '');
     els.saveOverlay.classList.add('show');
@@ -1679,6 +1687,94 @@
     els.sbStatus.textContent = text;
     els.sbStatus.className = 'save-status' + (kind ? ' ' + kind : '');
   }
+
+  /* -------------------- 记住存档密码 / 自动云存档 -------------------- */
+  function sbPinRemembered(){
+    try{ return String(localStorage.getItem(SB_PIN_KEY) || '').trim(); }catch(e){ return ''; }
+  }
+  function sbRememberPin(pin){
+    pin = String(pin || '').trim();
+    try{
+      if(pin) localStorage.setItem(SB_PIN_KEY, pin);
+      else localStorage.removeItem(SB_PIN_KEY);
+    }catch(e){}
+    renderPinState();
+  }
+  function renderPinState(){
+    if(!els.sbPinState) return;
+    const pin = sbPinRemembered();
+    els.sbPinState.textContent = pin
+      ? '🔒 已记住存档密码 · 回标题页自动上传'
+      : '未记住存档密码（输入一次后自动记住）';
+    els.sbPinState.classList.toggle('ok', !!pin);
+    if(els.sbForgetPin) els.sbForgetPin.hidden = !pin;
+  }
+  function flashButton(btn, kind){
+    if(!btn || !btn.classList) return;
+    btn.classList.remove('is-busy','is-done','is-fail');
+    void btn.offsetWidth;
+    btn.classList.add(kind);
+    clearTimeout(btn._flashTimer);
+    if(kind !== 'is-busy'){
+      btn._flashTimer = setTimeout(() => btn.classList.remove(kind), 1400);
+    }
+  }
+  function clockText(ts){
+    const d = new Date(ts || Date.now());
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+  function cloudSavedAt(){
+    try{ return Number(localStorage.getItem(SB_SYNC_KEY)) || 0; }catch(e){ return 0; }
+  }
+  function setCloudSavedAt(ts){
+    try{ localStorage.setItem(SB_SYNC_KEY, String(ts || Date.now())); }catch(e){}
+  }
+  let autoSaveBusy = false;
+  let autoSaveSig = '';
+  function cloudSignature(){
+    try{ return JSON.stringify(profiles) + '|' + (activeProfile ? activeProfile.name : ''); }catch(e){ return String(Date.now()); }
+  }
+  // 回标题页 / 切后台：本地已经保存，再悄悄传一份云端
+  async function autoCloudSave(){
+    if(autoSaveBusy || !activeProfile) return false;
+    const pin = sbPinRemembered();
+    if(!pin) return false;
+    const sig = cloudSignature();
+    if(sig === autoSaveSig) return false;
+    autoSaveBusy = true;
+    try{
+      await sbRpc('save_player', { p_name: activeProfile.name, p_pin: pin, p_data: cloudPayload() });
+      autoSaveSig = sig;
+      setCloudSavedAt(Date.now());
+      sbStatus('☁️ 已自动存档 · ' + clockText(), 'ok');
+      toast('☁️ 已自动存档 ' + clockText());
+      return true;
+    }catch(err){
+      sbStatus('自动存档失败：' + err.message, 'err');
+      return false;
+    }finally{ autoSaveBusy = false; }
+  }
+  // 上线时静默比对一次云端：本机没有进行中的对局且云端更新，才自动拉取
+  async function autoCloudPull(){
+    const pin = sbPinRemembered();
+    if(!pin || !activeProfile || activeProfile.run) return false;
+    try{
+      const data = await sbRpc('load_player', { p_name: activeProfile.name, p_pin: pin });
+      const payload = Array.isArray(data) ? data[0] : data;
+      if(!payload || !payload.profiles) return false;
+      const remoteAt = Date.parse(payload.exportedAt || payload.updated_at || '') || 0;
+      if(remoteAt && remoteAt - cloudSavedAt() < 60000) return false;
+      importCloudPayload(payload);
+      setCloudSavedAt(remoteAt || Date.now());
+      sbStatus('☁️ 已同步云端存档', 'ok');
+      toast('☁️ 已同步云端存档');
+      return true;
+    }catch(err){ return false; }
+  }
+  function naiwaFlush(){
+    try{ saveRunToProfile(); }catch(e){}
+    try{ autoCloudSave(); }catch(e){}
+  }
   async function sbRpc(fn, body){
     const cfg = sbConfig();
     if(!cfg.url || !cfg.key) throw new Error('请先填写 Supabase Project URL 和 anon key');
@@ -1716,7 +1812,8 @@
     return data;
   }
   function sbCheckPin(){
-    const pin = (els.sbPin && els.sbPin.value || '').trim();
+    const typed = (els.sbPin && els.sbPin.value || '').trim();
+    const pin = typed || sbPinRemembered();
     if(!/^\d{4,8}$/.test(pin)) throw new Error('存档密码请填 4–8 位数字');
     return pin;
   }
@@ -1731,38 +1828,53 @@
     }catch(e){}
   }
   async function doSbSave(){
-    let pin;
+    const btn = els.sbSaveBtn;
     try{
       if(!activeProfile) throw new Error('没有店长存档');
       sbSaveConfig();
-      pin = sbCheckPin();
+      const pin = sbCheckPin();
+      sbRememberPin(pin);
+      flashButton(btn, 'is-busy');
       sbStatus('正在上传到 Supabase…');
-      const r = await sbRpc('save_player', {
+      await sbRpc('save_player', {
         p_name: activeProfile.name,
         p_pin: pin,
         p_data: cloudPayload()
       });
-      sbStatus('已上传 · ' + new Date().toLocaleTimeString() + (r && r.updated_at ? '' : ''), 'ok');
-      toast('Supabase 云存档已上传');
-      if(els.sbPin) els.sbPin.value = '';
-    }catch(err){ sbStatus(err.message, 'err'); }
+      autoSaveSig = cloudSignature();
+      setCloudSavedAt(Date.now());
+      flashButton(btn, 'is-done');
+      sbStatus('已上传 · ' + clockText(), 'ok');
+      toast('☁️ 云存档已上传 ' + clockText());
+    }catch(err){
+      flashButton(btn, 'is-fail');
+      sbStatus(err.message, 'err');
+      toast('⚠️ ' + err.message);
+    }
   }
   async function doSbLoad(){
-    let pin;
+    const btn = els.sbLoadBtn;
     try{
       if(!activeProfile) throw new Error('没有店长存档');
       sbSaveConfig();
-      pin = sbCheckPin();
+      const pin = sbCheckPin();
+      sbRememberPin(pin);
+      flashButton(btn, 'is-busy');
       sbStatus('正在读取 Supabase…');
       const data = await sbRpc('load_player', { p_name: activeProfile.name, p_pin: pin });
       const payload = Array.isArray(data) ? data[0] : data;
       if(!payload || !payload.profiles) throw new Error('云端存档格式不正确');
       const n = importCloudPayload(payload);
+      setCloudSavedAt(Date.now());
+      flashButton(btn, 'is-done');
       sbStatus('已恢复 ' + n + ' 个店长存档', 'ok');
-      toast('Supabase 云存档已恢复');
+      toast('☁️ 云存档已恢复 · 主菜单已刷新');
       if(els.saveExport) els.saveExport.value = encodeSaveCode();
-      if(els.sbPin) els.sbPin.value = '';
-    }catch(err){ sbStatus(err.message, 'err'); }
+    }catch(err){
+      flashButton(btn, 'is-fail');
+      sbStatus(err.message, 'err');
+      toast('⚠️ ' + err.message);
+    }
   }
   function doExportCopy(){
     const code = encodeSaveCode();
@@ -2775,6 +2887,7 @@
       'rogueMarketCoin','rogueMarketBag','buffBagOverlay','buffBagClose','buffBagBody','summaryPauseBtn','devEndDayBtn',
       'shrimpCabinetBtn','shrimpCabinetMeta','shrimpCabinetOverlay','shrimpCabinetClose','shrimpCabinetBody','shrimpCabinetSub',
       'startActions','continueBtn','continueLabel','continueMeta','rogueModeCard','rogueBadge','rogueNote',
+      'sbPinState','sbForgetPin',
       'playerMenuToggle','playerMenu',
       'settingsPauseBtn','rogueOverlay','rogueTitle','rogueStayBtn','rogueHomeBtn','confirmTitle','confirmCopy','confirmIcon','confirmTip',
       'tutorialOverlay','tutorialTitle','tutorialText','tutorialStep','tutorialNext'];
@@ -7168,6 +7281,8 @@
     renderHint();
     renderResumeUI();
     cueMusic();
+    // 回到主界面 = 一次存档点：本地已存，云存档悄悄跟上
+    naiwaFlush();
   }
 
   function selectSize(size){
@@ -9676,6 +9791,15 @@
     if(els.importSaveBtn) els.importSaveBtn.addEventListener('click', doImportCode);
     if(els.sbSaveBtn) els.sbSaveBtn.addEventListener('click', doSbSave);
     if(els.sbLoadBtn) els.sbLoadBtn.addEventListener('click', doSbLoad);
+    if(els.sbForgetPin) els.sbForgetPin.addEventListener('click', () => {
+      sbRememberPin('');
+      if(els.sbPin) els.sbPin.value = '';
+      toast('已忘记存档密码 · 下次需要重新输入');
+    });
+    // App 切后台 / 关掉页面：先把这一局存进本机，再补一次云端
+    document.addEventListener('visibilitychange', () => { if(document.hidden) naiwaFlush(); });
+    window.addEventListener('pagehide', naiwaFlush);
+    window.__naiwaFlush = naiwaFlush;
     if(els.gistSyncBtn) els.gistSyncBtn.addEventListener('click', doGistSync);
     if(els.gistRestoreBtn) els.gistRestoreBtn.addEventListener('click', doGistRestore);
     if(els.gistClearBtn) els.gistClearBtn.addEventListener('click', doGistClear);
@@ -9820,6 +9944,8 @@
     syncVersionUI();
     // 开机 3 秒后静默比对一次官网版本，有新版本只冒小红点，不弹窗
     setTimeout(() => { try { autoCheckUpdate(); } catch(e){} }, 3000);
+    // 记住了存档密码的话，开场悄悄看一眼云端有没有更新的存档
+    setTimeout(() => { try { autoCloudPull(); } catch(e){} }, 2600);
     setIntroMode('normal');
     updateHud();
     renderResumeUI();

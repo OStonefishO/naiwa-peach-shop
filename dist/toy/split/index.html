@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#F8E8BE">
+<meta name="description" content="奶蛙的夏日小店开张啦！接单、装罐、封盖、出餐，做一罐甜甜的黄桃罐头。微信/QQ 点开即玩。">
+<meta name="format-detection" content="telephone=no,email=no,address=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="奶蛙黄桃罐头店">
+<meta property="og:title" content="奶蛙黄桃罐头店 · 点开即玩">
+<meta property="og:description" content="接单、装罐、封盖、出餐，做一罐甜甜的黄桃罐头。微信/QQ 内直接打开。">
+<meta property="og:type" content="website">
+<title>奶蛙黄桃罐头店 · 正式版 5.1</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23FFD23F'/%3E%3Ccircle cx='50' cy='58' r='27' fill='%23FFC42E'/%3E%3Ccircle cx='39' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='61' cy='47' r='8' fill='%232F7D52'/%3E%3Ccircle cx='50' cy='72' r='4' fill='%23FFF3CE'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<img id="doubaoAsset" src="assets/7b4dfd09dd56.png" alt="" hidden>
+<img id="naishuAsset" src="assets/e809935e15e0.png" alt="" hidden>
+
+<div id="rotateTip" aria-hidden="true">
+  <div class="phone"></div>
+  <b>请把手机竖过来</b>
+  <small>奶蛙的罐头店是竖屏小店 · 旋转手机后继续</small>
+</div>
+
+<svg class="svg-sprite" aria-hidden="true" focusable="false">
+  <defs>
+    <radialGradient id="frogSkin" cx="38%" cy="25%" r="82%">
+      <stop offset="0" stop-color="#FFE87B"/>
+      <stop offset=".45" stop-color="#FFD43D"/>
+      <stop offset="1" stop-color="#F3B51D"/>
+    </radialGradient>
+    <linearGradient id="frogBelly" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFF9E9"/>
+      <stop offset="1" stop-color="#FFEBC9"/>
+    </linearGradient>
+    <linearGradient id="hatShade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F1E6D1"/>
+    </linearGradient>
+    <linearGradient id="canMetal" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#B9B3A6"/>
+      <stop offset=".18" stop-color="#F5F1E6"/>
+      <stop offset=".48" stop-color="#D8D2C4"/>
+      <stop offset=".76" stop-color="#F1EDE3"/>
+      <stop offset="1" stop-color="#AFA99C"/>
+    </linearGradient>
+    <linearGradient id="canLabel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3D8B5E"/>
+      <stop offset="1" stop-color="#236344"/>
+    </linearGradient>
+    <radialGradient id="peachGrad" cx="38%" cy="30%" r="80%">
+      <stop offset="0" stop-color="#FFD56F"/>
+      <stop offset=".48" stop-color="#FFB245"/>
+      <stop offset="1" stop-color="#EF7C28"/>
+    </radialGradient>
+    <linearGradient id="peachCanBody" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#B5AEA0"/>
+      <stop offset=".2" stop-color="#F6F0E3"/>
+      <stop offset=".55" stop-color="#D9D1C2"/>
+      <stop offset=".8" stop-color="#F1EBDD"/>
+      <stop offset="1" stop-color="#A9A294"/>
+    </linearGradient>
+  </defs>
+
+  <symbol id="i-star" viewBox="0 0 24 24">
+    <path d="M12 2.4l2.92 5.92 6.53.95-4.72 4.6 1.11 6.5L12 17.3l-5.84 3.07 1.11-6.5-4.72-4.6 6.53-.95L12 2.4z" fill="currentColor"/>
+  </symbol>
+  <symbol id="i-piggy" viewBox="0 0 64 64">
+    <ellipse cx="32" cy="36" rx="23" ry="18" fill="#F4B5C4" stroke="#B96A80" stroke-width="2"/>
+    <path d="M17 24c0-6 5-9 9-6" fill="#F4B5C4" stroke="#B96A80" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M47 24c0-6-5-9-9-6" fill="#F4B5C4" stroke="#B96A80" stroke-width="2" stroke-linejoin="round"/>
+    <ellipse cx="32" cy="40" rx="9" ry="7.5" fill="#FFD6DF" stroke="#B96A80" stroke-width="1.6"/>
+    <circle cx="29" cy="39.5" r="1.5" fill="#8E5568"/><circle cx="35" cy="39.5" r="1.5" fill="#8E5568"/>
+    <path d="M27 20h10" stroke="#8E5568" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M14 40h-4M54 40h-4" stroke="#B96A80" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="47" cy="32" r="2.2" fill="#8E5568"/>
+  </symbol>
+  <symbol id="i-coin" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="9.1" fill="#F4C43A" stroke="#B57B0F" stroke-width="1.7"/>
+    <circle cx="12" cy="12" r="6.4" fill="#FFDD69" stroke="#D39A16" stroke-width="1"/>
+    <path d="M12 7.2v9.6M9.1 10.1h5.8M9.1 13.1h5.8" fill="none" stroke="#9D670B" stroke-width="1.75" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-peach" viewBox="0 0 24 24">
+    <path d="M11.9 5.2C9.5 2.7 5.1 3.9 4.4 7.6c-.8 4.3 3.2 9.5 7.5 12.4 4.3-2.9 8.3-8.1 7.5-12.4-.7-3.7-5.1-4.9-7.5-2.4z" fill="currentColor"/>
+    <path d="M12.1 6.1C12 3.7 13.7 2.2 16 2.2c.1 2.2-1.4 3.9-3.9 3.9z" fill="#5C9B58"/>
+    <path d="M10.7 9.1c-1.8.4-3.2 1.7-3.8 3.4" fill="none" stroke="#FFE2AC" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>
+  </symbol>
+  <symbol id="i-can" viewBox="0 0 24 24">
+    <path d="M8.1 3.6h7.8l1.1 3.1v10.6l-1.1 3.1H8.1l-1.1-3.1V6.7l1.1-3.1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+    <path d="M7.3 8.3h9.4M7.3 15.4h9.4" fill="none" stroke="currentColor" stroke-width="1.6"/>
+    <ellipse cx="12" cy="3.7" rx="3.9" ry="1.4" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  </symbol>
+  <symbol id="i-drop" viewBox="0 0 24 24">
+    <path d="M12 2.6s6.3 6.8 6.3 11.2A6.3 6.3 0 0 1 12 20.1a6.3 6.3 0 0 1-6.3-6.3C5.7 9.4 12 2.6 12 2.6z" fill="currentColor"/>
+    <path d="M9.1 14.1c.2 1.5 1.1 2.4 2.4 2.7" fill="none" stroke="#FFF3D2" stroke-width="1.5" stroke-linecap="round" opacity=".65"/>
+  </symbol>
+  <symbol id="i-snow" viewBox="0 0 24 24">
+    <path d="M12 2.8v18.4M4 7.4l16 9.2M20 7.4L4 16.6M8.3 4.8L12 7.5l3.7-2.7M8.3 19.2L12 16.5l3.7 2.7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-heat" viewBox="0 0 24 24">
+    <path d="M12.7 2.5c.8 3.1-.8 4.6-2.1 6.2-1.2 1.5-2.5 3.2-2.5 5.5a5 5 0 0 0 10 0c0-2.9-1.4-4.6-2.9-6.6-1-1.4-1.9-2.8-2.5-5.1z" fill="currentColor"/>
+    <path d="M10 17.9c-1-.9-1.4-2.2-.9-3.4.4-1 1.2-1.8 1.6-2.1.2 1.3.8 2 1.4 2.7.5.7.9 1.4.7 2.2-.2 1.1-1.2 1.8-2.8.6z" fill="#FFF3CF" opacity=".7"/>
+  </symbol>
+  <symbol id="i-leaf" viewBox="0 0 24 24">
+    <path d="M20 3.2C9.6 2.9 4.3 7.1 4.4 14.2c0 2.8 1.9 5.1 4.8 5.1 6.9 0 10.6-5.4 10.8-16.1z" fill="currentColor"/>
+    <path d="M4.5 21c1.6-5.4 4.8-9.2 9.7-11.8" fill="none" stroke="#F7F0D9" stroke-width="1.3" stroke-linecap="round" opacity=".64"/>
+  </symbol>
+  <symbol id="i-flower" viewBox="0 0 24 24">
+    <circle cx="12" cy="6.4" r="3" fill="currentColor"/>
+    <circle cx="17" cy="10.4" r="3" fill="currentColor"/>
+    <circle cx="15.1" cy="16.3" r="3" fill="currentColor"/>
+    <circle cx="8.9" cy="16.3" r="3" fill="currentColor"/>
+    <circle cx="7" cy="10.4" r="3" fill="currentColor"/>
+    <circle cx="12" cy="12" r="2.1" fill="#FFF0B8"/>
+  </symbol>
+  <symbol id="i-thermo" viewBox="0 0 24 24">
+    <path d="M10 14.2V5.4a2.1 2.1 0 0 1 4.2 0v8.8a4.1 4.1 0 1 1-4.2 0z" fill="none" stroke="currentColor" stroke-width="1.8"/>
+    <path d="M12.1 8.1v7.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-check" viewBox="0 0 24 24">
+    <path d="M4.5 12.6l4.6 4.5L19.7 6.6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="i-x" viewBox="0 0 24 24">
+    <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="1.9"/>
+    <path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M18.5 5.5l-2.1 2.1M7.6 16.4l-2.1 2.1" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8.7" fill="none" stroke="currentColor" stroke-width="1.8"/>
+    <path d="M12 7.2v5.1l3.5 2.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24">
+    <path d="M4 12h15M13 5.7l6.3 6.3-6.3 6.3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24">
+    <path d="M4 9.4h3.7L12.4 5v14l-4.7-4.4H4z" fill="currentColor"/>
+    <path d="M15.6 8.6c1 .9 1.5 2.1 1.5 3.4s-.5 2.5-1.5 3.4M18.3 6c1.6 1.6 2.5 3.7 2.5 6s-.9 4.4-2.5 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-muted" viewBox="0 0 24 24">
+    <path d="M4 9.4h3.7L12.4 5v14l-4.7-4.4H4z" fill="currentColor"/>
+    <path d="M16 9.5l5 5M21 9.5l-5 5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24">
+    <path d="M19.5 10.2A7.7 7.7 0 1 0 20 14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+    <path d="M19.5 4.3v6h-6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="i-lid" viewBox="0 0 24 24">
+    <ellipse cx="12" cy="8" rx="7.5" ry="3.1" fill="none" stroke="currentColor" stroke-width="1.8"/>
+    <path d="M4.5 8v8.3c0 1.7 3.4 3.1 7.5 3.1s7.5-1.4 7.5-3.1V8" fill="none" stroke="currentColor" stroke-width="1.8"/>
+    <path d="M14.3 13.3c1.2 0 2.1.8 2.1 1.8s-.9 1.8-2.1 1.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24">
+    <path d="M4.5 6.8h15M9.6 6.8V4.9c0-.7.6-1.3 1.3-1.3h2.2c.7 0 1.3.6 1.3 1.3v1.9M6.9 6.8l.7 12.2c.1.9.8 1.6 1.7 1.6h5.4c.9 0 1.6-.7 1.7-1.6l.7-12.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M10.2 10.4v5.8M13.8 10.4v5.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-ticket" viewBox="0 0 24 24">
+    <path d="M4.5 4.8h15v5.1a2.2 2.2 0 0 0 0 4.2v5.1h-15v-5.1a2.2 2.2 0 0 0 0-4.2V4.8z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+    <path d="M8 9h8M8 12.2h8M8 15.4h5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  </symbol>
+
+  <symbol id="frog-chef" viewBox="0 0 140 160">
+    <ellipse cx="70" cy="153" rx="48" ry="6.5" fill="#2A1A0C" opacity=".12"/>
+    <g class="frog-figure">
+      <path d="M70 29C46 29 31 48 33 73c1 18-8 27-6 47 3 25 21 33 43 33s40-8 43-33c2-20-7-29-6-47 2-25-13-44-37-44z" fill="url(#frogSkin)" stroke="#DFA316" stroke-width="1.6"/>
+      <path d="M43 96c-13 2-20 13-16 23 3 7 10 7 15 2" fill="#FFD23F" stroke="#DFA316" stroke-width="1.4" stroke-linecap="round"/>
+      <path d="M97 96c13 2 20 13 16 23-3 7-10 7-15 2" fill="#FFD23F" stroke="#DFA316" stroke-width="1.4" stroke-linecap="round"/>
+      <circle cx="34" cy="118" r="5" fill="#74713A"/>
+      <circle cx="106" cy="118" r="5" fill="#74713A"/>
+      <ellipse cx="70" cy="127" rx="35" ry="35" fill="url(#frogBelly)"/>
+      <g class="chef-apron" style="display:var(--chef-apron,inline)">
+        <path d="M52 111c4-5 10-7 18-7s14 2 18 7" fill="none" stroke="#F0DDBB" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M57 131c0-7 6-12 13-12s13 5 13 12v9H57z" fill="#FFFDF6" stroke="#E5D3B3" stroke-width="1.2"/>
+        <path d="M61 131c0-4 4-7 9-7s9 3 9 7" fill="none" stroke="#6CA378" stroke-width="2" stroke-linecap="round"/>
+      </g>
+      <g>
+        <ellipse cx="51" cy="62" rx="18" ry="19" fill="#5C9B5D" stroke="#437B47" stroke-width="1.5"/>
+        <ellipse cx="51" cy="63" rx="11.5" ry="12.5" fill="#1D2718"/>
+        <circle cx="47" cy="57.5" r="3.6" fill="#FFFFFF" opacity=".92"/>
+        <circle cx="55.5" cy="68" r="1.5" fill="#FFFFFF" opacity=".58"/>
+      </g>
+      <g>
+        <ellipse cx="89" cy="62" rx="18" ry="19" fill="#5C9B5D" stroke="#437B47" stroke-width="1.5"/>
+        <ellipse cx="89" cy="63" rx="11.5" ry="12.5" fill="#1D2718"/>
+        <circle cx="85" cy="57.5" r="3.6" fill="#FFFFFF" opacity=".92"/>
+        <circle cx="93.5" cy="68" r="1.5" fill="#FFFFFF" opacity=".58"/>
+      </g>
+      <path d="M61 81c5 5 13 5 18 0" fill="none" stroke="#4A371B" stroke-width="2.6" stroke-linecap="round"/>
+      <ellipse cx="44" cy="78" rx="6" ry="3.2" fill="#FF9C7A" opacity=".45"/>
+      <ellipse cx="96" cy="78" rx="6" ry="3.2" fill="#FF9C7A" opacity=".45"/>
+      <g class="chef-hat" style="display:var(--chef-hat,inline)">
+        <path d="M37 32c-3-11 6-19 16-18 2-10 15-13 22-6 8-7 20-1 20 9 10-1 16 7 14 16-1 5-6 8-11 8H49c-6 0-10-4-12-9z" fill="url(#hatShade)" stroke="#DDCBAE" stroke-width="1.4"/>
+        <path d="M47 38h46v11H47z" fill="#FFFDF7" stroke="#DDCBAE" stroke-width="1.3"/>
+        <path d="M55 38v11M73 38v11M91 38v11" stroke="#EFE3CF" stroke-width="1.2"/>
+      </g>
+      <path d="M57 113l6 5-6 4M83 113l-6 5 6 4" fill="none" stroke="#E4CFA9" stroke-width="1.1" stroke-linecap="round" opacity=".7"/>
+    </g>
+  </symbol>
+
+  <symbol id="peach-can" viewBox="0 0 140 190">
+    <ellipse cx="70" cy="179" rx="49" ry="7" fill="#3A2410" opacity=".13"/>
+    <path d="M26 34l-4 124c0 10 21 17 48 17s48-7 48-17l-4-124z" fill="url(#peachCanBody)" stroke="#8D8678" stroke-width="1.5"/>
+    <path d="M28 36c0 6 18 11 42 11s42-5 42-11" fill="#D9D2C3"/>
+    <ellipse cx="70" cy="35" rx="42" ry="12" fill="#F1EBDD" stroke="#8D8678" stroke-width="2"/>
+    <ellipse cx="70" cy="35" rx="35" ry="8.5" fill="#DFA759"/>
+    <g>
+      <ellipse cx="57" cy="39" rx="17" ry="10" transform="rotate(-8 57 39)" fill="url(#peachGrad)"/>
+      <ellipse cx="82" cy="36" rx="16" ry="9" transform="rotate(7 82 36)" fill="url(#peachGrad)"/>
+      <ellipse cx="70" cy="30" rx="12" ry="7" fill="#FFD475"/>
+    </g>
+    <path d="M25 102c0-5 3-8 8-8h74c5 0 8 3 8 8v50c0 13-19 19-45 19s-45-6-45-19z" fill="url(#canLabel)"/>
+    <path d="M30 93h80v10H30z" fill="#F7DF7B" opacity=".9"/>
+    <text x="70" y="122" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="14" font-weight="900" letter-spacing="1.2" fill="#FFFFFF">YELLOW</text>
+    <text x="70" y="137" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="14" font-weight="900" letter-spacing="1.2" fill="#FFFFFF">PEACH</text>
+    <text x="70" y="154" text-anchor="middle" font-family="'Microsoft YaHei',sans-serif" font-size="11" font-weight="900" letter-spacing="1.6" fill="#FFE672">黄桃罐头</text>
+    <path d="M52 161c4 0 6 2 6 5s-3 5-7 5c-6 0-9-3-8-7 1-4 5-6 9-3z" fill="#F7D24B"/>
+    <path d="M56 158c0-2 1-3 3-4 0 2-1 3-3 4z" fill="#B7D990"/>
+    <ellipse cx="70" cy="35" rx="42" ry="12" fill="none" stroke="#F9F5EA" stroke-width="4"/>
+    <ellipse cx="70" cy="35" rx="42" ry="12" fill="none" stroke="#918A7B" stroke-width="1.5"/>
+    <path d="M87 35c5 0 9 1 9 2s-4 2-9 2" fill="none" stroke="#8A8273" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+</svg>
+
+<div class="game" id="game">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-badge" aria-hidden="true">
+        <svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg>
+      </div>
+      <div class="brand-copy">
+        <div class="brand-title">奶蛙黄桃罐头店</div>
+        <div class="brand-sub" id="daySub">DAY 01 · 准备营业</div>
+      </div>
+    </div>
+    <div class="hud">
+      <div class="coin-chip" aria-label="金币"><svg class="icon"><use href="#i-coin"></use></svg><span id="coins">0</span></div>
+      <button class="dev-end-btn" id="devEndDayBtn" type="button" hidden>结束今天</button>
+      <button class="icon-btn" id="settingsBtn" type="button" aria-label="设置"><svg class="icon"><use href="#i-gear"></use></svg></button>
+      <button class="icon-btn" id="soundBtn" type="button" aria-label="开关声音"><svg class="icon"><use href="#i-sound"></use></svg></button>
+    </div>
+  </header>
+
+  <nav class="stage-tabs" id="stageTabs" aria-label="工作区域">
+    <button class="stage-tab active" type="button" data-stage="desk"><svg class="icon"><use href="#i-clock"></use></svg>服务台<small>出餐</small><span class="tab-dot"></span></button>
+    <button class="stage-tab" type="button" data-stage="restaurant"><svg class="icon"><use href="#i-ticket"></use></svg>餐厅<small>接单</small><span class="tab-dot"></span></button>
+    <button class="stage-tab" type="button" data-stage="work"><svg class="icon"><use href="#i-can"></use></svg>工作台<small>装罐</small><span class="tab-dot"></span></button>
+    <button class="stage-tab" type="button" data-stage="kitchen"><svg class="icon"><use href="#i-heat"></use></svg>厨房<small>备料</small><span class="tab-dot"></span></button>
+  </nav>
+
+  <div class="week-banner" id="weekBanner" hidden>
+    <span id="weekLabel">本周业绩</span>
+    <div class="week-track"><i id="weekFill"></i></div>
+    <b id="weekValue">0 / 0</b>
+    <span class="week-left" id="weekLeft"></span>
+  </div>
+
+  <section class="scene" id="scene" aria-label="店铺场景">
+    <div class="awning"></div>
+    <div class="window" aria-hidden="true">
+      <div class="hill"></div><div class="hill two"></div>
+    </div>
+    <div class="shelf" aria-hidden="true">
+      <span class="jar j1"></span><span class="jar j2"></span><span class="jar j3"></span>
+    </div>
+    <div class="wall-note">今日营业中</div>
+
+    <div class="order-ticket" id="orderTicket">
+      <div class="ticket-head">
+        <span class="ticket-kicker">WAITING FOR ORDER</span>
+        <span class="ticket-name">奶蛙</span>
+      </div>
+      <div class="ticket-rule"></div>
+      <div class="ticket-empty" style="padding:22px 4px;text-align:center;font-size:9px;color:#A98556;font-weight:800;line-height:1.7">客人马上就到<br>先准备好黄桃吧～</div>
+    </div>
+
+    <div class="speech" id="speech" aria-live="polite"></div>
+    <div class="guest-wrap" id="guestWrap"></div>
+    <button class="order-rod" id="orderRod" type="button" aria-label="订单收纳棍">
+      <span class="rod-stick"></span><span class="rod-plate"></span><b>订单</b>
+    </button>
+
+    <div class="frog" aria-hidden="true">
+      <svg viewBox="0 0 140 160"><g class="frog-idle"><use href="#frog-chef"></use></g></svg>
+      <div class="frog-wear" id="frogWear"></div>
+    </div>
+
+    <div class="counter-plant" aria-hidden="true">
+      <span class="pot"></span><span class="leaf"></span><span class="leaf l2"></span><span class="leaf l3"></span>
+    </div>
+
+    <div class="can-stage">
+      <div class="doily"></div>
+      <div class="can-wrap empty" id="canWrap">
+        <div class="empty-can"><div class="outline"></div><div class="lid-line"></div><span>选个罐型<br>开始装罐</span></div>
+      </div>
+    </div>
+
+    <div class="kitchen-deco" id="kitchenDeco" aria-hidden="true">
+      <div class="kitchen-table"></div>
+      <div class="cut-deco" id="cutDeco">
+        <div class="board"></div>
+        <div class="peach-whole"></div>
+        <div class="knife-deco"></div>
+      </div>
+      <div class="stove-deco">
+        <div class="stove-body"></div>
+        <div class="stove-top"></div>
+        <div class="stove-pot"></div>
+        <div class="stove-flame"></div>
+      </div>
+    </div>
+
+    <div class="alarm-tray" id="alarmTray" aria-label="闹钟收纳盒">
+      <span class="alarm-tray-label">闹钟</span>
+      <div class="alarm-tray-items" id="alarmTrayItems"></div>
+    </div>
+
+    <button class="piggy scene-piggy" id="tipPiggy" type="button" aria-label="小费罐">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-piggy"></use></svg>
+      <span class="piggy-tip" id="tipPiggyText"></span>
+      <span class="piggy-label">小费罐</span>
+    </button>
+
+    <div class="counter" aria-hidden="true">
+      <div class="counter-top"></div>
+      <div class="counter-front"><span class="counter-sign">奶蛙的店 · 黄桃罐头</span></div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel" aria-label="制作区">
+    <div class="panel-head">
+      <div class="hint" id="hint">
+        <span class="hint-frog"><svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg></span>
+        <span class="hint-text" id="hintText">先去厨房准备黄桃和糖水吧</span>
+      </div>
+      <div class="patience" id="patience">
+        <svg class="icon"><use href="#i-clock"></use></svg>
+        <div class="patience-track"><div class="patience-fill" id="patienceFill"></div></div>
+        <span class="patience-time" id="patienceTime">1:40</span>
+      </div>
+    </div>
+
+    <div class="stage-view active" id="deskView" data-view="desk">
+      <div class="order-board">
+        <div class="order-stack-col">
+          <small>左置物棍</small>
+          <div class="order-stack" id="orderStackLeft"></div>
+        </div>
+        <button class="submit-rack" id="submitRack" type="button">
+          <svg class="icon"><use href="#i-ticket"></use></svg>
+          <b>订单架</b>
+          <em>把订单拖到这里再出餐</em>
+        </button>
+        <div class="order-stack-col right">
+          <small>右置物棍</small>
+          <div class="order-stack" id="orderStackRight"></div>
+        </div>
+      </div>
+      <div class="desk-card">
+        <div class="desk-guest">
+          <div class="desk-avatar" id="deskAvatar"></div>
+          <div><b id="deskGuestName">客人</b><small id="deskGuestMood">正在等你出餐</small></div>
+        </div>
+        <div class="desk-status" id="deskStatus">罐头还没做好，先去工作台看看吧。</div>
+        <div class="desk-actions">
+          <button class="mini-action" type="button" data-go="work"><svg class="icon"><use href="#i-can"></use></svg>去工作台</button>
+          <button class="mini-action" type="button" data-go="kitchen"><svg class="icon"><use href="#i-heat"></use></svg>去厨房</button>
+        </div>
+      </div>
+      <div class="desk-note">小提示：多接的订单会堆在置物棍上。把订单拖到「订单架」后，才能点「交给客人」出餐。</div>
+      <div class="task-inline" id="taskInline" hidden>
+        <button class="task-btn" id="taskInlineBtn" type="button"><span>任务</span><em>0/4</em></button>
+        <div class="task-list" id="taskInlineList" hidden></div>
+      </div>
+      <div class="rogue-hud-panel" id="rogueHudPanel" hidden>
+        <div class="rogue-day-line"><span class="rogue-day-tag" id="rogueDayTag">普通日</span><span class="rogue-event-line" id="rogueEventLine">今日事件：无</span></div>
+        <div class="rogue-items-bar" id="rogueItemsBar"></div>
+        <button class="shrimp-cabinet" id="shrimpCabinetBtn" type="button">
+          <span class="cabinet-ico">🦐</span>
+          <span class="cabinet-copy"><b>辣虾收纳柜</b><small id="shrimpCabinetMeta">本局还没有辣虾，去精英日/BOSS日抽</small></span>
+          <span class="cabinet-arrow">›</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="stage-view" id="restaurantView" data-view="restaurant">
+      <div class="ctrl-card restaurant-card">
+        <div class="ctrl-head">
+          <span class="stepnum">R</span>
+          <span class="ctrl-title">今日餐厅</span>
+          <span class="ctrl-note">先接谁，由你决定</span>
+        </div>
+        <div class="restaurant-note">客人可以按顺序接，也可以提前接。插队会扣被插队客人的评价；提前出餐会拿到额外好评。</div>
+        <div class="restaurant-list" id="restaurantList"></div>
+      </div>
+    </div>
+
+    <div class="stage-view" id="workView" data-view="work">
+      <div class="cook-grid">
+        <div class="ctrl-card" id="sizeCard">
+          <div class="ctrl-head"><span class="stepnum">1</span><span class="ctrl-title">挑罐型</span><span class="ctrl-note">按订单来</span></div>
+          <button class="jar-switch" id="jarSwitchBtn" type="button"><svg class="icon"><use href="#i-can"></use></svg><span>经典罐</span><small>点此切换罐子</small></button>
+          <div class="size-options">
+            <button class="size-btn" type="button" data-size="small"><span class="mini-can"></span><b>小罐</b><small>180ml</small></button>
+            <button class="size-btn" type="button" data-size="medium"><span class="mini-can"></span><b>中罐</b><small>300ml</small></button>
+            <button class="size-btn" type="button" data-size="large"><span class="mini-can"></span><b>大罐</b><small>420ml</small></button>
+          </div>
+        </div>
+        <div class="ctrl-card" id="peachCard">
+          <div class="ctrl-head"><span class="stepnum">2</span><span class="ctrl-title">放黄桃</span><span class="ctrl-note">大小要对</span></div>
+          <div class="piece-grid">
+            <div class="piece-box"><b>大块<small>碗里 <span id="bowlWorkLarge">0</span></small></b><div class="piece-line"><button class="round-btn" type="button" data-piece-minus="large">−</button><span class="num" id="canLarge">0</span><button class="round-btn" type="button" data-piece-plus="large">+</button></div></div>
+            <div class="piece-box"><b>小块<small>碗里 <span id="bowlWorkSmall">0</span></small></b><div class="piece-line"><button class="round-btn" type="button" data-piece-minus="small">−</button><span class="num" id="canSmall">0</span><button class="round-btn" type="button" data-piece-plus="small">+</button></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ctrl-card syrup-card" id="syrupCard">
+        <div class="ctrl-head"><span class="stepnum">3</span><span class="ctrl-title">倒糖水</span>
+          <button class="discard-btn" id="discardBtn" type="button" aria-label="倒掉罐里的糖水" title="倒掉罐里的糖水"><svg class="icon"><use href="#i-trash"></use></svg><span class="discard-label">倒糖水</span></button>
+          <span class="ctrl-note" id="syrupNote">选一锅熬好的糖水</span></div>
+        <div class="batch-strip" id="batchStrip"></div>
+        <div class="batch-scroll-wrap" id="batchScrollWrap" hidden>
+          <input class="batch-scroll" id="batchScroll" type="range" min="0" max="0" value="0" step="1" aria-label="浏览糖水批次">
+        </div>
+        <div class="batch-hint" id="batchHint" hidden>焦了、生了用不上的糖，可以按住拖到上面的垃圾桶倒掉</div>
+        <div class="syrup-row">
+          <div class="syrup-main">
+            <div class="syrup-gauge">
+              <div class="syrup-target" id="syrupTarget"></div>
+              <div class="syrup-fill" id="syrupFill"></div>
+              <div class="syrup-label"><span>0%</span><span id="syrupReadout">0%</span></div>
+            </div>
+          </div>
+          <button class="pour-btn" id="pourBtn" type="button">
+            <span class="pour-label"><svg class="icon"><use href="#i-drop"></use></svg>按住倒糖水</span>
+            <small>松手停止</small>
+          </button>
+        </div>
+        <div class="syrup-composition" id="syrupComposition"></div>
+        <div class="pour-seq" id="pourSeq"></div>
+      </div>
+
+      <div class="stir-wrap">
+        <button class="stir-btn" id="stirBtn" type="button">搅拌一下</button>
+      </div>
+
+      <div class="cook-grid">
+        <div class="ctrl-card" id="tempCard">
+          <div class="ctrl-head"><span class="stepnum">4</span><span class="ctrl-title">温度</span></div>
+          <div class="chip-row">
+            <button class="chip" type="button" data-temp="ice"><svg class="icon"><use href="#i-snow"></use></svg>冰镇</button>
+            <button class="chip" type="button" data-temp="room"><svg class="icon"><use href="#i-thermo"></use></svg>常温</button>
+            <button class="chip" type="button" data-temp="warm"><svg class="icon"><use href="#i-heat"></use></svg>温热</button>
+          </div>
+        </div>
+        <div class="ctrl-card" id="toppingCard">
+          <div class="ctrl-head"><span class="stepnum">5</span><span class="ctrl-title">加料</span></div>
+          <div class="chip-row" id="toppingChips"></div>
+          <div class="topping-qty" id="toppingQtyRow" hidden>
+            <span>份量</span>
+            <button class="round-btn" type="button" id="toppingMinus">−</button>
+            <b id="toppingQtyVal">1</b><small>勺</small>
+            <button class="round-btn" type="button" id="toppingPlus">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage-view" id="kitchenView" data-view="kitchen">
+      <div class="kitchen-order-line" id="kitchenOrder">订单：—</div>
+      <div class="cut-card" id="cutCard">
+        <div class="ctrl-head"><span class="stepnum">1</span><span class="ctrl-title">切黄桃</span><span class="ctrl-note">每刀切一块</span></div>
+        <div class="cut-stage" id="cutStage">
+          <div class="mini-board"></div><div class="mini-peach"></div><div class="mini-knife"></div>
+        </div>
+        <div class="cut-buttons">
+          <button class="cut-btn" type="button" data-cut="large">切大块<small>1 块</small></button>
+          <button class="cut-btn" type="button" data-cut="small">切小块<small>1 块</small></button>
+        </div>
+        <div class="cut-stock">
+          <span>整桃 <b id="cutStock">不限</b></span>
+          <div class="bowl-count"><span>碗里大块 <b id="bowlLarge">0</b></span><span>小块 <b id="bowlSmall">0</b></span></div>
+        </div>
+      </div>
+      <div class="cut-card" id="boilCard">
+        <div class="ctrl-head"><span class="stepnum">2</span><span class="ctrl-title">熬糖水</span><span class="ctrl-note" id="potNote">先加糖再开火</span></div>
+        <div class="pot-grid" id="potGrid"></div>
+        <div class="alarm-note" id="alarmNote">没有闹钟：盯着绿色火候区，自己数秒关火。</div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <button class="main-btn reset-btn" id="resetBtn" type="button"><svg class="icon"><use href="#i-refresh"></use></svg>重做</button>
+    <button class="main-btn seal-btn" id="sealBtn" type="button"><svg class="icon"><use href="#i-lid"></use></svg>封盖</button>
+    <button class="main-btn serve-btn" id="serveBtn" type="button" disabled><svg class="icon"><use href="#i-arrow"></use></svg>出餐</button>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <audio id="bgm" loop preload="auto" playsinline webkit-playsinline></audio>
+
+  <!-- 开始页 -->
+  <div class="overlay intro-overlay show" id="introOverlay">
+    <div class="intro-card">
+      <div class="intro-hero">
+        <span class="intro-tag">SUMMER PEACH · 2026</span>
+        <span class="intro-badge" id="introVersion">3.1<br>正式版</span>
+        <span class="intro-badge update-badge">自定义模式<br>来袭！</span>
+        <svg viewBox="0 0 312 210" aria-hidden="true">
+          <use href="#frog-chef" x="8" y="15" width="180" height="206"></use>
+          <use href="#peach-can" x="177" y="38" width="120" height="163"></use>
+          <g opacity=".8">
+            <circle cx="58" cy="43" r="4" fill="#FFF4C1"/>
+            <circle cx="266" cy="52" r="3.5" fill="#FFF4C1"/>
+            <path d="M248 28l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#FFF4C1"/>
+            <path d="M50 160l1.5 4 4 1.5-4 1.5-1.5 4-1.5-4-4-1.5 4-1.5z" fill="#FFF4C1"/>
+          </g>
+        </svg>
+      </div>
+      <div class="eyebrow">奶蛙的夏日小店</div>
+      <h1 class="intro-title">奶蛙黄桃<br><em>罐头店</em></h1>
+      <div class="maker">
+        <img src="assets/9d09aa310e33.jpg" alt="奶龙学长头像">
+        <div class="maker-copy"><small>MADE WITH LOVE</small><b>大连大学奶龙学长出品</b><span>奶蛙的夏日小店 · 三场景经营</span></div>
+      </div>
+      <div class="menu-group" id="modeGroup">
+        <button class="menu-toggle" id="modeToggle" type="button" aria-expanded="false" aria-controls="modePanel">
+          <span class="menu-toggle-copy"><small>游戏模式</small><b id="modeToggleName">普通模式</b></span>
+          <span class="menu-chevron">▾</span>
+        </button>
+        <div class="menu-panel" id="modePanel" hidden>
+          <div class="mode-pick" role="group" aria-label="选择游戏模式">
+            <button class="mode-card active" type="button" data-mode="normal">
+              <b>普通模式</b><small>4 周 · 28 天一个周目<br>尽可能多赚钱</small>
+            </button>
+            <button class="mode-card" type="button" data-mode="tutorial">
+              <b>新手模式 <span class="mode-badge tut-badge">推荐</span></b><small>7 天手把手教学<br>出餐 · 性格 · 精英 · 混合糖浆</small>
+            </button>
+            <button class="mode-card" type="button" data-mode="endless">
+              <b>无尽模式</b><small>每周完成业绩<br>不达标就关门</small>
+            </button>
+            <button class="mode-card locked" type="button" data-mode="rogue" id="rogueModeCard">
+              <b>肉鸽模式 <span class="mode-badge" id="rogueBadge">未解锁</span></b>
+              <small id="rogueNote">普通模式完成 2 周后解锁<br>内容制作中</small>
+            </button>
+            <button class="mode-card" type="button" data-mode="custom">
+              <b>自定义模式 <span class="mode-badge custom-badge">工坊</span></b><small>自定义客人 / 订单 / 目标 / 评分<br>上传创意工坊，用码分享</small>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="player-strip">
+        <span class="player-label">店长</span>
+        <div class="player-name-wrap">
+          <input class="player-input" id="playerName" maxlength="10" autocomplete="off" spellcheck="false" placeholder="输入名字，名字就是存档">
+          <button class="player-menu-toggle" id="playerMenuToggle" type="button" aria-label="切换店长">▾</button>
+          <div class="player-menu" id="playerMenu" hidden></div>
+        </div>
+        <button class="mini-btn" id="savePlayerBtn" type="button">保存</button>
+      </div>
+      <div class="player-hint">名字就是你的存档 · 输入新名字会切换店长</div>
+      <div class="start-actions" id="startActions">
+        <button class="primary-btn" id="startBtn" type="button">开始 28 天营业<svg class="icon"><use href="#i-arrow"></use></svg></button>
+        <button class="primary-btn resume-btn" id="continueBtn" type="button" hidden>
+          <span id="continueLabel">继续上一局</span><span class="resume-meta" id="continueMeta"></span>
+        </button>
+      </div>
+      <div class="menu-group" id="shopGroup">
+        <button class="menu-toggle" id="shopToggle" type="button" aria-expanded="false" aria-controls="shopPanel">
+          <span class="menu-toggle-copy"><small>我的小店</small><b>小家和店铺</b></span>
+          <span class="menu-chevron">▾</span>
+        </button>
+        <div class="menu-panel" id="shopPanel" hidden>
+          <div class="intro-links three">
+            <button class="ghost-btn" id="homeEntryBtn" type="button">奶蛙的小家</button>
+            <button class="ghost-btn" id="dressEntryBtn" type="button">更衣室</button>
+            <button class="ghost-btn" id="itemShopEntryBtn" type="button">商店</button>
+          </div>
+        </div>
+      </div>
+      <div class="intro-links four">
+        <button class="ghost-btn" id="rankEntryBtn" type="button">排行榜</button>
+        <button class="ghost-btn" id="saveEntryBtn" type="button">存档</button>
+        <button class="ghost-btn" id="codexEntryBtn" type="button">图鉴</button>
+        <button class="ghost-btn" id="settingsEntryBtn" type="button">设置</button>
+      </div>
+      <div class="intro-note" id="introNote">普通模式 · 28 天后结算总营业额 · 建议竖屏</div>
+    </div>
+  </div>
+
+  <!-- 评价页 -->
+  <div class="overlay review-overlay" id="reviewOverlay" aria-hidden="true">
+    <div class="review-sheet" role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
+      <div class="sheet-grip"></div>
+      <div class="review-top">
+        <button class="piggy review-piggy" id="reviewPiggy" type="button" aria-label="小费罐">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-piggy"></use></svg>
+          <i class="piggy-coin" aria-hidden="true"></i>
+          <span class="piggy-tip" id="reviewPiggyText"></span>
+        </button>
+        <div class="perfect-stamp" id="perfectStamp" style="display:none">PERFECT<br>完美出餐</div>
+        <div class="review-stars" id="reviewStars"></div>
+        <h2 class="review-title" id="reviewTitle">客人超满意！</h2>
+        <div class="review-special" id="reviewSpecial" hidden></div>
+        <div class="review-personality" id="reviewPersonality" hidden></div>
+        <div class="review-score-pill">综合评分 <b id="reviewScore">100</b> 分</div>
+      </div>
+      <div class="review-quote" id="reviewQuote"></div>
+      <div class="score-grid" id="scoreGrid"></div>
+      <div class="review-tip" id="reviewTip" hidden>
+        <div class="tip-head"><span>小费加成明细 · 奶蛙的小费</span><b>+0</b></div>
+      </div>
+      <div class="review-queue" id="reviewQueue" hidden></div>
+      <div class="reward-row"><span>本单收入 · 奶蛙的小费</span><strong><svg class="icon"><use href="#i-coin"></use></svg>+<span id="reviewCoins">0</span></strong></div>
+      <div class="review-actions">
+        <button class="primary-btn" id="nextBtn" type="button">下一位客人<svg class="icon"><use href="#i-arrow"></use></svg></button>
+        <button class="ghost-btn early-ghost" id="reviewEarlyBtn" type="button">提前下班</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 结算页 -->
+  <div class="overlay summary-overlay" id="summaryOverlay" aria-hidden="true">
+    <div class="confetti" id="confetti"></div>
+    <div class="summary-card" role="dialog" aria-modal="true" aria-labelledby="summaryTitle">
+      <div class="summary-ribbon" id="summaryRibbon">今日营业结束</div>
+      <div class="summary-eyebrow">NAIWA PEACH SHOP</div>
+      <h2 class="summary-title" id="summaryTitle">第 1 天 · 打烊啦</h2>
+      <div class="summary-sub" id="summarySub">奶蛙把今天的罐头都卖光啦！</div>
+      <div class="summary-hero">
+        <div class="summary-frog" id="summaryFrog"><svg viewBox="0 0 140 160"><use href="#frog-chef"></use></svg></div>
+        <div class="summary-stars">
+          <div class="summary-big-star"><svg class="icon"><use href="#i-star"></use></svg><span id="summaryStars">0</span><small id="summaryStarsMax" style="font-size:11px;color:#9E7B4C;font-weight:900">/ 9</small></div>
+          <small>今日获得星星</small>
+        </div>
+      </div>
+      <div class="summary-stats">
+        <div class="stat-box"><svg class="icon"><use href="#i-coin"></use></svg><b id="summaryCoins">0</b><small id="summaryCoinsLabel">今日收入</small></div>
+        <div class="stat-box"><svg class="icon" style="color:#E55B45"><use href="#i-star"></use></svg><b id="summaryPerfect">0</b><small>完美出餐</small></div>
+        <div class="stat-box"><svg class="icon" style="color:#4C9D69"><use href="#i-peach"></use></svg><b id="summaryAvg">0</b><small>平均评分</small></div>
+      </div>
+      <div class="summary-comment" id="summaryComment"></div>
+      <div class="summary-best" id="summaryBest"></div>
+      <div class="summary-actions">
+        <button class="primary-btn" id="shopBtn" type="button">逛金币商店<svg class="icon"><use href="#i-arrow"></use></svg></button>
+        <button class="ghost-btn" id="replayBtn" type="button">直接开始下一天</button>
+        <button class="ghost-btn" id="summaryRankBtn" type="button" style="display:none">查看排行榜</button>
+        <button class="ghost-btn" id="summaryPauseBtn" type="button" style="height:32px;display:none">暂时打烊（保存进度）</button>
+        <button class="ghost-btn" id="summaryEarlyBtn" type="button" style="height:32px">提前下班</button>
+        <button class="ghost-btn" id="homeBtn" type="button" style="display:none;height:34px">回到标题</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 金币商店 -->
+  <div class="overlay shop-overlay" id="shopOverlay" aria-hidden="true">
+    <div class="shop-card" role="dialog" aria-modal="true" aria-labelledby="shopTitle">
+      <div class="shop-head">
+        <div class="shop-eyebrow">NAIWA UPGRADE SHOP</div>
+        <h2 class="shop-title" id="shopTitle">打烊后的金币商店</h2>
+        <div class="shop-sub" id="shopSub">买口锅、换把刀，让明天更快一点</div>
+      </div>
+      <div class="shop-coins"><svg class="icon"><use href="#i-coin"></use></svg><span id="shopCoins">0</span> 金币</div>
+      <div class="shop-tabs" id="shopTabs">
+        <button type="button" data-shoptab="run" class="active">升级</button>
+        <button type="button" data-shoptab="syrup">糖浆</button>
+        <button type="button" data-shoptab="furniture">家具</button>
+        <button type="button" data-shoptab="expand">小料/罐子</button>
+        <button type="button" data-shoptab="skin">皮肤</button>
+      </div>
+      <div class="shop-subtabs" id="shopSkinSub" hidden>
+        <button type="button" data-skinsub="full" class="active">全套皮肤</button>
+        <button type="button" data-skinsub="variant">全套皮肤变体</button>
+        <button type="button" data-skinsub="head">帽子</button>
+        <button type="button" data-skinsub="glasses">眼镜</button>
+        <button type="button" data-skinsub="top">上衣</button>
+      </div>
+      <div class="shop-wallet" id="shopWallet"><svg class="icon"><use href="#i-coin"></use></svg>金币 <b>0</b><small>全局购买，永久生效</small></div>
+      <div class="shop-event" id="shopEvent" hidden></div>
+      <div class="shop-grid" id="shopGrid"></div>
+      <div class="shop-grid" id="shopSyrupGrid" hidden></div>
+      <div class="shop-grid" id="shopFurnGrid" hidden></div>
+      <div class="shop-grid" id="shopExpandGrid" hidden></div>
+      <div class="shop-grid" id="shopSkinGrid" hidden></div>
+      <div class="shop-actions">
+        <button class="primary-btn" id="shopStartBtn" type="button">开始第 2 天<svg class="icon"><use href="#i-arrow"></use></svg></button>
+        <button class="ghost-btn" id="shopBackBtn" type="button">回到今日结算</button>
+        <button class="ghost-btn" id="shopEarlyBtn" type="button">提前下班回主菜单</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 奶蛙的小家 -->
+  <div class="overlay home-overlay" id="homeOverlay" aria-hidden="true">
+    <div class="home-card" role="dialog" aria-modal="true" aria-labelledby="homeTitle">
+      <div class="home-head">
+        <div class="home-title-wrap">
+          <div class="home-eyebrow">NAIWA'S HOME</div>
+          <h2 class="home-title" id="homeTitle">奶蛙的小家</h2>
+          <div class="home-owner" id="homeOwner">店长：奶蛙店长</div>
+        </div>
+        <div class="home-wallet"><svg class="icon"><use href="#i-coin"></use></svg><b id="homeCoins">0</b><small>金币</small></div>
+        <button class="home-close" id="homeClose" type="button" aria-label="关闭">×</button>
+      </div>
+      <div class="home-tabs" id="homeTabs">
+        <button class="home-tab active" type="button" data-home-tab="room">小家</button>
+        <button class="home-tab" type="button" data-home-tab="furniture">家具店</button>
+        <button class="home-tab" type="button" data-home-tab="closet">衣橱</button>
+        <button class="home-tab" type="button" data-home-tab="skins">店铺皮肤</button>
+      </div>
+      <div class="home-body">
+        <section class="home-panel" data-home-panel="room">
+          <div class="room-scene" id="homeRoom"></div>
+          <div class="home-tip" id="homeRoomTip">买点家具，把奶蛙的小家布置得舒服一点。</div>
+        </section>
+        <section class="home-panel" data-home-panel="furniture" hidden>
+          <div class="home-section-head"><b>家具商店</b><span>买下后可以摆放 / 收起</span></div>
+          <div class="home-grid" id="furnitureGrid"></div>
+        </section>
+        <section class="home-panel" data-home-panel="closet" hidden>
+          <div class="home-section-head"><b>全套皮肤</b><span>整只奶蛙一起换 · 免费</span></div>
+          <div class="char-skin-row" id="charSkinRow"></div>
+          <div class="home-section-head"><b>奶蛙衣橱</b><span>帽子/眼镜 · 上衣</span></div>
+          <div class="home-grid" id="closetGrid"></div>
+        </section>
+        <section class="home-panel" data-home-panel="skins" hidden>
+          <div class="home-section-head"><b>店铺皮肤</b><span>服务台 / 工作台 / 厨房可分别更换</span></div>
+          <div class="skin-list" id="skinShop"></div>
+        </section>
+      </div>
+      <div class="home-actions">
+        <button class="primary-btn" id="homePlayBtn" type="button">开始营业<svg class="icon"><use href="#i-arrow"></use></svg></button>
+        <button class="ghost-btn" id="homeRankBtn" type="button">排行榜</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 更衣室 -->
+  <div class="overlay dress-overlay" id="dressOverlay" aria-hidden="true">
+    <div class="dress-card" role="dialog" aria-modal="true" aria-label="更衣室">
+      <button class="home-close" id="dressClose" type="button" aria-label="关闭">×</button>
+      <div class="home-eyebrow">NAIWA'S CLOSET</div>
+      <h2 class="home-title">更衣室</h2>
+      <div class="dress-sub"><span id="dressCoins">200 金币</span><span>给奶蛙换一身，店里也会穿</span></div>
+      <div class="dress-stage">
+        <div class="dress-doll" id="dressDoll"></div>
+      </div>
+      <div class="dress-slots" id="dressSlots"></div>
+      <div class="home-actions"></div>
+    </div>
+  </div>
+
+  <!-- 排行榜 -->
+  <div class="overlay leaderboard-overlay" id="leaderboardOverlay" aria-hidden="true">
+    <div class="leaderboard-card" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
+      <button class="home-close" id="leaderboardClose" type="button" aria-label="关闭">×</button>
+      <div class="home-eyebrow">NAIWA RANK</div>
+      <h2 class="leaderboard-title" id="leaderboardTitle">排行榜</h2>
+      <p class="leaderboard-sub" id="leaderboardSub">本机排行榜 · 用名字区分存档</p>
+      <div class="rank-tabs" id="rankTabs">
+        <button class="rank-tab active" type="button" data-rank-tab="endless">无尽排行榜</button>
+        <button class="rank-tab" type="button" data-rank-tab="rogue">肉鸽排行榜</button>
+      </div>
+      <div class="leaderboard-list" id="leaderboardList"></div>
+      <div class="leaderboard-foot" id="leaderboardFoot">每周目标递增，活得越久排名越高</div>
+    </div>
+  </div>
+
+  <!-- 存档 / GitHub 云同步 -->
+  <div class="overlay save-overlay" id="saveOverlay" aria-hidden="true">
+    <div class="save-card" role="dialog" aria-modal="true" aria-labelledby="saveTitle">
+      <button class="home-close" id="saveClose" type="button" aria-label="关闭">×</button>
+      <div class="home-eyebrow">NAIWA SAVE FILE</div>
+      <h2 class="save-title" id="saveTitle">存档与云同步</h2>
+      <p class="save-sub">店长名字是本机存档 · Supabase 用名字 + 存档密码跨设备 · GitHub Gist 可选</p>
+
+      <div class="save-guide">
+        <b>第一次存档？按这 3 步</b>
+        <ol>
+          <li>在标题页输入店长名字，点「保存」。</li>
+          <li>在下面设置 4–8 位存档密码，点「上传到 Supabase」。</li>
+          <li>换设备时输入同名店长 + 同一存档密码，点「从 Supabase 读取」。</li>
+        </ol>
+        <small>存档密码只用于跨设备校验，忘了无法找回，请牢记。</small>
+        <small class="save-guide-auto">密码只需输一次：之后每次回到标题页、切到后台都会自动上传存档，并弹出「已自动存档」。</small>
+      </div>
+
+      <div class="save-section save-cloud sb-cloud">
+        <div class="save-label">Supabase 云存档 <span class="save-badge">推荐 · 名字 + 存档密码</span></div>
+        <div class="save-advanced" id="sbAdvanced" hidden>
+          <input class="save-token" id="sbUrl" type="url" autocomplete="off" spellcheck="false" placeholder="Project URL（https://xxxx.supabase.co）">
+          <input class="save-token" id="sbKey" type="password" autocomplete="off" spellcheck="false" placeholder="anon public key">
+        </div>
+        <p class="save-pin-hint">输入你的存档密码，无法找回，请牢记！</p>
+        <input class="save-token" id="sbPin" type="password" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="4–8 位存档密码">
+        <div class="save-pin-row">
+          <span class="save-pin-state" id="sbPinState">未记住存档密码（输入一次后自动记住）</span>
+          <button class="mini-btn" id="sbForgetPin" type="button" hidden>忘记密码</button>
+        </div>
+        <div class="save-row">
+          <button class="primary-btn" id="sbSaveBtn" type="button">上传到 Supabase</button>
+          <button class="ghost-btn" id="sbLoadBtn" type="button">从 Supabase 读取</button>
+        </div>
+        <p class="save-note">已连接内置 Supabase 项目，只需设置 4–8 位存档密码。<br>换设备输入同名店长 + 同一存档密码即可恢复；换项目再按 <b>supabase/README.md</b> 建表。</p>
+        <div class="save-status" id="sbStatus">已配置 · 输入存档密码后上传/读取</div>
+      </div>
+
+      <div class="save-section">
+        <div class="save-label">导出存档码</div>
+        <textarea class="save-textarea" id="saveExport" readonly></textarea>
+        <div class="save-row">
+          <button class="ghost-btn" id="copySaveBtn" type="button">复制存档码</button>
+          <button class="ghost-btn" id="downloadSaveBtn" type="button">下载 JSON</button>
+        </div>
+      </div>
+
+      <div class="save-section">
+        <div class="save-label">导入存档码</div>
+        <textarea class="save-textarea" id="saveImport" placeholder="粘贴以 NAIWA1: 开头的存档码"></textarea>
+        <button class="primary-btn" id="importSaveBtn" type="button">导入并覆盖同名店长</button>
+      </div>
+
+      <div class="save-section save-cloud">
+        <div class="save-label">GitHub 云存档 <span class="save-badge">可选</span></div>
+        <input class="save-token" id="gistToken" type="password" autocomplete="off" spellcheck="false" placeholder="GitHub Token（只需要 gist 权限）">
+        <div class="save-row">
+          <button class="primary-btn" id="gistSyncBtn" type="button">同步到 GitHub</button>
+          <button class="ghost-btn" id="gistRestoreBtn" type="button">从云端恢复</button>
+        </div>
+        <div class="save-row">
+          <button class="ghost-btn" id="gistClearBtn" type="button">断开 GitHub</button>
+        </div>
+        <p class="save-note">Token 只保存在这台设备的浏览器里，不会写进存档。建议创建 classic token，只勾选 <b>gist</b>。云存档写入你的私有 Gist，换设备登录同一 GitHub 账号后可恢复。</p>
+        <div class="save-status" id="saveStatus">未连接 · 存档只在本机</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 提前下班确认 -->
+  <div class="settings-overlay" id="settingsOverlay" aria-hidden="true">
+    <div class="settings-card">
+      <button class="settings-close" id="settingsClose" type="button" aria-label="关闭设置">✕</button>
+      <div class="settings-kicker">NAIWA OPTIONS</div>
+      <h2 class="settings-title">设置</h2>
+      <p class="settings-sub">调好音量再开张，奶蛙和客人都听得舒服。</p>
+      <div class="setting-row">
+        <label for="setMaster">主音量</label>
+        <input id="setMaster" type="range" min="0" max="100" step="1" value="80">
+        <output class="setting-val" id="setMasterVal">80%</output>
+      </div>
+      <div class="setting-row">
+        <label for="setMusic">音乐音量</label>
+        <input id="setMusic" type="range" min="0" max="100" step="1" value="70">
+        <output class="setting-val" id="setMusicVal">70%</output>
+      </div>
+      <div class="setting-row">
+        <label for="setAlarm">闹钟音量</label>
+        <input id="setAlarm" type="range" min="0" max="100" step="1" value="80">
+        <output class="setting-val" id="setAlarmVal">80%</output>
+      </div>
+      <div class="setting-row">
+        <label for="setLaugh">捧腹大笑音量</label>
+        <input id="setLaugh" type="range" min="0" max="100" step="1" value="82">
+        <output class="setting-val" id="setLaughVal">82%</output>
+      </div>
+      <div class="settings-note">主音量控制所有声音；音乐音量只影响四首 BGM；闹钟音量只影响熬糖锅的提醒铃声；捧腹大笑音量只影响「捧腹奶蛙」皮肤在结算时的笑声音效（默认略大于 BGM）。</div>
+      <div class="redeem-box">
+        <div class="redeem-head"><b>兑换码</b><span>为后续拓展准备</span></div>
+        <div class="redeem-row">
+          <input id="redeemInput" class="redeem-input" type="text" placeholder="输入兑换码，例如：奶龙学长模式" autocomplete="off">
+          <button id="redeemBtn" class="redeem-btn" type="button">兑换</button>
+        </div>
+        <div class="redeem-status" id="redeemStatus">输入兑换码领取内容</div>
+        <button id="devExitBtn" class="redeem-exit" type="button" hidden>退出开发者模式</button>
+      </div>
+      <button class="settings-codex" id="codexFromSettings" type="button">📖 打开奶蛙图鉴</button>
+      <button class="settings-update" id="updateBtn" type="button">🔄 检查更新</button>
+      <button class="settings-changelog" id="changelogBtn" type="button">📝 更新日志 · 4.11 新手教学完善</button>
+      <button class="settings-pause" id="settingsPauseBtn" type="button" hidden>暂时打烊（保存进度）</button>
+      <button class="settings-early" id="settingsEarlyBtn" type="button" hidden>提前下班</button>
+      <button class="settings-done" id="settingsDone" type="button">完成</button>
+    </div>
+  </div>
+
+  <div class="overlay codex-overlay" id="codexOverlay" aria-hidden="true">
+    <div class="codex-card" role="dialog" aria-modal="true" aria-labelledby="codexTitle">
+      <button class="codex-close" id="codexClose" type="button" aria-label="关闭图鉴">✕</button>
+      <div class="codex-kicker">NAIWA ENCYCLOPEDIA</div>
+      <h2 class="codex-title" id="codexTitle">奶蛙图鉴</h2>
+      <p class="codex-sub">客人的性格、食材与罐子、见过的精英与 BOSS。</p>
+      <div class="codex-tabs" id="codexTabs">
+        <button class="codex-tab active" type="button" data-codex-tab="personality">客人性格</button>
+        <button class="codex-tab" type="button" data-codex-tab="normal">普通客人</button>
+        <button class="codex-tab" type="button" data-codex-tab="items">食材与罐子</button>
+        <button class="codex-tab" type="button" data-codex-tab="boss">精英与BOSS</button>
+        <button class="codex-tab" type="button" data-codex-tab="rogue" id="codexRogueTab" hidden>肉鸽</button>
+      </div>
+      <div class="codex-body" id="codexBody"></div>
+    </div>
+  </div>
+
+  <div class="overlay rogue-overlay" id="rogueOverlay" aria-hidden="true">
+    <div class="rogue-card" role="dialog" aria-modal="true" aria-labelledby="rogueTitle">
+      <div class="rogue-icon">🎲</div>
+      <div class="rogue-kicker">NEW MODE UNLOCKED</div>
+      <h2 class="rogue-title" id="rogueTitle">肉鸽模式已解锁！</h2>
+      <p class="rogue-copy">你已经在普通模式坚持了整整两周。<br>肉鸽模式正在准备中，解锁记录已经保存。</p>
+      <div class="rogue-actions">
+        <button class="ghost-btn" id="rogueHomeBtn" type="button">回主菜单</button>
+        <button class="primary-btn" id="rogueStayBtn" type="button">继续营业</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tutorial-overlay" id="tutorialOverlay" aria-hidden="true">
+    <div class="tutorial-card" role="dialog" aria-labelledby="tutorialTitle" aria-describedby="tutorialText">
+      <div class="tutorial-kicker">新手教程 · 奶蛙手把手</div>
+      <div class="tutorial-step" id="tutorialStep" hidden></div>
+      <h2 class="tutorial-title" id="tutorialTitle">欢迎来到奶蛙的小店</h2>
+      <p class="tutorial-text" id="tutorialText"></p>
+      <button class="primary-btn tutorial-next" id="tutorialNext" type="button">知道啦，继续</button>
+    </div>
+  </div>
+
+  <div class="overlay confirm-overlay" id="confirmOverlay" aria-hidden="true">
+    <div class="confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <div class="confirm-icon" id="confirmIcon">🚪</div>
+      <h2 class="confirm-title" id="confirmTitle">要提前下班吗？</h2>
+      <p class="confirm-copy" id="confirmCopy">本局进度会结束，奶蛙会回到主界面。<br>确定要提前下班吗？</p>
+      <div class="confirm-tip" id="confirmTip" hidden></div>
+      <div class="confirm-actions">
+        <button class="ghost-btn" id="confirmCancel" type="button">继续营业</button>
+        <button class="primary-btn" id="confirmOk" type="button">提前下班</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+  <div class="overlay rogue-shop-overlay" id="rogueShopOverlay" aria-hidden="true">
+    <div class="rogue-shop-card">
+      <div class="rogue-kicker">ROGUE MARKET</div>
+      <div class="rogue-market-head">
+        <h2>肉鸽夜市</h2>
+        <div class="rogue-market-links">
+          <button id="rogueMarketCoin" type="button">金币商店</button>
+          <button id="rogueMarketBag" type="button">增益袋</button>
+        </div>
+      </div>
+      <p class="rogue-sub">每天打烊后随机进货，最多 5 件；固定「好评返现福利」。</p>
+      <div class="rogue-money">肉鸽金币 <b id="rogueShopCoins">0</b></div>
+      <div class="rogue-shop-list" id="rogueShopList"></div>
+      <button class="primary-btn" id="rogueShopNext" type="button">返回</button>
+    </div>
+  </div>
+
+  <div class="overlay bag-overlay" id="buffBagOverlay" aria-hidden="true">
+    <div class="bag-card">
+      <button class="codex-close" id="buffBagClose" type="button">✕</button>
+      <div class="rogue-kicker">BUFF BAG</div>
+      <h2>增益收纳袋</h2>
+      <div class="bag-body" id="buffBagBody"></div>
+    </div>
+  </div>
+
+  <div class="overlay bag-overlay" id="shrimpCabinetOverlay" aria-hidden="true">
+    <div class="bag-card">
+      <button class="codex-close" id="shrimpCabinetClose" type="button">✕</button>
+      <div class="rogue-kicker">SHRIMP CABINET</div>
+      <h2>辣虾收纳柜</h2>
+      <p class="cabinet-sub" id="shrimpCabinetSub">本局已收集的辣虾</p>
+      <div class="bag-body shrimp-body" id="shrimpCabinetBody"></div>
+    </div>
+  </div>
+
+  <div class="overlay event-overlay" id="eventOverlay" aria-hidden="true">
+    <div class="event-card">
+      <div class="rogue-kicker">ROGUE EVENT</div>
+      <div class="event-icon" id="eventIcon">🍀</div>
+      <h2 id="eventTitle">今日事件</h2>
+      <p id="eventDesc"></p>
+      <button class="primary-btn" id="eventContinue" type="button">继续营业</button>
+    </div>
+  </div>
+
+  <div class="overlay changelog-overlay" id="changelogOverlay" aria-hidden="true">
+    <div class="changelog-card">
+      <button class="codex-close" id="changelogClose" type="button">✕</button>
+      <div class="rogue-kicker">CHANGELOG</div>
+      <h2>更新日志</h2>
+      <div class="changelog-body"><div class="changelog-item"><b>5.1 · 存档更省心</b><span>存档密码记一次就够：之后回到标题页、切到后台、按返回键离开，都会自动上传一份云存档，底下弹一句「☁️ 已自动存档」。从云端读档后主菜单会立刻刷新，上次没打完的那局马上出现在「继续」按钮上，不用再手动点保存。上传/读取按钮也加了转圈、对勾和抖动反馈。</span></div><div class="changelog-item"><b>5.1 · 冷启动不再掉档</b><span>安卓版之前每次重开都会换一个本地端口，而存档是按端口分开的 —— 等于每次开机都换一台新手机。现在端口固定，并且会主动沿用老版本的端口，把之前存的店长和进行中的对局接回来。</span></div><div class="changelog-item"><b>5.0 · 安卓版上架</b><span>同一份游戏现在有了安卓安装包：点开就是奶蛙的小店，开屏先看到奶蛙在开张；存档、排行榜、创意工坊和网页版是同一套。手机上按返回键会先问「要离开小店了吗？」。</span></div><div class="changelog-item"><b>5.0 · 检查更新</b><span>设置里多了一个「检查更新」按钮：会去官网比对版本号，有新版本会显示出来了，点一下就能打开下载页（网页版或安卓包）。每次打开游戏还会自己悄悄查一次，真有新版本时标题页的「设置」上会冒个小红点。</span></div><div class="changelog-item"><b>4.71 · 地图上传时间</b><span>工坊每张地图多了一行「上传于 YYYY-MM-DD HH:mm」，按「最新」排序时就是按这个时间倒序。</span></div><div class="changelog-item"><b>4.71 · 排序按钮高亮</b><span>工坊的「热门 / 最新 / 下载最多」现在点哪个哪个亮，不会再三个都不选中。</span></div><div class="changelog-item"><b>4.70 · 小家改用滚动条</b><span>去掉方向键，改成房间自带的横向/纵向滚动条（细金棕色），直接拖动或滑动就能看边角家具。</span></div><div class="changelog-item"><b>4.69 · 小家方向键</b><span>「奶蛙的小家」右下角加了上下左右四个方向按钮，按住可以连续平移房间，方便看塞在边角的家具。</span></div><div class="changelog-item"><b>4.69 · 肉鸽小费罐读肉鸽金币</b><span>肉鸽模式里点服务台的小费罐，气泡显示的是本局肉鸽金币（不再是全局金币或旧的小费累计）；结算页的猪猪也用肉鸽金币数来落币。</span></div><div class="changelog-item"><b>4.68 · 周任务目标可输入</b><span>周任务里每条任务的数字框现在点一下会高亮、能正常打字；之前点它会被当成「＋」按钮直接改数值。失焦后才会写回草稿，不会再边打边跳。</span></div><div class="changelog-item"><b>4.67 · 暂停键不会失灵</b><span>「再想想」取消后会回到暂停面板；之后点右上角暂停键也只会重新打开暂停面板，不会假装打开设置或没反应。</span></div><div class="changelog-item"><b>4.67 · 提前下班防重复</b><span>暂停面板点「提前下班」只会弹一个确认框；确认框已经打开时再点不会叠第二个。</span></div><div class="changelog-item"><b>4.65 · 黄桃刀皮肤</b><span>切黄桃场景里的小刀现在也会跟着商店里买的刀换颜色（薄荷 / 樱花 / 黄金）。</span></div><div class="changelog-item"><b>4.65 · 对局商店隐藏皮肤页</b><span>对局中打开的金币商店不再显示「皮肤」页签；切到升级/糖浆/家具/小料时，皮肤的小分类按钮和列表也会一起隐藏。</span></div><div class="changelog-item"><b>4.65 · 小费罐回来了</b><span>服务台桌子右下角重新出现猪猪存钱罐（标签「小费罐」）。点一下会弹跳，并冒出气泡显示「现在有 N 块钱」——N 是本局累计小费。</span></div><div class="changelog-item"><b>4.64 · 结算立绘</b><span>结算页不再叠着经典奶蛙：换成新皮肤时只显示这套皮肤的大笑图，原皮底图隐藏。</span></div><div class="changelog-item"><b>4.64 · 暂停面板层级</b><span>暂停时点「打开设置」「暂时打样」「提前下班」会先把暂停面板收起（设置/确认框盖在最上层），关掉设置或取消确认后会回到暂停面板；从「暂时打样」回对局时右上角暂停键会重新出现，图标固定是暂停。</span></div><div class="changelog-item"><b>4.63 · 暂停键常驻</b><span>从「暂时打样」回到对局后，右上角会重新显示暂停键（图标固定为暂停，不再是齿轮）。</span></div><div class="changelog-item"><b>4.62 · 暂停面板</b><span>点「打开设置」「提前下班」时，设置/确认框会盖在暂停面板上面，可以正常操作；「展示打样」改名「暂时打样」；从暂停回来右上角暂停键不会再消失。</span></div><div class="changelog-item"><b>4.62 · 自定义编辑器输入</b><span>周任务目标、评分权重都能直接点数字键盘输入；任务目标旁边的 −/＋ 每次只变 1，不再一次跳 100。</span></div><div class="changelog-item"><b>4.61 · 商店图标</b><span>商店皮肤页、变体页的小缩略图不再空白，按原图等比显示。</span></div><div class="changelog-item"><b>4.61 · 变体槽</b><span>新增「原肤形态」，点一下回到原皮；变体在局内和结算也会显示，结算用它自己的大笑图；经典 Q 版奶蛙永远不捧腹大笑。</span></div><div class="changelog-item"><b>4.61 · 皮肤全流程</b><span>小奶蛙按图三换成心形手那版原皮；买下的皮肤/变体不会再是灰的，更衣室和商店都会显示「换上 / 正在使用」；局内（服务台、场景）也会真的换成新皮肤，不只更衣室预览。</span></div><div class="changelog-item"><b>4.60 · 更衣室</b><span>底部「穿好了，回主菜单」删掉（右上角叉就够了）；看到没买的皮肤 / 变体，下面按钮会写「前往购买 · X 金币」，点了直接扣钱买下并换上。</span></div><div class="changelog-item"><b>4.60 · 皮肤立绘修正</b><span>奶蛙老祖换成新版发光大笑图；奶粉换成粉色奶蛙；小奶蛙与它的大笑图也对上了，不再串位。</span></div><div class="changelog-item"><b>4.60 · 商店新增皮肤页</b><span>主菜单「道具商店」改名「商店」，里面多了「皮肤」页：全套皮肤 / 全套皮肤变体 / 帽子 / 眼镜 / 上衣 五个小分类，直接在这里买东西、换装。</span></div><div class="changelog-item"><b>4.59 · 皮肤购买并入更衣室</b><span>点未拥有的皮肤卡片会直接扣金币购买（不再是“去商店”占位），购买记录会存进存档，换设备同步后仍然拥有。</span></div><div class="changelog-item"><b>4.59 · 新皮肤三连</b><span>更衣室「全套皮肤」新增：小奶蛙 1000、奶霸 2000、奶蛋 5000。金币不够会提示，买完直接换上；这三套也都有专属大笑图，结算时按皮肤显示。</span></div><div class="changelog-item"><b>4.58 · 工坊精简</b><span>删掉创意工坊底部重复的「上传当前地图 / 关闭」两个按钮，只保留右上角叉。</span></div><div class="changelog-item"><b>4.58 · 刀皮肤</b><span>商店买的薄荷/樱花/黄金刀会真正套到场景和切黄桃的小刀上，刀模型位置也往下挪了。</span></div><div class="changelog-item"><b>4.58 · 暂停</b><span>「暂时打样」改名「暂时打样」；点「提前下班」会先弹确认；顶栏不再出现齿轮，局内固定显示暂停键。</span></div><div class="changelog-item"><b>4.58 · 结算存钱罐</b><span>评价页的小猪放大到 92px 并移到左侧，金币变大、一次掉 4 枚，罐子连弹 4 下。</span></div><div class="changelog-item"><b>4.58 · 小费罐</b><span>猪猪存钱罐只在服务台出现、位置下移，补上另一只眼睛，下面挂了「小费罐」白底小标签；局内顶栏的金币条已隐藏。</span></div><div class="changelog-item"><b>4.58 · 装饰穿戴限制</b><span>经典皮肤之外，小装饰不能混穿：按钮变灰，点了提示「这套皮肤不能穿帽子 / 上衣」；点未购买的全套皮肤会询问是否去服饰商店。</span></div><div class="changelog-item"><b>4.58 · 更衣室变体槽</b><span>穿上「捧腹奶蛙」这类非经典皮肤后，帽子/上衣槽会换成「变体槽」，可以买「学习通奶蛙 1000 / 奶蛙老祖 2000 / 奶粉 666」并直接换上，换完立绘跟着变。</span></div><div class="changelog-item"><b>4.57 · 任务目标可手输</b><span>编辑器里周任务的「目标数值」也改成可以直接输入数字，和价格 / 权重一样，所有数字框都能打字。</span></div><div class="changelog-item"><b>4.57 · 猪猪存钱罐</b><span>场景右下角多了猪猪存钱罐「小费罐」，点一下会弹跳并显示最近一单小费（3 秒）；结算页右上角也有存钱罐，出餐时金币会掉进罐子、罐子跟着弹一下。</span></div><div class="changelog-item"><b>4.57 · 肉鸽锅位修复</b><span>修掉自定义改动串味的问题：肉鸽 / 无尽 / 普通各自用自己那套锅和闹钟，不会再被自定义地图的锅位影响。</span></div><div class="changelog-item"><b>4.57 · 自定义顶栏</b><span>自定义对局里顶栏标题变成地图名、头像变成地图封面，金币条隐藏，日期那行字号加大并居中。</span></div><div class="changelog-item"><b>4.57 · 暂停面板</b><span>暂停后点「打开设置」，设置面板会盖在暂停面板上面；暂停页原来的「回到标题」换成两个大按钮：「暂时打样（保存回标题）」和「提前下班（结束游戏）」。</span></div><div class="changelog-item"><b>4.57 · 工坊分页与排序</b><span>创意工坊每 10 张一页，底部固定「上一页 / 下一页 + 页码」，删除地图后序号会立刻重排，不再出现跳号。</span></div><div class="changelog-item"><b>4.56 · 客人挂牌下移</b><span>右上角客人的名字 / 性格挂牌往下挪了一点，离客人头顶更近，不会被误看成压着贴图。</span></div><div class="changelog-item"><b>4.56 · 局内暂停</b><span>对局中右上角的设置按钮变成暂停按钮，点开出现「暂停中」面板：耐心计时、熬糖进度、闹钟全部冻结；点「继续营业」从停下的地方接上，不会白白掉耐心。设置入口挪到暂停面板里（打开设置）。</span></div><div class="changelog-item"><b>4.55 · 数值精调 + 速度自定义</b><span>编辑器里所有数字项都改成 ±1 微调，并且可以直接点数字键盘输入；新增「熬糖速度」「倒糖速度」（10%~400%，100 = 正常，越大越快）。</span></div><div class="changelog-item"><b>4.55 · 锅位与闹钟上限</b><span>自定义里的「熬糖锅数量」现在只是槽位数：开局只有 1 口锅，要在金币商店里一口一口买，最多买到你设的槽位数（比如 10 槽 → 最多 10 口）；闹钟上限也跟着槽位数走（10 槽 → 最多 10 个）。</span></div><div class="changelog-item"><b>4.54 · 自定义商店</b><span>自定义编辑器新增「自定义商店」：①「重置商店」打开后，锅 / 闹钟 / 刀具只在本局生效，退出即还原、不写主存档；②「价格成长」按百分比设置每次涨价的倍率（100 = 不涨）；③「编辑商店」打开独立界面，分道具 / 小料 / 糖浆 / 罐子四页，每个物品都能直接输入数字或按 ±10 调价。闹钟的购买上限改成跟着熬糖锅数量走（2 口锅最多 1 个闹钟）。</span></div><div class="changelog-item"><b>4.54 · 封面裁切置顶</b><span>裁切封面弹窗改成最高层，不再被编辑地图/上传向导挡在后面；选完图不会再出现“白框、没封面、传不上去”的情况。</span></div><div class="changelog-item"><b>4.53 · 我的地图编辑页改版</b><span>「我的地图 → 编辑」改成和上传向导一样的排版：左边 1:1 封面（可以选择 / 重新裁切 / 用默认封面），右边填地图名、作者、简介、主要玩法；下面一排是「更新地图 / 下架地图」「重新编辑属性 / 关闭」。改完点更新才同步到工坊。</span></div><div class="changelog-item"><b>4.53 · 免熬糖不再评火候</b><span>自定义里关掉「需要熬糖」后，结算页的「熬糖火候」直接算通过，显示「无需熬糖 ✓（大锅标准糖浆）」，不再因为这个项目扣分、也不会卡在不及格。</span></div><div class="changelog-item"><b>4.52 · 免熬糖结算修复</b><span>关掉熬糖后用「大锅标准糖浆」出餐会崩（评分明细空白、点「下一位客人」又回到同一单）。原因是这锅免费糖浆不在糖水列表里，评分时读到了空值。已修好，并且加了兜底：万一同类问题再出现，也会正常出评价页、按 0 分继续下一单，不会卡住。</span></div><div class="changelog-item"><b>4.51 · 提交订单不再卡死</b><span>给「交给客人 → 结算」整段加了兜底：出异常不会再停在 0 秒不动，会自动打开结算页并在顶部提示「结算出现异常，已为你打开结算页：原因」，方便定位；同时熬糖关闭时的免费糖水路径也补了保护。</span></div><div class="changelog-item"><b>4.51 · 关闭熬糖后订单只用标准糖浆（真正生效）</b><span>上一版补丁打在了普通订单分支上，自定义订单没吃到。这次直接改在自定义订单生成处：关掉熬糖后，30 次抽样订单的糖浆全部是「标准糖浆」100%，不会再点蜂蜜 / 枫糖 / 金银花。</span></div><div class="changelog-item"><b>4.50 · 工坊里自己能下架</b><span>创意工坊里自己上传的地图，按钮显示「下架」，点一下就从工坊移除；开发者模式下依然可以删别人的图。</span></div><div class="changelog-item"><b>4.50 · 我的地图：编辑 / 更新 / 下架</b><span>上传过的地图在「我的地图」里按钮变成「编辑」，点开能看到「更新地图」「下架地图」「重新编辑属性」。改完属性不会自动同步，只有点「更新地图」才推到工坊；下架后本地地图还在，可以再次上传。</span></div><div class="changelog-item"><b>4.50 · 关闭熬糖后订单只用标准糖</b><span>自定义里关掉「需要熬糖」时，客人订单的糖浆只会点「标准糖浆」，不会再出现蜂蜜 / 枫糖 / 金银花这类你根本熬不出来的糖。</span></div><div class="changelog-item"><b>4.48 · 上传失败提示更清楚</b><span>上传失败时顶部浮窗会写明原因：数据库缺字段会提示「先执行 tools/workshop-supabase.sql」，其他情况显示 HTTP 状态码（比如 HTTP 401 / 400），网络问题提示检查网络；同时增加了不带封面的兜底上传，减少失败。</span></div><div class="changelog-item"><b>4.47 · 熬糖比例 ±1%</b><span>熬糖锅的 −/＋ 按钮和滑块改成真正的 1% 一档（之前内部按 5% 取整，所以点一下看不出变化）；两三种糖浆都能精确调到 61%、59% 这种数值。</span></div><div class="changelog-item"><b>4.47 · 关掉的客人不再出现</b><span>「出现的客人」里关掉之后，这一类里被关的人不会再刷出来；如果某一类被你全部关掉，当天会从其他开启的客人里补位（同一天照样坐满，只是换人）。</span></div><div class="changelog-item"><b>4.46 · 上传反馈浮窗</b><span>点「上传地图」后顶部会立刻出现浮窗「正在上传…」，成功后变成绿色「上传成功！」、失败是红色「上传失败！请重试！」，1 秒多自动消失；成功时同时打开创意工坊并刷新列表。</span></div><div class="changelog-item"><b>4.45 · 我的地图上传修复</b><span>「我的地图 → 上传」之前点了没反应：上传弹窗被叠在地图列表下面了。现在上传窗口会浮在最上层，地图名、封面都会自动带上。</span></div><div class="changelog-item"><b>4.45 · 经营规则</b><span>自定义编辑器新增「经营」区：无尽模式开关（关掉后按「经营周数 1~12」经营，到期自动进结算）、「一周几天 1~14」、以及「精英日 / BOSS 日」开关（精英日每周第 5 天来精英，BOSS 日每周最后一天来 BOSS，都按你设的一周天数算）。</span></div><div class="changelog-item"><b>4.44 · 上传反馈</b><span>点「上传地图」后会提示「上传成功！」或「上传失败！请重试！」，不再没有任何反馈。</span></div><div class="changelog-item"><b>4.44 · 糖浆 1% 微调</b><span>熬糖锅的糖浆比例滑块和 −/＋ 按钮改成 1% 一档，三种以上糖浆也能精确调到订单比例（不会只停在 34/66 这种整段跳）。</span></div><div class="changelog-item"><b>4.44 · 免熬糖 / 无限黄桃</b><span>新增「需要熬糖」开关：关掉后工作台倒糖处直接显示「大锅标准糖浆 · 无限供应」，不用再去厨房。「需要切黄桃」关掉后黄桃无限，直接往罐里放，不再消耗碗里的量。</span></div><div class="changelog-item"><b>4.44 · 耐心受性格影响</b><span>自定义的「客人耐心」加了开关：开着时「有耐心 / 缺乏耐心」会增减耐心时间（如 300 秒 ±60 秒），关掉后严格按你写的秒数来。</span></div><div class="changelog-item"><b>4.44 · 客人名单可编辑</b><span>自定义编辑器「客人」里新增「出现的客人 · 编辑」：弹窗分普通 / 精英 / BOSS 三页，每位客人有贴图、名字、台词和开关，关掉的客人这一类不会再刷出来，顶上实时显示 7/8 这样的启用数量。</span></div><div class="changelog-item"><b>4.43 · 工坊交互提速</b><span>搜索框加了放大镜和「搜索」按钮，点一下就搜并提示「搜索成功！找到 N 张地图」；点赞 / 收藏改成只更新那一张卡，先在顶部提示「正在连接创意工坊…」，成功后点赞数就地 +1，不再整页重连；下载过的地图按钮显示「已下载」；自己上传的地图（或开发者模式下）可以直接在工坊里删。</span></div><div class="changelog-item"><b>4.43 · 编辑器封面 1:1</b><span>编辑器里的封面预览改成 1:1 方图（132×132），选图后进裁切弹窗，拖动 + 缩放，确认后按 1:1 存进地图。</span></div><div class="changelog-item"><b>4.42 · 夜市已购不再消失</b><span>夜市里买过的道具会留在货架上显示「已拥有 / 今日已售完」，不会突然被换成别的道具，等第二天刷新才换新货。</span></div><div class="changelog-item"><b>4.42 · 抑郁症只死 20%</b><span>「重度抑郁症」客人吃死亡之糖，只有 20% 概率当场倒下并吓跑排队客人；其余 80% 正常出餐、正常评分结算。其他客人仍然是 100% 触发。</span></div><div class="changelog-item"><b>4.42 · 死亡之糖结算流程</b><span>吃到死亡之糖后点「提前进入下一天」，会先进当天的结算页（营业额、星星、小费明细），再从结算页开始下一天，不再直接跳过结算。</span></div><div class="changelog-item"><b>4.41 · 开发者删除 + 同图去重</b><span>开发者模式下工坊卡片多一个「删」按钮，可以直接下架地图；同一个玩家把同一张地图（参数完全一样）只能上传一次。这两项需要先跑一次最新的 tools/workshop-supabase.sql。</span></div><div class="changelog-item"><b>4.41 · 工坊搜索与收藏</b><span>工坊顶部加了搜索框（地图名 / 作者 / 玩法），可以按「全部 / 收藏过的 / 点赞过的」筛选；卡片显示封面、玩法简介、点赞和下载数，详情里能看完整简介。</span></div><div class="changelog-item"><b>4.41 · 上传向导 + 1:1 封面</b><span>上传改成向导：选封面 → 拖动 + 缩放裁成 1:1 → 填地图名 / 作者 / 简介 / 主要玩法 → 上传。简介和玩法可以留空。</span></div><div class="changelog-item"><b>4.41 · 自定义中心</b><span>点「自定义模式」先进入中心页：创作新地图 / 我的地图 / 创意工坊。编辑器底部新增「保存地图」，保存后进「我的地图」，在里面可以直接开玩、改属性、上传或删除。</span></div><div class="changelog-item"><b>4.40 · 自定义封面上传</b><span>自定义编辑器里可以给地图选一张封面图（自动压到 360 宽），上传到工坊后会显示在列表里。</span></div><div class="changelog-item"><b>4.40 · 工坊封面与排序</b><span>创意工坊的每张地图带封面缩略图（没封面就用名字首字兜底），顶部可以切「热门 / 最新 / 下载最多」，点赞和下载数都会实时刷新。</span></div><div class="changelog-item"><b>4.39 · 创意工坊</b><span>自定义模式新增创意工坊：把地图上传到全网、按点赞排序、一键下载。需要在 Supabase 里先跑一次 tools/workshop-supabase.sql 才有后端。</span></div><div class="changelog-item"><b>4.39 · 自定义评分开关生效</b><span>关掉的评分项不再参与计算，也不再出现在结算页的评价列表里；只判定你开启的那些项。</span></div><div class="changelog-item"><b>4.39 · 夜市当天不补货</b><span>肉鸽夜市买掉的东西当天不会立刻补新货，出什么就只能买什么，第二天开业才刷新。</span></div><div class="changelog-item"><b>4.39 · 高级客人独立窗口</b><span>自定义模式里的「高级客人」改成独立弹窗（像辣虾三选一那样），每天一行：天数 ±、类型、性格、删除，按钮不再挤成竖排。</span></div><div class="changelog-item"><b>4.39 · 客人名牌上移</b><span>右上角客人的名字/性格挂牌整体上移，不再压住客人贴图；BOSS/精英也能完整看到脸。</span></div><div class="changelog-item"><b>4.38 · 自定义模式角标</b><span>开始页右上角蓝色角标换成紫色「自定义模式来袭！」，配合自定义模式上线。</span></div><div class="changelog-item"><b>4.38 · 高级自定义客人</b><span>自定义模式可以指定「第几天来什么客人」：逐条设置天数、类型（普通/精英/BOSS）、性格（含无性格），最多 12 条；没指定的天仍然按权重随机，指定客人会显示为「特邀客」。</span></div><div class="changelog-item"><b>4.38 · 周任务模板与奖励</b><span>周任务加了 5 套一键模板（糖浆大师 / 小料狂人 / 完美主义 / 混搭大师 / 稳健经营）；每周日结算时会显示本周任务完成度，全部完成按「任务条数 × 250」发金币奖励，自动进钱包。</span></div><div class="changelog-item"><b>4.37 · 锅位改回上下布局</b><span>熬糖锅恢复成一列从上往下排（不再左右两列），锅多的时候顺着往下滚就行。</span></div><div class="changelog-item"><b>4.37 · 一锅多份糖浆</b><span>自定义模式把「糖浆份数上限」调到 3 以上后，一口锅可以同时放 3、4……种糖浆，每种一根滑块单独调，倒糖时按各自比例自动归一化；上限没调高时仍然最多两种。</span></div><div class="changelog-item"><b>4.36 · 周任务词条扩充</b><span>周任务可选类型扩到 14 种：赚金币、出餐单数、完美出餐、混合糖浆出单、加 3 种以上小料、广口罐、窄口罐、蜂蜜 / 金银花 / 枫糖浆、薄荷 / 桂花 / 枸杞 / 冰糖，每条都能单独调数值。</span></div><div class="changelog-item"><b>4.36 · 周任务独立开关</b><span>「每周金币目标」和「周任务」现在是两个独立开关：只开金币就只显示金币达标，只开任务就只显示任务进度，两个都关则整条周目标条隐藏，互不牵连。</span></div><div class="changelog-item"><b>4.35 · 周金币目标可关闭</b><span>自定义模式里可以关掉「每周金币目标」；关掉后不再显示周目标条，也不会因为周目标没达标而失败，只按每天营业额结算。</span></div><div class="changelog-item"><b>4.35 · 自定义周任务</b><span>自定义模式支持「本周任务」：赚金币 / 用广口罐 / 用蜂蜜糖浆 / 用薄荷小料 / 完美出餐 / 出餐单数，最多 6 条，每条可单独调数值；顶部周目标条与任务面板都会显示本周任务进度，每周重置。</span></div><div class="changelog-item"><b>4.35 · 熬糖锅 1~20 口</b><span>自定义模式里锅数可以设到 20 口；6 口以上自动切成两列紧凑布局，不用一列拉得很长。</span></div><div class="changelog-item"><b>4.34 · 自定义模式（测试版）</b><span>主菜单新增「自定义模式」：地图名 / 作者名、每天客人数量与性格、客人耐心、普通/精英/BOSS 权重、锅数（1–3）、糖浆份数上限、切黄桃/搅拌/温度/加料开关、复杂订单概率与糖浆小料区间、每周目标、11 项评分开关与权重，全部可在编辑器里调；开局前可生成自定义码分享、导入别人的码、存到本地地图。</span></div><div class="changelog-item"><b>4.34 · 任务按钮改版</b><span>「任务」不再悬浮在屏幕角落，而是服务台内容里的整行大按钮（和提交订单同款），点开是任务清单；其他页面不显示，也不会遮挡任何 UI，页面可以正常往下滚。</span></div><div class="changelog-item"><b>4.33 · 客人名牌排版</b><span>右上角客人名牌改成两行：第一行名字（+ BOSS/精英标记），第二行性格，居中显示；第二个性格（重度抑郁症）往后排，这一行放不下会自动换行，不会再被挤到角上。</span></div><div class="changelog-item"><b>4.32 · 死亡之糖结算改版</b><span>吃到死亡之糖不再只弹一个小窗：直接进正常结算页，标题改成「客人被死亡之糖吞噬了」，评价文案换成被吓跑的剧情；吓跑客人后按钮变成「提前进入下一天」，点一下直接跳到第二天。只有「重度抑郁症」客人自己吃死亡之糖时才是 33% 概率吓跑别人，其他性格 100% 吓跑；没吓跑时按钮仍按正常的「下一单 / 查看今日结算」走。</span></div><div class="changelog-item"><b>4.31 · 事件开关彻底生效</b><span>开发者物品栏里关掉的事件，会从本周排期里彻底移除、当天待弹出的弹窗也会取消；只开哪个就只出哪个，全关就是一整周都没有事件。重新打开会立刻在当天触发。</span></div><div class="changelog-item"><b>4.30 · 订单架自适应</b><span>订单架不再只显示前 4 张，客人越多两侧会整列铺开、自动加高，不会再被裁掉。</span></div><div class="changelog-item"><b>4.30 · BOSS 也能叠加抑郁症</b><span>BOSS / 精英 / 事件客人有 20% 概率额外带一个「重度抑郁症」性格，服务台、餐厅列表、场景和结算页都会并排显示两个性格标签，宽度不够会自动换行。</span></div><div class="changelog-item"><b>4.30 · 抑郁客人吓跑概率</b><span>「重度抑郁症」客人自己吃下死亡之糖时，只有 33% 概率把其他客人吓跑（普通客人吃死亡之糖仍是 100% 全吓跑），弹窗文案也会区分这两种情况。</span></div><div class="changelog-item"><b>4.29 · 抑郁症出现率下调</b><span>「重度抑郁症」不再每单独立掷骰子，改成全局计数：大约每 8~12 位客人出现 1 位（实测 60 天 180 位客人出了 15 位，约 12 人 1 位），不会再一天里冒出两三个。</span></div><div class="changelog-item"><b>4.28 · 死亡之糖糖浆加成</b><span>「重度抑郁症」客人用死亡之糖时，糖浆种类 / 比例先按 ×2 计分，再额外给 10%~20% 的评分加成（可以超过 100 分），评分页和死亡结算弹窗都会单独列出「死亡之糖糖浆加成 +x%（评分 +y）」。</span></div><div class="changelog-item"><b>4.27 · 糖浆比例提示</b><span>抑郁症客人用错糖时，「糖浆比例 / 熬糖火候 / 倒糖量」也统一显示「客人不满足你的选择」，不再出现「死亡之糖 0/61%」这种误导文案。</span></div><div class="changelog-item"><b>4.27 · 抑郁症贴图实时更新</b><span>客人被换成「重度抑郁症」之后，服务台右上角立绘旁边的性格贴图会立刻跟着变，不再停留在旧性格（大方 / 苛刻）。</span></div><div class="changelog-item"><b>4.26 · 开发者事件开关</b><span>开发者物品栏的事件默认全部关闭，打开才会在今天触发；打开「奶鼠来袭」会立刻把奶鼠加进今天的队列，方便直接测。</span></div><div class="changelog-item"><b>4.26 · 偷订单的贼</b><span>提交订单时有 50% 概率被偷，会弹窗提示「订单被偷了」，罐子里的东西一并作废，需要重做一份。</span></div><div class="changelog-item"><b>4.26 · 奶鼠来袭</b><span>奶鼠改成「额外多来一位客人」，不再顶掉当天的一位客人；奶鼠如果不是最早被服务的那一单，会偷走这单 30%~100% 的小费，并在小费明细里单列一行。</span></div><div class="changelog-item"><b>4.26 · 重度抑郁症客人</b><span>买到「死亡之糖」之后，才有概率刷出「重度抑郁症」客人：订单表面写的是别的糖，实际只吃死亡之糖。用错糖「糖浆种类」会显示「客人不满足你的选择」并且糖浆相关分全扣；用死亡之糖则糖浆相关得分翻倍。其他客人永远不点死亡之糖。</span></div><div class="changelog-item"><b>4.25 · 大金罐削弱</b><span>大金罐不再通用：只有订单点名要「大金罐」时，罐型和罐子才算对上并额外 +20% 小费；订单要经典罐/窄口罐/广口罐时，用金罐一律按错罐判分。</span></div><div class="changelog-item"><b>4.24 · 夜市永久道具下架</b><span>豆包、糖浆隔断板、糖枭、事件日历这类买一次就永久生效的道具，买到后立刻从夜市下架、把位置让给别的道具；消耗品（狼牙棒、再来一份、好评返现等）照常还会再刷出来。</span></div><div class="changelog-item"><b>4.23 · 开发者物品栏分类</b><span>开发者物品栏的「辣虾」页加了品质子分类（全部 / 普通 / 稀有 / 传奇 / 诅咒），每类带数量，点一下只看这一类。</span></div><div class="changelog-item"><b>4.22 · 夜市每日限购</b><span>夜市改成「每天每样只能买 1 件，第二天重新上架」，只有「再来一份」每天能买 3 个；买过的当天显示「今日已售完」。帮手豆包价格调整为 1000 金币。</span></div><div class="changelog-item"><b>4.21 · 肉鸽金币与主菜单隔离</b><span>肉鸽金币改成纯局内货币：不会加进主菜单钱包，回标题即清零，每开一局从 0 开始；肉鸽里买不了小家家具、更衣室衣服和皮肤，商店副标题也会写明「肉鸽金币每局清零、不进主菜单钱包」。</span></div><div class="changelog-item"><b>4.20 · 物品栏每局重置</b><span>开发者物品栏的选择现在每开一局都会清零：辣虾、增幅道具、事件开关全部回到未选中状态，不会把上一局的调试配置带进新局。</span></div><div class="changelog-item"><b>4.19 · 继续按模式显示</b><span>主菜单「继续上一局」不再一律写无尽：按钮按存档显示「继续普通 / 继续无尽 / 继续肉鸽 / 继续新手」，下面一行给出对应的进度（普通 DAY 12/28、无尽与肉鸽 W2 · DAY 3/7、新手 DAY 3/7）。</span></div><div class="changelog-item"><b>4.18 · 死亡之糖弹窗</b><span>客人被吞噬的弹窗里补上这一单的小费结算（基础 / 加餐加算 / ×5 明细），并把按钮做成整行宽的大块按钮，不再挤在左边半格。</span></div><div class="changelog-item"><b>4.17 · 开发者物品栏</b><span>开发者模式 + 肉鸽局内，左侧新增竖排「开发者物品栏」：辣虾 / 增幅道具 可以 −/+ 叠加任意已存在条目，事件可以开关（开启后当天就会触发，关闭后随机事件池不再抽到它）。改动立即生效并存档，退出开发者模式后依然保留，方便切回玩家视角复测。</span></div><div class="changelog-item"><b>4.17 · 糖枭重复经典糖浆</b><span>修掉买到糖枭后熬糖锅出现两个「经典」的问题：解锁列表现在去重，经典糖浆只出现一次。</span></div><div class="changelog-item"><b>4.16 · 结算页排行榜返回标题</b><span>结算页点「排行榜」，关闭后直接回到游戏标题界面，不再退回上一位客人。</span></div><div class="changelog-item"><b>4.16 · 任务面板进服务台</b><span>普通 / 无尽 / 肉鸽模式进入服务台后也能看当天任务；离开服务台自动收起，不再遮挡周目标。</span></div><div class="changelog-item"><b>4.16 · 性格道具即时生效</b><span>狼牙棒、性格改造器使用后，服务台客人立绘旁的性格贴图立刻更新；性格改造器改为随机换成另一种性格（不会再是同一个）。</span></div><div class="changelog-item"><b>4.16 · 再来一份正确消耗</b><span>刷新辣虾会真正扣掉「再来一份」道具，用完可以继续购买，不再卡住货架。</span></div><div class="changelog-item"><b>4.16 · 肉鸽事件恢复</b><span>修复事件日不弹窗、事件不生效的问题；事件与 BOSS / 精英日同一天时合并成一个弹窗。</span></div><div class="changelog-item"><b>4.16 · 死亡之糖</b><span>只有抽到「诅咒辣虾：死亡之糖」才会解锁死亡之糖浆；客人吃下后弹出专属提示「客人被死亡之糖吞噬了」，关闭即进入当天结算；分开熬 / 一起熬的糖水都能触发。</span></div><div class="changelog-item"><b>4.16 · 教学文案清理</b><span>第 1 天教学里去掉了没替换干净的占位符。</span></div><div class="changelog-item"><b>4.16 · 糖浆隔断板</b><span>封顶后各糖浆比例也一起冻结，不会再出现总量不变、比例乱跳的情况。</span></div><div class="changelog-item"><b>4.15 · 狼牙棒移到道具条</b><span>狼牙棒不再贴在客人卡片上，而是出现在服务台的「增幅道具」条里（🐺 狼牙棒 ×N + 使用），点一下才生效并消耗一个；没有负面性格客人时会提示。糖浆隔断板也在同一条里显示「生效中」。夜市每天自动刷新 5 件随机道具 + 固定好评返现，本次保持不变。</span></div><div class="changelog-item"><b>4.14 · 肉鸽 2.0：新辣虾与新道具</b><span>新增 8 只辣虾（探店圣地 / 汇率暴涨 / 狂暴模式熬糖锅 / 摆盘高手 / 高分选手！/ 讨好型人格 / 自动熬糖机 / 死亡之糖）与 2 个夜市道具（狼牙棒、糖浆隔断板）；死亡之糖会让顾客当场倒下、小费 ×5，并把后面排队的客人全吓跑。</span></div><div class="changelog-item"><b>4.13 · 结算页精简</b><span>「7 天教学完成」「营业失败（关门大吉）」这类已经结束的结算页，去掉了多余的「提前下班」按钮——反正这一局已经收尾，只需要「重新开始」或「回到标题」。</span></div><div class="changelog-item"><b>4.12 · 订单票换行与闹钟音量</b><span>订单票上的长文案（三种以上小料、混合糖浆）会自动换行，卡片跟着内容变高，不再撑出边框；闹钟提示音整体下调约 40%，夜里也不至于吓一跳（设置里的「闹钟音量」仍可微调）。</span></div><div class="changelog-item"><b>4.11 · 新手教学完善</b><span>① 熬糖锅右上角新增小铃铛：空闲显示「＋」，点一下放闹钟、再点收回（拖拽保留）；② 第 1 天熬糖提示改为按订单实际勺数（不再写死「两勺」）；第 4 天起复杂订单带上进阶小料（枸杞 / 冰糖 / 金银花 / 红枣），并逐个指引点选；③ 单份糖浆的订单不再出现「搅拌一下」，第一天也不教搅拌；④ 设置里的更新日志标题与版本号同步显示；⑤ 熬糖锅去掉右侧三个糖量小方块，闹钟小铃铛移到最右侧。</span></div><div class="changelog-item"><b>4.8 · 第二天两份糖水修正</b><span>第 2 天准备的两锅糖水现在固定是「偏生」和「焦苦」，不会再出现一锅完美糖；当天任务也改成按「偏生」判定。</span></div><div class="changelog-item"><b>4.7 · 修复肉鸽周目标重复结算</b><span>之前一单金币会被计两次到「本周目标」（钱包加一次、结算再加一次），导致第 1 周目标看起来涨得特别快。现在每单只计一次，无尽模式不受影响。</span></div><div class="changelog-item"><b>4.6 · 糖比例改成两排各自调</b><span>两口糖浆各有一条独立滑杆（− / 拖 / ＋），初始都是 0%，不再按订单自动填比例；只有锅里选了两种糖浆时才出现，倒糖时按两排的数值换算成比例（都为 0 时按各一半算）。</span></div><div class="changelog-item"><b>4.5 · 搅拌与指引顺序修正</b><span>没倒糖水时「搅拌一下」置灰、点也只会提示先去倒糖；第 1 天箭头顺序改为「厨房熬糖 → 倒糖水 → 搅拌」，倒完糖水后箭头自动跳到搅拌按钮。</span></div><div class="changelog-item"><b>4.4 · 今日任务打勾修正</b><span>任务判定改为「记录动作 + 读当前状态」双保险：切黄桃、熬糖、封盖、加料、搅拌、两口锅同时熬、放闹钟、调 60:40 比例都会即时打勾；闹钟现在也能直接点 ⏰ 放到锅上，不用拖。</span></div><div class="changelog-item"><b>4.3 · 今日任务改到侧边 + 实时打勾</b><span>「今日任务」收成右侧小标签，点开是侧边抽屉；完成一步立刻打勾（切黄桃 / 熬糖 / 封盖 / 加料 / 搅拌 / 插队都会即时结算），第 1 天的「装罐并封盖」不再卡住。</span></div><div class="changelog-item"><b>4.2 · 新手教学完善</b><span>第 4 天起罐型、小料、糖浆全部发放（切罐子的箭头保留）；「今日任务」清单收进底部可点开的小条，不再挡内容；第 3 天箭头顺序调整为「餐厅 → 接单 → 回工作台」。</span></div><div class="changelog-item"><b>4.1 · 今日任务清单 + 关键箭头</b><span>教学每天右下角新增「今日任务」清单，完成一项打一个勾（第 2 天要求分别用偏生 / 焦苦的糖各出一单）；第 3 天用箭头依次指引「餐厅 → 点接单 → 回工作台做完」；第 4 天起罐型、小料、糖浆全部发放，切罐子的箭头保留。</span></div><div class="changelog-item"><b>4.0 · 教学改为「文字 + 少量箭头」</b><span>教学以弹窗文字为主，只在文字不好说清的地方出现一次「光圈 + 箭头」提示（第 3 天点餐厅里的「接单」、第 4 天切罐子、第 5/6 天去厨房、第 6 天点搅拌）。第 2 天的糖水提示改为切到工作台时再弹出。</span></div><div class="changelog-item"><b>3.9 · 精英日教学与引导顺序</b><span>第 5 天换成真正的精英客人（寸头猪），并用光圈逐步讲解精英客人的规则与多锅熬糖；教学文字弹窗改为最上层、先弹文字再出光圈箭头，两者不再叠在一起。</span></div><div class="changelog-item"><b>3.8 · 新手引导光圈与第 4 天备料</b><span>教学第 1 天起加入「呼吸光圈 + 箭头」引导：圈住下一步该点的按钮并高亮，其余区域暂时不能点；第 2 天黄桃已提前切好放在碗里；第 4 天直接发放订单需要的罐子和加料，并逐步引导切换罐型、加小料。</span></div><div class="changelog-item"><b>3.7 · 第三天插队实操</b><span>新手第 3 天开局自动帮玩家接下第一位客人，进入餐厅会提示「试试插队」——点第二位客人的「接单」即可体验；插队完成后立刻解释被跳过客人的扣分与「斤斤计较」的双倍惩罚，再引导回去补单。</span></div><div class="changelog-item"><b>3.6 · 教学气泡居中与分步引导</b><span>新手模式的教学气泡改成屏幕居中、可读性更好；进入厨房（切黄桃 / 熬糖水）、工作台（装罐）、服务台（封好后拖订单到订单架）都会各弹一次针对性引导；主菜单右上角版本号随标题自动同步。</span></div><div class="changelog-item"><b>3.5 · 新手模式</b><span>新增 7 天新手模式：第 1 天出餐流程，第 2 天性格与不完美糖水，第 3 天插队与斤斤计较，第 4 天复杂订单 + 金币商店，第 5 天精英日与多锅熬糖，第 6 天混合糖浆比例，第 7 天自由练习。教程用气泡逐步引导，教学材料直接发放、不会因为失误关门。</span></div><div class="changelog-item"><b>3.4 · 奶鼠抠像与音乐稳定性</b><span>BOSS 奶鼠换成透明抠像，不再带灰白方框；音乐改为首次触摸自动解锁 + 每 2 秒自检，打烊结算、去餐厅、开商店等切换场景时都会接着播，不再出现没声音的情况。</span></div><div class="changelog-item"><b>3.3 · 服务台与餐厅音乐统一</b><span>服务台和餐厅共用同一首店内 BGM，切页签不会再换曲；工作台与厨房仍是另一首。</span></div><div class="changelog-item"><b>3.2 · 捧腹奶蛙可换 · 点击大笑</b><span>更衣室新增全套皮肤选择与预览（先预览再穿）；小家、局内、结算都会显示当前皮肤；点一下奶蛙就会播放大笑，每日结算自动大笑并播放笑声；首页角标版本改为跟随标题自动同步。</span></div><div class="changelog-item"><b>3.1 · 捧腹奶蛙全套皮肤</b><span>衣橱新增「全套皮肤」：换上捧腹奶蛙后整只奶蛙变样，每天结算时会捧腹大笑并播放笑声（音量可在设置里单独调，默认略大于 BGM）。所有玩家免费拥有，默认仍是经典奶蛙。</span></div><div class="changelog-item"><b>3.0 · 存档界面精简</b><span>存档弹窗只保留存档密码输入框（Project URL 与 key 只在开发者模式显示），并加了一句「输入你的存档密码，无法找回，请牢记！」。</span></div><div class="changelog-item"><b>2.9 · 全球排行榜</b><span>榜单标题与页脚统一改成「全球排行榜」，接入后端后一眼就知道自己在和所有玩家比；打开榜单时会把本机最好成绩补传一次，避免自己的名字一直不上榜。</span></div><div class="changelog-item"><b>2.8 · 全网排行榜</b><span>排行榜支持「所有玩家一起排名」：默认走游戏内置的 Supabase，只要在 Supabase SQL Editor 跑一次 tools/leaderboard-supabase.sql，榜单立刻从「本机排行榜」变成「全网排行榜」；也可以改用仓库里附带的 Cloudflare Worker。两者都没启用时仍然只显示本机成绩，不会报错。</span></div><div class="changelog-item"><b>2.7 · 全网排行榜（可选）</b><span>排行榜默认只统计本机店长；接入一行服务地址后即可变成「所有玩家一起排名」，随仓库附赠可直接部署的 Cloudflare Worker（tools/leaderboard-worker.js），不填地址时行为与以前完全一致。</span></div><div class="changelog-item"><b>2.6 · 小费口径修正</b><span>基础小费改成「客人按评分给的那笔小费」（100 分约 25 金币），再加上复杂订单的加算，最后统一乘周成长、道具和客人倍率——小费不再被固定 4 块拉低，肉鸽每周涨目标时收入也跟得上。</span></div><div class="changelog-item"><b>2.5 · 倒糖按钮强化</b><span>「倒糖水」改成带文字的宽按钮；拖起糖水时按钮会高亮并显示「丢弃糖水」，拖到上面松手即丢弃（含罐里已倒的糖水，进度条一起清零）。</span></div><div class="changelog-item"><b>2.4 · 排行榜与小费分段</b><span>排行榜新增「肉鸽排行榜」页签，无尽/肉鸽各自记录最远周数与累计金币（失败的当周也会记入）；小费结算改成「基础小费 + 额外加算 → 小计 → 乘算 → 合计」四段。</span></div>
+        <div class="changelog-item"><b>2.3 · 事件日修复</b><span>修掉「刚开局就提示本周事件已过」：事件日现在会在整周里分散安排（两天以上时必有一天落在后半周），服务台信息框也会显示「本周还有 N 个事件日（第 X、Y 天）」，只有所有事件日都过完才写「本周事件日已结束」。</span></div><div class="changelog-item"><b>2.2 · 小费结算改版</b><span>肉鸽小费改成**跟着本周金币目标一起长**：周倍率 = 本周目标 ÷ 400（第 1 周 ×1，第 4 周约 ×9.9），目标涨多少小费就涨多少，不会再出现「第四周还只有几十块」。评价页拆成三段：<b>基础小费</b>（订单基础小费 + 复杂订单小费）→ <b>乘算加成</b>（第 N 周成长、来财、淘金热、实验虾、客人倍率）→ <b>结算</b>（小费合计）；肉鸽每单还会给 4 金币的订单基础小费。</span></div><div class="changelog-item"><b>2.1 · 废糖处理</b><span>熬废的糖（焦苦、偏生）不用再占着位置：把上面那一排糖水批次 <b>按住拖到垃圾桶</b> 就能直接扔掉；已经用掉的那锅会自动从列表消失，糖水条只剩还能用的，横向滑动也更省事。罐里倒多的糖水仍然可以点「倒糖水」旁的垃圾桶清空。</span></div><div class="changelog-item"><b>2.0 · 肉鸽难度上调</b><span>每周金币目标的成长从 +40%～+100% 提到 <b>+80%～+160%</b>：第 1 周 400，第 2 周变成 720～1040，之后继续按上一周目标乘，越往后压力越大。随机事件日改成每周至少 1 天、至多 3 天：基础随机 1～2 天，辣虾「血色十字架」和夜市「事件日历」各 +1 天，但总数封顶 3 天。</span></div>
+        <div class="changelog-item"><b>1.9 · 倒糖按钮与糖枭修复</b><span>「倒糖水」标题旁多了一个垃圾桶按钮：点一下会问「倒掉罐里的糖水？」，选「是」就把罐里的糖水全部倒掉重新倒（熬好的糖不退回）。糖枭也修好了：买下当天，工作台的小料、厨房的糖浆、罐子立刻全部可用，金币商店的糖浆页会显示「已解锁」；打烊后在夜市买会顺延到第二天生效；从夜市点「返回」不再跳到结算页。</span></div>
+        <div class="changelog-item"><b>1.8 · 罐型区分与大金罐</b><span>窄口罐、广口罐和经典罐的罐口宽度、罐身轮廓分开了：窄口有肩膀、口更小，广口外撇、口更大，一眼能认出来。肉鸽辣虾「大金罐」会把台上的罐头变成金色（金色瓶身 + GOLD 标签），并且用它时订单的「罐型」「罐子」都自动算通过，小费再 +20%。</span></div>
+        <div class="changelog-item"><b>1.7 · 辣虾选择重做</b><span>精英日 / BOSS 日的「辣虾三选一」换成了明细布局：右边三个小框只显示稀有度和名字，点一下左边大框就显示这只辣虾的图标、介绍和当前等级；「再来一份」「跳过」放在小框下方，选好后点底部「确定选择」正式带走。</span></div>
+        <div class="changelog-item"><b>1.6 · 小费明细与糖枭</b><span>结算页的小费不再是一行了：拆成「复杂订单小费 +N → 第 N 周 ×1.6 复利 → 来财 → 金潮/淘金热 → 实验虾 → 客人倍率」逐条列出，一眼看出加成从哪来。糖枭改成「仅今天」：买下后当天解锁所有小料、糖浆、罐子，打烊后自动消耗，第二天失效。</span></div>
+        <div class="changelog-item"><b>1.5 · 评分更看重糖与小料</b><span>糖浆比例 14 分、熬糖火候 15 分、加料 15 分（种类 10 + 数量 5）权重上调：比例超出容差、火候偏生焦苦、加料多放少放或放错扣分更狠；黄桃、温度、搅拌权重下调，满分更难。「增幅道具」下方新增「辣虾收纳柜」，可以查看本局收集到的全部辣虾；每周基础事件日至多 2 天，血色十字架与事件日历各 +1 天（最多 4 天）。</span></div>
+        <div class="changelog-item"><b>1.3 · 肉鸽事件日</b><span>每周基础随机事件日改为至多 2 天（1–2 天）；辣虾「血色十字架」和夜市道具「事件日历」各让每周事件日 +1 天（最多 4 天）。事件日历买下时会先给本周补一天，之后每周持续生效。</span></div>
+        <div class="changelog-item"><b>1.2 · 配比更好调</b><span>比例滑块两端加了 − / ＋ 按钮（每次 5%），拖动更跟手不再跳；滑块轨道直接用两种糖的颜色显示比例；客人订单出现更多比例（55:45、65:35、70:30、75:25、80:20 等），前期温和、后期更悬殊。</span></div>
+        <div class="changelog-item"><b>1.1 · 糖水配比与肉鸽平衡</b><span>两口锅双糖浆时可用滑块调比例（10%–90%），订单要 60:40 也能做满分；工作台每种糖浆都有绿色完美区间，并显示「倒入顺序」；肉鸽周目标改为线性随机成长（×1.4～2.0），客人小费改为每周 ×1.6 复利；糖枭改为当天生效；局内锅与闹钟新开一局会重置。</span></div>
+        <div class="changelog-item"><b>1.0 · 肉鸽更新！</b><span>肉鸽模式上线：周金币指标、随机事件、辣虾三选一、肉鸽夜市、肉鸽图鉴、奶鼠 BOSS、豆包帮手；普通模式改为 28 天。</span></div>
+        <div class="changelog-item"><b>1.0 · 体验优化</b><span>继续对局、暂时打烊、店长下拉、提前下班移入设置、搅拌不受订单限制、28 天普通模式。</span></div>
+      </div>
+      <button class="primary-btn" id="changelogDone" type="button">知道了</button>
+    </div>
+  </div>
+
+  <div class="overlay shrimp-overlay" id="shrimpOverlay" aria-hidden="true">
+    <div class="pick-card">
+      <div class="rogue-kicker">SPICY SHRIMP</div>
+      <h2 id="shrimpTitle">辣虾三选一</h2>
+      <p class="rogue-sub" id="shrimpSub">精英日结束，挑一只辣虾再继续。</p>
+      <div class="pick-body">
+        <div class="pick-detail" id="shrimpDetail"></div>
+        <div class="pick-side">
+          <div class="pick-options" id="shrimpChoices"></div>
+          <div class="pick-mini">
+            <button class="ghost-btn" id="shrimpReroll" type="button">再来一份（0）</button>
+            <button class="ghost-btn" id="shrimpSkip" type="button">跳过</button>
+          </div>
+        </div>
+      </div>
+      <button class="primary-btn" id="shrimpConfirm" type="button">确定选择</button>
+    </div>
+  </div>
+
+  <div class="overlay pause-overlay" id="pauseOverlay" aria-hidden="true">
+    <div class="pause-card">
+      <div class="pause-kicker">PAUSED</div>
+      <h2 class="pause-title">暂停中</h2>
+      <p class="pause-sub">计时已经停下，慢慢来。</p>
+      <button class="primary-btn" id="pauseResume" type="button">继续营业</button>
+      <button class="ghost-btn" id="pauseSettings" type="button">打开设置</button>
+      <button class="ghost-btn" id="pauseDemo" type="button">暂时打样（保存回标题）</button>
+      <button class="ghost-btn" id="pauseQuit" type="button">提前下班（结束游戏）</button>
+    </div>
+  </div>
+</body>
+</html>

@@ -30,8 +30,26 @@ WebView 直接用 `file:///android_asset/index.html` 打开时，页面是 `file
 - `localStorage` 在这类源下行为不稳定，游戏存档会丢；
 - 页面里的 `fetch` 请求会被 CORS 拦死，排行榜 / 创意工坊上传全废。
 
-所以 `MainActivity` 启动时开一个只监听 `127.0.0.1` 的随机端口静态服务器，页面从
+所以 `MainActivity` 启动时开一个只监听 `127.0.0.1` 的静态服务器，页面从
 `http://127.0.0.1:port/index.html` 加载 —— 这样它就是一个正常网页，存档、fetch、IndexedDB 都正常。
+
+**端口必须固定**（`AssetServer.start()` 里 `PREFERRED_PORTS = {43971..43975}`）。
+WebView 的 `localStorage` 是按源隔离的，端口一变就等于换了一台新手机：
+之前用随机端口时，每次冷启动都会看到「存档没了」。现在的策略是：
+
+1. 先扫 `app_webview/Default/Local Storage/leveldb` 里的历史端口，
+   取出现次数最多的那个（老版本就是随机端口，靠这步把已有的存档接回来）；
+2. 绑定失败就顺着 43971–43975 试；
+3. 全被占用才退回随机端口（这种情况下存档会另起一份，属极端情况）。
+
+## 存档相关（v5.0 之后）
+
+- 存档密码（PIN）记在 `localStorage['naiwa_sb_pin_v1']`，上传/读取成功后自动记住，不用反复输入；
+- 回标题页（`goHome()`）、切到后台（`visibilitychange`/`pagehide`）、安卓 `onPause`
+  都会调 `window.__naiwaFlush()`：先 `saveRunToProfile()` 存本机，再 `autoCloudSave()` 传 Supabase；
+- `MainActivity.onPause()` 先 `evaluateJavascript("window.__naiwaFlush()")`，
+  延迟 600ms 才 `pauseTimers()`，避免刚发出的上传被冻住；
+- 云端读档后 `importCloudPayload()` 会 `renderResumeUI()`，主菜单立刻刷出「继续」按钮。
 
 ## 构建
 
@@ -91,6 +109,13 @@ node android/build-apk.cjs
   「✅ 已是最新 · 5.0」（断网时会变成「⚠️ 检查失败 · 点我重试」）；
 - 开机静默自检实测：把本地版本临时改成 4.9 打包，启动 3 秒后标题页「设置」按钮上出现小红点，
   进设置后按钮变成「🎉 新版本 5.0 · 点我打开」，点一下由系统浏览器打开 Release 页。
+- 存档链路实测（2026-11-04）：输入 PIN `1234` 上传 → 按钮转圈、成功后对勾，「🔒 已记住存档密码」；
+  回标题页弹「☁️ 已自动存档 04:03」；冷启动后 PIN 与店长名仍在（端口已固定）；
+  按 HOME 切后台 6 秒后，云端 `load_player` 的 `exportedAt` 从 `05:09:01Z` 前进到 `05:14:55Z`，
+  说明 `onPause` 的自动上传真的落库了；把本机对局清掉后点「从 Supabase 读取」，
+  关闭面板直接出现「继续普通 · DAY 1/28」，不需要再点保存。
+- 端口修复实测：旧版随机端口留下的存档（端口 33923，19 条键）在换成固定端口后被自动接管，
+  冷启动仍能读到同名店长与进行中的对局。
 
 > 模拟器必须在**纯 ASCII 路径**下运行，否则 qemu 会静默卡死：
 > `cmd /c mklink /J C:\asdk "D:\文件\_android_sdk"`，然后用 `C:\asdk\emulator\emulator.exe` 启动。
