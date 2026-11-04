@@ -2586,14 +2586,20 @@
   function charSkinId(){
     return (activeProfile && activeProfile.charSkin) || 'classic';
   }
-  const CHANGELOG_SUB = '工坊排序与时间';
+  const CHANGELOG_SUB = '存档更省心';
+  // 更新日志按钮上那句小标题，直接从最新一条日志里取，省得每次发版都忘了改常量
+  function changelogSub(){
+    const first = document.querySelector('.changelog-body .changelog-item b');
+    const t = first ? (first.textContent || '').trim() : '';
+    return t.replace(/^[\d.]+\s*·\s*/, '').trim() || CHANGELOG_SUB;
+  }
   function syncVersionUI(){
     const m = (document.title || '').match(/正式版\s*([\d.]+)/);
     if(!m) return;
     const v = m[1];
     if(els.introVersion) els.introVersion.innerHTML = `${v}<br>正式版`;
     if(els.changelogBtn){
-      els.changelogBtn.textContent = `📝 更新日志 · ${v} ${CHANGELOG_SUB}`;
+      els.changelogBtn.textContent = `📝 更新日志 · ${v} ${changelogSub()}`;
     }
     if(typeof updateButtonLabel === 'function') updateButtonLabel();
   }
